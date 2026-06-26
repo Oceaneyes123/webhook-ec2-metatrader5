@@ -105,6 +105,10 @@ def command_reply(text):
     return help_text()
 
 
+def is_telegram_update(payload):
+    return isinstance(payload, dict) and isinstance(payload.get("message"), dict)
+
+
 class WebhookHandler(BaseHTTPRequestHandler):
     def write_text(self, code, text, content_type="text/plain; charset=utf-8"):
         self.send_response(code)
@@ -138,6 +142,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
         logger.info("Parsed webhook payload=%r", payload)
 
         try:
+            if is_telegram_update(payload):
+                self.reply_to_telegram_update(payload)
+                self.write_text(200, "ok")
+                return
             if not is_supported_payload(payload):
                 logger.info("Ignored unsupported payload")
                 self.send_response(200)
@@ -175,16 +183,19 @@ class WebhookHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(length).decode("utf-8") if length else ""
         try:
             update = json.loads(body) if body else {}
-            message = update.get("message", {})
-            text = message.get("text", "")
-            chat_id = str(message.get("chat", {}).get("id", ""))
-            if text and chat_id:
-                send_telegram_message(command_reply(text), chat_id=chat_id)
+            self.reply_to_telegram_update(update)
         except Exception as error:
             logger.exception("Telegram command handling failed")
             self.write_text(500, str(error))
             return
         self.write_text(200, "ok")
+
+    def reply_to_telegram_update(self, update):
+        message = update.get("message", {})
+        text = message.get("text", "")
+        chat_id = str(message.get("chat", {}).get("id", ""))
+        if text and chat_id:
+            send_telegram_message(command_reply(text), chat_id=chat_id)
 
 
 if __name__ == "__main__":

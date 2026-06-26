@@ -352,6 +352,19 @@ class WebhookTest(unittest.TestCase):
         send.assert_any_call("▶️ MT5 alerts resumed", chat_id="cmd-chat")
         self.assertEqual(handler.wfile.getvalue(), b"paused")
 
+    def test_telegram_command_can_arrive_on_webhook_path(self):
+        with patch("webhook.send_telegram_message") as send:
+            handler = self.make_handler(
+                "/webhook",
+                b'{"message":{"text":"/status","chat":{"id":"cmd-chat"}}}',
+            )
+            handler.do_POST()
+
+        self.assertEqual(handler.wfile.getvalue(), b"ok")
+        send.assert_called_once()
+        self.assertEqual(send.call_args.kwargs["chat_id"], "cmd-chat")
+        self.assertIn("Bot online", send.call_args.args[0])
+
     def test_telegram_status_help_and_recent_commands(self):
         webhook.RECENT_SIGNALS.extend(
             [
