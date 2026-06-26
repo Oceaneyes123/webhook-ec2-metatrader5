@@ -4,6 +4,11 @@ import time
 import urllib.error
 import urllib.request
 
+from app_logger import get_logger
+
+
+logger = get_logger()
+
 
 def send_telegram_message(text, retries=3):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -17,12 +22,17 @@ def send_telegram_message(text, retries=3):
     )
     for attempt in range(retries):
         try:
+            logger.info("Sending Telegram request attempt=%s", attempt + 1)
             with urllib.request.urlopen(request, timeout=10) as response:
-                return response.read()
+                result = response.read()
+                logger.info("Telegram request sent")
+                return result
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
+            logger.error("Telegram HTTP error=%s", detail or str(error))
             raise RuntimeError(detail or str(error)) from error
-        except urllib.error.URLError:
+        except urllib.error.URLError as error:
+            logger.warning("Telegram connection error attempt=%s error=%s", attempt + 1, error)
             if attempt == retries - 1:
                 raise
             time.sleep(2)

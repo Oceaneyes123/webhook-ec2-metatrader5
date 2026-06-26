@@ -1,12 +1,14 @@
 import json
 import os
 import tempfile
+import time
 import urllib.error
 import unittest
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
+import app_logger
 import json_data_parser
 import telegram_sender
 import webhook
@@ -91,6 +93,16 @@ class WebhookTest(unittest.TestCase):
             "📉 Engulfing Candle - H1\n🕒 2026.06.26 13:00\n💰 1.2360 - 1.2345",
         )
 
+    def test_engulfing_candle_message_rejects_missing_fields(self):
+        with self.assertRaisesRegex(ValueError, "timeframe"):
+            json_data_parser.engulfing_candle_message({"open": "1.2"})
+
+    def test_error_message_format(self):
+        self.assertEqual(
+            webhook.error_message(ValueError("bad payload")),
+            "⚠️ Webhook Error\nValueError: bad payload",
+        )
+
     def test_load_env_reads_dotenv_without_overwriting_existing_values(self):
         with tempfile.TemporaryDirectory() as directory:
             env_file = Path(directory) / ".env"
@@ -154,6 +166,18 @@ class WebhookTest(unittest.TestCase):
             telegram_sender.send_telegram_message("message")
 
         self.assertEqual(len(calls), 2)
+
+    def test_logger_cleans_log_after_five_hours(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log_file = Path(directory) / "webhook.log"
+            log_file.write_text("old log", encoding="utf-8")
+            old_time = time.time() - app_logger.CLEAN_AFTER_SECONDS - 1
+            os.utime(log_file, (old_time, old_time))
+
+            with patch.object(app_logger, "LOG_FILE", log_file):
+                app_logger._clean_old_log()
+
+            self.assertEqual(log_file.read_text(encoding="utf-8"), "")
 
     def test_server_config_defaults_to_ec2_ready_bind(self):
         with patch.dict(os.environ, {}, clear=True):
