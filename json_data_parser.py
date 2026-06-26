@@ -1,8 +1,26 @@
-def is_engulfing_payload(payload):
-    return isinstance(payload, dict) and payload.get("event_type") == "ENGULFING_CANDLE"
+from datetime import datetime, timedelta
 
 
-def engulfing_candle_message(payload):
+SUPPORTED_EVENTS = {
+    "ENGULFING_CANDLE": "Engulfing Candle",
+    "HAMMER_CANDLE": "Hammer Candle",
+    "HANGING_MAN_CANDLE": "Hanging Man Candle",
+}
+
+
+def display_time(value):
+    try:
+        parsed = datetime.strptime(value, "%Y.%m.%d %H:%M:%S")
+    except ValueError:
+        parsed = datetime.strptime(value, "%Y.%m.%d %H:%M")
+    return (parsed + timedelta(hours=5)).strftime("%Y.%m.%d %I:%M %p")
+
+
+def is_supported_payload(payload):
+    return isinstance(payload, dict) and payload.get("event_type") in SUPPORTED_EVENTS
+
+
+def candle_alert_message(payload):
     if not isinstance(payload, dict):
         raise ValueError("webhook payload must be a JSON object")
 
@@ -15,9 +33,14 @@ def engulfing_candle_message(payload):
 
     signal = str(payload.get("signal", "")).upper()
     direction = "📈" if signal == "BUY" else "📉" if signal == "SELL" else "📊"
+    title = SUPPORTED_EVENTS.get(payload.get("event_type"), "Candle Alert")
+    candle_time = display_time(payload.get("candle_time", payload.get("time", "")))
 
     return (
-        f"{direction} Engulfing Candle - {payload.get('timeframe', '')}\n"
-        f"🕒 {payload.get('candle_time', payload.get('time', ''))}\n"
+        f"{direction} {title} - {payload.get('timeframe', '')}\n"
+        f"🕒 {candle_time}\n"
         f"💰 {payload.get('open', '')} - {payload.get('close', '')}"
     )
+
+
+engulfing_candle_message = candle_alert_message

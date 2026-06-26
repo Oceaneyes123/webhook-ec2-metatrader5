@@ -63,7 +63,7 @@ class WebhookTest(unittest.TestCase):
             {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
         ), patch("urllib.request.urlopen", fake_urlopen):
             telegram_sender.send_telegram_message(
-                json_data_parser.engulfing_candle_message(
+                json_data_parser.candle_alert_message(
                     {
                         "event_type": "ENGULFING_CANDLE",
                         "timeframe": "M15",
@@ -86,14 +86,14 @@ class WebhookTest(unittest.TestCase):
             {
                 "chat_id": "chat",
                 "text": "📊 Engulfing Candle - M15\n"
-                "🕒 2026.06.26 12:00\n"
+                "🕒 2026.06.26 05:00 PM\n"
                 "💰 1.2345 - 1.2360",
             },
         )
 
     def test_engulfing_candle_message_uses_buy_format(self):
         self.assertEqual(
-            json_data_parser.engulfing_candle_message(
+            json_data_parser.candle_alert_message(
                 {
                     "event_type": "ENGULFING_CANDLE",
                     "signal": "BUY",
@@ -103,12 +103,12 @@ class WebhookTest(unittest.TestCase):
                     "close": "1.2360",
                 }
             ),
-            "📈 Engulfing Candle - M15\n🕒 2026.06.26 12:00\n💰 1.2345 - 1.2360",
+            "📈 Engulfing Candle - M15\n🕒 2026.06.26 05:00 PM\n💰 1.2345 - 1.2360",
         )
 
     def test_engulfing_candle_message_uses_sell_format(self):
         self.assertEqual(
-            json_data_parser.engulfing_candle_message(
+            json_data_parser.candle_alert_message(
                 {
                     "event_type": "ENGULFING_CANDLE",
                     "signal": "SELL",
@@ -118,22 +118,55 @@ class WebhookTest(unittest.TestCase):
                     "close": "1.2345",
                 }
             ),
-            "📉 Engulfing Candle - H1\n🕒 2026.06.26 13:00\n💰 1.2360 - 1.2345",
+            "📉 Engulfing Candle - H1\n🕒 2026.06.26 06:00 PM\n💰 1.2360 - 1.2345",
+        )
+
+    def test_candle_message_adds_five_hours_and_rolls_date(self):
+        self.assertEqual(
+            json_data_parser.candle_alert_message(
+                {
+                    "event_type": "ENGULFING_CANDLE",
+                    "signal": "BUY",
+                    "timeframe": "H4",
+                    "candle_time": "2026.06.26 23:30:00",
+                    "open": "1.2345",
+                    "close": "1.2360",
+                }
+            ),
+            "📈 Engulfing Candle - H4\n🕒 2026.06.27 04:30 AM\n💰 1.2345 - 1.2360",
         )
 
     def test_engulfing_candle_message_rejects_missing_fields(self):
         with self.assertRaisesRegex(ValueError, "timeframe"):
-            json_data_parser.engulfing_candle_message({"open": "1.2"})
+            json_data_parser.candle_alert_message({"open": "1.2"})
 
-    def test_is_engulfing_payload_only_accepts_engulfing_events(self):
+    def test_is_supported_payload_accepts_alert_events(self):
         self.assertTrue(
-            json_data_parser.is_engulfing_payload({"event_type": "ENGULFING_CANDLE"})
+            json_data_parser.is_supported_payload({"event_type": "ENGULFING_CANDLE"})
+        )
+        self.assertTrue(
+            json_data_parser.is_supported_payload({"event_type": "HAMMER_CANDLE"})
+        )
+        self.assertTrue(
+            json_data_parser.is_supported_payload({"event_type": "HANGING_MAN_CANDLE"})
         )
         self.assertFalse(
-            json_data_parser.is_engulfing_payload({"event_type": "M1_CANDLE_CLOSE"})
+            json_data_parser.is_supported_payload({"event_type": "M1_CANDLE_CLOSE"})
         )
-        self.assertFalse(
-            json_data_parser.is_engulfing_payload({"pattern": "ENGULFING"})
+
+    def test_hammer_message_uses_hammer_title(self):
+        self.assertEqual(
+            json_data_parser.candle_alert_message(
+                {
+                    "event_type": "HAMMER_CANDLE",
+                    "signal": "BUY",
+                    "timeframe": "M15",
+                    "candle_time": "2026.06.26 12:00",
+                    "open": "1.2345",
+                    "close": "1.2360",
+                }
+            ),
+            "📈 Hammer Candle - M15\n🕒 2026.06.26 05:00 PM\n💰 1.2345 - 1.2360",
         )
 
     def test_error_message_format(self):

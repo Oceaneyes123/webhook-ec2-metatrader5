@@ -3,7 +3,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from app_logger import get_logger
-from json_data_parser import engulfing_candle_message, is_engulfing_payload
+from json_data_parser import candle_alert_message, is_supported_payload
 from telegram_sender import send_telegram_message
 
 
@@ -46,14 +46,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
         logger.info("Parsed webhook payload=%r", payload)
 
         try:
-            if not is_engulfing_payload(payload):
-                logger.info("Ignored non-engulfing payload")
+            if not is_supported_payload(payload):
+                logger.info("Ignored unsupported payload")
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b"ignored")
                 return
 
-            message = engulfing_candle_message(payload)
+            message = candle_alert_message(payload)
             logger.info("Sending Telegram message=%r", message)
             send_telegram_message(message)
         except Exception as error:
