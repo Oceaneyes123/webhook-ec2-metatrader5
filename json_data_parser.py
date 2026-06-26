@@ -1,8 +1,5 @@
 def is_engulfing_payload(payload):
-    return isinstance(payload, dict) and (
-        payload.get("event_type") == "ENGULFING_CANDLE"
-        or payload.get("pattern") == "ENGULFING"
-    )
+    return isinstance(payload, dict) and payload.get("event_type") == "ENGULFING_CANDLE"
 
 
 def engulfing_candle_message(payload):

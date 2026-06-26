@@ -1,8 +1,6 @@
 import json
 import os
-import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 
 from app_logger import get_logger
 from json_data_parser import engulfing_candle_message, is_engulfing_payload
@@ -23,36 +21,11 @@ def notify_error(error):
         logger.exception("Failed to send Telegram error notification")
 
 
-def load_env(path=".env"):
-    path = Path(path)
-    if not path.exists():
-        return
-
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
 def server_config():
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
     public_url = os.environ.get("PUBLIC_URL", f"http://localhost:{port}/webhook")
     return host, port, public_url
-
-
-def run_server(host, port):
-    while True:
-        try:
-            HTTPServer((host, port), WebhookHandler).serve_forever()
-        except KeyboardInterrupt:
-            raise
-        except Exception as error:
-            logger.exception("Server failed, restarting")
-            print(f"Server failed: {error}. Restarting in 5 seconds...", flush=True)
-            time.sleep(5)
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
@@ -97,8 +70,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    load_env()
     host, port, public_url = server_config()
     logger.info("Starting webhook server host=%s port=%s public_url=%s", host, port, public_url)
     print(f"Listening on {public_url}")
-    run_server(host, port)
+    HTTPServer((host, port), WebhookHandler).serve_forever()

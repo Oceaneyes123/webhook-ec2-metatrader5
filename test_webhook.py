@@ -132,31 +132,15 @@ class WebhookTest(unittest.TestCase):
         self.assertFalse(
             json_data_parser.is_engulfing_payload({"event_type": "M1_CANDLE_CLOSE"})
         )
+        self.assertFalse(
+            json_data_parser.is_engulfing_payload({"pattern": "ENGULFING"})
+        )
 
     def test_error_message_format(self):
         self.assertEqual(
             webhook.error_message(ValueError("bad payload")),
             "⚠️ Webhook Error\nValueError: bad payload",
         )
-
-    def test_load_env_reads_dotenv_without_overwriting_existing_values(self):
-        with tempfile.TemporaryDirectory() as directory:
-            env_file = Path(directory) / ".env"
-            env_file.write_text(
-                "TELEGRAM_BOT_TOKEN=from-file\n"
-                "TELEGRAM_CHAT_ID=from-file\n",
-                encoding="utf-8",
-            )
-
-            with patch.dict(
-                os.environ,
-                {"TELEGRAM_BOT_TOKEN": "from-env"},
-                clear=True,
-            ):
-                webhook.load_env(env_file)
-
-                self.assertEqual(os.environ["TELEGRAM_BOT_TOKEN"], "from-env")
-                self.assertEqual(os.environ["TELEGRAM_CHAT_ID"], "from-file")
 
     def test_send_telegram_message_includes_telegram_error_body(self):
         def fake_urlopen(request, timeout):
