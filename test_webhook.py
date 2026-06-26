@@ -15,6 +15,31 @@ import webhook
 
 
 class WebhookTest(unittest.TestCase):
+    def test_webhook_ignores_non_engulfing_candle_close(self):
+        sent = []
+        handler = webhook.WebhookHandler.__new__(webhook.WebhookHandler)
+        handler.path = "/webhook"
+        handler.headers = {
+            "Content-Length": "170",
+        }
+        body = (
+            b'{"event_type":"M1_CANDLE_CLOSE","message":"BUY candle closed",'
+            b'"signal":"BUY","symbol":"GOLDmicro","timeframe":"M1",'
+            b'"candle_time":"2026.06.26 11:11:00","open":4029.07,"close":4030.23}'
+        )
+        handler.headers["Content-Length"] = str(len(body))
+        handler.rfile = BytesIO(body)
+        handler.wfile = BytesIO()
+        handler.send_response = lambda code: sent.append(("code", code))
+        handler.end_headers = lambda: None
+
+        with patch("webhook.send_telegram_message") as send:
+            handler.do_POST()
+
+        send.assert_not_called()
+        self.assertIn(("code", 200), sent)
+        self.assertEqual(handler.wfile.getvalue(), b"ignored")
+
     def test_send_telegram_message_posts_to_send_message_api(self):
         requests = []
 
@@ -40,6 +65,7 @@ class WebhookTest(unittest.TestCase):
             telegram_sender.send_telegram_message(
                 json_data_parser.engulfing_candle_message(
                     {
+                        "event_type": "ENGULFING_CANDLE",
                         "timeframe": "M15",
                         "candle_time": "2026.06.26 12:00",
                         "open": "1.2345",
@@ -69,6 +95,7 @@ class WebhookTest(unittest.TestCase):
         self.assertEqual(
             json_data_parser.engulfing_candle_message(
                 {
+                    "event_type": "ENGULFING_CANDLE",
                     "signal": "BUY",
                     "timeframe": "M15",
                     "candle_time": "2026.06.26 12:00",
@@ -83,6 +110,7 @@ class WebhookTest(unittest.TestCase):
         self.assertEqual(
             json_data_parser.engulfing_candle_message(
                 {
+                    "event_type": "ENGULFING_CANDLE",
                     "signal": "SELL",
                     "timeframe": "H1",
                     "candle_time": "2026.06.26 13:00",
@@ -96,6 +124,14 @@ class WebhookTest(unittest.TestCase):
     def test_engulfing_candle_message_rejects_missing_fields(self):
         with self.assertRaisesRegex(ValueError, "timeframe"):
             json_data_parser.engulfing_candle_message({"open": "1.2"})
+
+    def test_is_engulfing_payload_only_accepts_engulfing_events(self):
+        self.assertTrue(
+            json_data_parser.is_engulfing_payload({"event_type": "ENGULFING_CANDLE"})
+        )
+        self.assertFalse(
+            json_data_parser.is_engulfing_payload({"event_type": "M1_CANDLE_CLOSE"})
+        )
 
     def test_error_message_format(self):
         self.assertEqual(

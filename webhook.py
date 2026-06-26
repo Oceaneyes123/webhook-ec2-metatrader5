@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from app_logger import get_logger
-from json_data_parser import engulfing_candle_message
+from json_data_parser import engulfing_candle_message, is_engulfing_payload
 from telegram_sender import send_telegram_message
 
 
@@ -73,6 +73,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
         logger.info("Parsed webhook payload=%r", payload)
 
         try:
+            if not is_engulfing_payload(payload):
+                logger.info("Ignored non-engulfing payload")
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"ignored")
+                return
+
             message = engulfing_candle_message(payload)
             logger.info("Sending Telegram message=%r", message)
             send_telegram_message(message)

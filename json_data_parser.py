@@ -1,3 +1,10 @@
+def is_engulfing_payload(payload):
+    return isinstance(payload, dict) and (
+        payload.get("event_type") == "ENGULFING_CANDLE"
+        or payload.get("pattern") == "ENGULFING"
+    )
+
+
 def engulfing_candle_message(payload):
     if not isinstance(payload, dict):
         raise ValueError("webhook payload must be a JSON object")
