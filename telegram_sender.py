@@ -10,9 +10,9 @@ from app_logger import get_logger
 logger = get_logger()
 
 
-def send_telegram_message(text, retries=3):
+def send_telegram_message(text, retries=3, chat_id=None):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
-    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+    chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
     data = json.dumps({"chat_id": chat_id, "text": text}).encode()
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",

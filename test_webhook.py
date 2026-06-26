@@ -15,6 +15,22 @@ import webhook
 
 
 class WebhookTest(unittest.TestCase):
+    def setUp(self):
+        webhook.ALERTS_PAUSED = False
+        webhook.RECENT_SIGNALS.clear()
+
+    def make_handler(self, path, body=b"", method="POST"):
+        handler = webhook.WebhookHandler.__new__(webhook.WebhookHandler)
+        handler.path = path
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = BytesIO(body)
+        handler.wfile = BytesIO()
+        handler.responses = []
+        handler.send_response = lambda code: handler.responses.append(("code", code))
+        handler.send_header = lambda key, value: handler.responses.append((key, value))
+        handler.end_headers = lambda: None
+        return handler
+
     def test_webhook_ignores_non_engulfing_candle_close(self):
         sent = []
         handler = webhook.WebhookHandler.__new__(webhook.WebhookHandler)
@@ -91,19 +107,62 @@ class WebhookTest(unittest.TestCase):
             },
         )
 
+    def test_send_telegram_message_can_override_chat_id(self):
+        requests = []
+
+        def fake_urlopen(request, timeout):
+            requests.append(request)
+
+            class Response:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return None
+
+                def read(self):
+                    return b'{"ok":true}'
+
+            return Response()
+
+        with patch.dict(
+            os.environ,
+            {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "default"},
+        ), patch("urllib.request.urlopen", fake_urlopen):
+            telegram_sender.send_telegram_message("message", chat_id="command-chat")
+
+        self.assertEqual(json.loads(requests[0].data)["chat_id"], "command-chat")
+
     def test_engulfing_candle_message_uses_buy_format(self):
         self.assertEqual(
             json_data_parser.candle_alert_message(
                 {
                     "event_type": "ENGULFING_CANDLE",
                     "signal": "BUY",
+                    "symbol": "GOLDmicro",
                     "timeframe": "M15",
                     "candle_time": "2026.06.26 12:00",
                     "open": "1.2345",
                     "close": "1.2360",
                 }
             ),
-            "📈 Engulfing Candle - M15\n🕒 2026.06.26 05:00 PM\n💰 1.2345 - 1.2360",
+            "📈 GOLD Engulfing Candle - M15\n🕒 2026.06.26 05:00 PM\n💰 1.2345 - 1.2360",
+        )
+
+    def test_candle_message_removes_broker_prefix_and_suffix_from_symbol(self):
+        self.assertEqual(
+            json_data_parser.candle_alert_message(
+                {
+                    "event_type": "HAMMER_CANDLE",
+                    "signal": "BUY",
+                    "symbol": "microEURUSDm#",
+                    "timeframe": "M15",
+                    "candle_time": "2026.06.26 12:00",
+                    "open": "1.2345",
+                    "close": "1.2360",
+                }
+            ).splitlines()[0],
+            "📈 EURUSD Hammer Candle - M15",
         )
 
     def test_engulfing_candle_message_uses_sell_format(self):
@@ -253,6 +312,66 @@ class WebhookTest(unittest.TestCase):
                 webhook.server_config(),
                 ("127.0.0.1", 9000, "http://3.27.46.138:9000/webhook"),
             )
+
+    def test_health_endpoint_returns_text_status(self):
+        handler = self.make_handler("/health", method="GET")
+        with patch.dict(
+            os.environ,
+            {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
+        ):
+            handler.do_GET()
+
+        self.assertIn(("code", 200), handler.responses)
+        self.assertIn(("Content-Type", "text/plain; charset=utf-8"), handler.responses)
+        text = handler.wfile.getvalue().decode()
+        self.assertIn("✅ Webhook healthy", text)
+        self.assertIn("Telegram: configured", text)
+        self.assertIn("Uptime:", text)
+
+    def test_telegram_pause_and_resume_commands_control_alerts(self):
+        with patch("webhook.send_telegram_message") as send:
+            self.make_handler(
+                "/telegram",
+                b'{"message":{"text":"/pause","chat":{"id":"cmd-chat"}}}',
+            ).do_POST()
+
+            handler = self.make_handler(
+                "/webhook",
+                b'{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro",'
+                b'"timeframe":"M1","candle_time":"2026.06.26 11:11:00",'
+                b'"open":4029.07,"close":4030.23}',
+            )
+            handler.do_POST()
+
+            self.make_handler(
+                "/telegram",
+                b'{"message":{"text":"/resume","chat":{"id":"cmd-chat"}}}',
+            ).do_POST()
+
+        send.assert_any_call("⏸️ MT5 alerts paused", chat_id="cmd-chat")
+        send.assert_any_call("▶️ MT5 alerts resumed", chat_id="cmd-chat")
+        self.assertEqual(handler.wfile.getvalue(), b"paused")
+
+    def test_telegram_status_help_and_recent_commands(self):
+        webhook.RECENT_SIGNALS.extend(
+            [
+                {"symbol": "GOLD", "message": "signal 1"},
+                {"symbol": "EURUSD", "message": "ignored"},
+                {"symbol": "GOLD", "message": "signal 2"},
+            ]
+        )
+
+        with patch("webhook.send_telegram_message") as send:
+            for text in ("/status", "/help", "/recent Gold"):
+                self.make_handler(
+                    "/telegram",
+                    json.dumps({"message": {"text": text, "chat": {"id": "cmd-chat"}}}).encode(),
+                ).do_POST()
+
+        messages = [call.args[0] for call in send.call_args_list]
+        self.assertIn("✅ Bot online\nAlerts: running", messages[0])
+        self.assertIn("/recent Gold", messages[1])
+        self.assertEqual(messages[2], "Recent GOLD signals:\n1. signal 1\n2. signal 2")
 
 
 if __name__ == "__main__":
