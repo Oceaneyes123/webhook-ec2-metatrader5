@@ -1,0 +1,14 @@
+[Unit]
+Description=MT5 webhook Telegram sender
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/webhook-ec2-metatrader5
+ExecStart=/usr/bin/python3 /home/ubuntu/webhook-ec2-metatrader5/webhook.py
+EnvironmentFile=-/home/ubuntu/webhook-ec2-metatrader5/.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

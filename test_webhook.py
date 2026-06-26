@@ -7,6 +7,8 @@ from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
+import json_data_parser
+import telegram_sender
 import webhook
 
 
@@ -33,7 +35,16 @@ class WebhookTest(unittest.TestCase):
             os.environ,
             {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
         ), patch("urllib.request.urlopen", fake_urlopen):
-            webhook.send_telegram_message({"hello": "world"})
+            telegram_sender.send_telegram_message(
+                json_data_parser.engulfing_candle_message(
+                    {
+                        "timeframe": "M15",
+                        "candle_time": "2026.06.26 12:00",
+                        "open": "1.2345",
+                        "close": "1.2360",
+                    }
+                )
+            )
 
         request, timeout = requests[0]
         self.assertEqual(
@@ -44,7 +55,40 @@ class WebhookTest(unittest.TestCase):
         self.assertEqual(request.headers["Content-type"], "application/json")
         self.assertEqual(
             json.loads(request.data),
-            {"chat_id": "chat", "text": '{\n  "hello": "world"\n}'},
+            {
+                "chat_id": "chat",
+                "text": "📊 Engulfing Candle - M15\n"
+                "🕒 2026.06.26 12:00\n"
+                "💰 1.2345 - 1.2360",
+            },
+        )
+
+    def test_engulfing_candle_message_uses_buy_format(self):
+        self.assertEqual(
+            json_data_parser.engulfing_candle_message(
+                {
+                    "signal": "BUY",
+                    "timeframe": "M15",
+                    "candle_time": "2026.06.26 12:00",
+                    "open": "1.2345",
+                    "close": "1.2360",
+                }
+            ),
+            "📈 Engulfing Candle - M15\n🕒 2026.06.26 12:00\n💰 1.2345 - 1.2360",
+        )
+
+    def test_engulfing_candle_message_uses_sell_format(self):
+        self.assertEqual(
+            json_data_parser.engulfing_candle_message(
+                {
+                    "signal": "SELL",
+                    "timeframe": "H1",
+                    "candle_time": "2026.06.26 13:00",
+                    "open": "1.2360",
+                    "close": "1.2345",
+                }
+            ),
+            "📉 Engulfing Candle - H1\n🕒 2026.06.26 13:00\n💰 1.2360 - 1.2345",
         )
 
     def test_load_env_reads_dotenv_without_overwriting_existing_values(self):
@@ -81,7 +125,35 @@ class WebhookTest(unittest.TestCase):
             {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
         ), patch("urllib.request.urlopen", fake_urlopen):
             with self.assertRaisesRegex(Exception, "chat not found"):
-                webhook.send_telegram_message({"hello": "world"})
+                telegram_sender.send_telegram_message("message")
+
+    def test_send_telegram_message_retries_connection_errors(self):
+        calls = []
+
+        def fake_urlopen(request, timeout):
+            calls.append(request)
+            if len(calls) == 1:
+                raise urllib.error.URLError("temporary network issue")
+
+            class Response:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return None
+
+                def read(self):
+                    return b'{"ok":true}'
+
+            return Response()
+
+        with patch.dict(
+            os.environ,
+            {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
+        ), patch("urllib.request.urlopen", fake_urlopen), patch("time.sleep"):
+            telegram_sender.send_telegram_message("message")
+
+        self.assertEqual(len(calls), 2)
 
     def test_server_config_defaults_to_ec2_ready_bind(self):
         with patch.dict(os.environ, {}, clear=True):

@@ -1,9 +1,11 @@
 import json
 import os
-import urllib.error
-import urllib.request
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+
+from json_data_parser import engulfing_candle_message
+from telegram_sender import send_telegram_message
 
 
 def load_env(path=".env"):
@@ -26,23 +28,15 @@ def server_config():
     return host, port, public_url
 
 
-def send_telegram_message(payload):
-    token = os.environ["TELEGRAM_BOT_TOKEN"]
-    chat_id = os.environ["TELEGRAM_CHAT_ID"]
-    text = payload if isinstance(payload, str) else json.dumps(payload, indent=2)
-    data = json.dumps({"chat_id": chat_id, "text": text}).encode()
-    request = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            return response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(detail or str(error)) from error
+def run_server(host, port):
+    while True:
+        try:
+            HTTPServer((host, port), WebhookHandler).serve_forever()
+        except KeyboardInterrupt:
+            raise
+        except Exception as error:
+            print(f"Server failed: {error}. Restarting in 5 seconds...", flush=True)
+            time.sleep(5)
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
@@ -59,7 +53,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             payload = body
 
         try:
-            send_telegram_message(payload)
+            send_telegram_message(engulfing_candle_message(payload))
         except Exception as error:
             self.send_response(500)
             self.end_headers()
@@ -75,4 +69,4 @@ if __name__ == "__main__":
     load_env()
     host, port, public_url = server_config()
     print(f"Listening on {public_url}")
-    HTTPServer((host, port), WebhookHandler).serve_forever()
+    run_server(host, port)
