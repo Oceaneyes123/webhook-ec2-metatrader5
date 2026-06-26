@@ -1,11 +1,12 @@
 import json
 import os
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from app_logger import get_logger
 from json_data_parser import candle_alert_message, display_symbol, is_supported_payload
-from telegram_sender import send_telegram_message
+from telegram_sender import get_telegram_updates, send_telegram_message
 
 
 logger = get_logger()
@@ -30,6 +31,10 @@ def server_config():
     port = int(os.environ.get("PORT", "8000"))
     public_url = os.environ.get("PUBLIC_URL", f"http://localhost:{port}/webhook")
     return host, port, public_url
+
+
+def polling_interval():
+    return int(os.environ.get("TELEGRAM_POLL_SECONDS", "10"))
 
 
 def uptime_text():
@@ -109,6 +114,39 @@ def is_telegram_update(payload):
     return isinstance(payload, dict) and isinstance(payload.get("message"), dict)
 
 
+def reply_to_telegram_update(update):
+    message = update.get("message", {})
+    text = message.get("text", "")
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    if text and chat_id:
+        send_telegram_message(command_reply(text), chat_id=chat_id)
+
+
+def poll_telegram_once(offset=None):
+    updates = get_telegram_updates(offset=offset, timeout_seconds=polling_interval())
+    for update in updates:
+        reply_to_telegram_update(update)
+    if not updates:
+        return offset
+    return max(update["update_id"] for update in updates) + 1
+
+
+def poll_telegram_forever():
+    offset = None
+    while True:
+        try:
+            offset = poll_telegram_once(offset)
+        except Exception:
+            logger.exception("Telegram polling failed")
+            time.sleep(polling_interval())
+
+
+def start_telegram_polling():
+    thread = threading.Thread(target=poll_telegram_forever, daemon=True)
+    thread.start()
+    return thread
+
+
 class WebhookHandler(BaseHTTPRequestHandler):
     def write_text(self, code, text, content_type="text/plain; charset=utf-8"):
         self.send_response(code)
@@ -143,7 +181,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         try:
             if is_telegram_update(payload):
-                self.reply_to_telegram_update(payload)
+                reply_to_telegram_update(payload)
                 self.write_text(200, "ok")
                 return
             if not is_supported_payload(payload):
@@ -183,23 +221,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(length).decode("utf-8") if length else ""
         try:
             update = json.loads(body) if body else {}
-            self.reply_to_telegram_update(update)
+            reply_to_telegram_update(update)
         except Exception as error:
             logger.exception("Telegram command handling failed")
             self.write_text(500, str(error))
             return
         self.write_text(200, "ok")
 
-    def reply_to_telegram_update(self, update):
-        message = update.get("message", {})
-        text = message.get("text", "")
-        chat_id = str(message.get("chat", {}).get("id", ""))
-        if text and chat_id:
-            send_telegram_message(command_reply(text), chat_id=chat_id)
-
 
 if __name__ == "__main__":
     host, port, public_url = server_config()
     logger.info("Starting webhook server host=%s port=%s public_url=%s", host, port, public_url)
+    start_telegram_polling()
     print(f"Listening on {public_url}")
     HTTPServer((host, port), WebhookHandler).serve_forever()

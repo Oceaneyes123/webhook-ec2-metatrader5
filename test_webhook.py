@@ -3,6 +3,7 @@ import os
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import unittest
 from io import BytesIO
 from pathlib import Path
@@ -279,6 +280,36 @@ class WebhookTest(unittest.TestCase):
 
         self.assertEqual(len(calls), 2)
 
+    def test_get_telegram_updates_uses_offset_and_timeout(self):
+        requests = []
+
+        def fake_urlopen(request, timeout):
+            requests.append((request, timeout))
+
+            class Response:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return None
+
+                def read(self):
+                    return b'{"ok":true,"result":[{"update_id":7}]}'
+
+            return Response()
+
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "token"}), patch(
+            "urllib.request.urlopen", fake_urlopen
+        ):
+            updates = telegram_sender.get_telegram_updates(offset=6, timeout_seconds=10)
+
+        request, timeout = requests[0]
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(request.full_url).query)
+        self.assertEqual(request.full_url.split("?", 1)[0], "https://api.telegram.org/bottoken/getUpdates")
+        self.assertEqual(query, {"timeout": ["10"], "offset": ["6"]})
+        self.assertEqual(timeout, 15)
+        self.assertEqual(updates, [{"update_id": 7}])
+
     def test_logger_cleans_log_after_five_hours(self):
         with tempfile.TemporaryDirectory() as directory:
             log_file = Path(directory) / "webhook.log"
@@ -385,6 +416,20 @@ class WebhookTest(unittest.TestCase):
         self.assertIn("✅ Bot online\nAlerts: running", messages[0])
         self.assertIn("/recent Gold", messages[1])
         self.assertEqual(messages[2], "Recent GOLD signals:\n1. signal 1\n2. signal 2")
+
+    def test_poll_telegram_once_replies_and_returns_next_offset(self):
+        updates = [{"update_id": 41, "message": {"text": "/status", "chat": {"id": "cmd-chat"}}}]
+
+        with patch("webhook.get_telegram_updates", return_value=updates) as get_updates, patch(
+            "webhook.send_telegram_message"
+        ) as send:
+            next_offset = webhook.poll_telegram_once(10)
+
+        get_updates.assert_called_once_with(offset=10, timeout_seconds=10)
+        self.assertEqual(next_offset, 42)
+        send.assert_called_once()
+        self.assertEqual(send.call_args.kwargs["chat_id"], "cmd-chat")
+        self.assertIn("Bot online", send.call_args.args[0])
 
 
 if __name__ == "__main__":

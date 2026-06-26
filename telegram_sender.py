@@ -2,6 +2,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from app_logger import get_logger
@@ -36,3 +37,17 @@ def send_telegram_message(text, retries=3, chat_id=None):
             if attempt == retries - 1:
                 raise
             time.sleep(2)
+
+
+def get_telegram_updates(offset=None, timeout_seconds=10):
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    params = {"timeout": str(timeout_seconds)}
+    if offset is not None:
+        params["offset"] = str(offset)
+    url = f"https://api.telegram.org/bot{token}/getUpdates?{urllib.parse.urlencode(params)}"
+    request = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(request, timeout=timeout_seconds + 5) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    if not data.get("ok"):
+        raise RuntimeError(data)
+    return data.get("result", [])

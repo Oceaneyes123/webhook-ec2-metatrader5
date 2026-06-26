@@ -81,13 +81,21 @@ sudo systemctl status webhook-ec2
 
 ## Telegram Commands
 
-Set the Telegram webhook once:
+Commands are read by polling every 10 seconds by default, so HTTPS is not required.
+
+Optional `.env` setting:
+
+```env
+TELEGRAM_POLL_SECONDS=10
+```
+
+If you later use an HTTPS domain, you can set a Telegram webhook instead:
 
 ```bash
 curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=https://YOUR_DOMAIN/telegram"
 ```
 
-Telegram requires an HTTPS webhook URL. Keep MT5 on `http://YOUR_EC2_IP:8000/webhook` if needed, but put `/telegram` behind HTTPS with nginx, Caddy, Cloudflare Tunnel, or another TLS proxy.
+Telegram requires an HTTPS webhook URL. Polling works with only the bot token and does not need a public `/telegram` URL.
 
 Available commands:
 
