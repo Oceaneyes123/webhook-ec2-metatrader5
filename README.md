@@ -34,6 +34,7 @@ PORT=8000
 PUBLIC_URL=http://YOUR_EC2_IP:8000/webhook
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_CHAT_ID=your_telegram_chat_id
+TIMEZONE_OFFSET_HOURS=5
 ```
 
 The included `webhook-ec2.service` loads this file through `EnvironmentFile`.
