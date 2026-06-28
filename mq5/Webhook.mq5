@@ -3,20 +3,9 @@
 //|        Sends webhook alerts for supported candle patterns         |
 //+------------------------------------------------------------------+
 #property strict
-#property version "1.04"
+#property version "1.05"
 
-enum WEBHOOK_ENV
-{
-   ENV_LOCAL = 0,
-   ENV_PRODUCTION = 1,
-   ENV_CUSTOM = 2
-};
-
-input WEBHOOK_ENV WebhookEnvironment = ENV_PRODUCTION;
-
-input string LocalWebhookUrl      = "http://127.0.0.1:8000/webhook";
-input string ProductionWebhookUrl = "http://3.27.46.138:8000/webhook";
-input string CustomWebhookUrl     = "";
+input string WebhookUrl = "http://127.0.0.1:8000/webhook";
 
 input int  WebRequestTimeoutMs = 5000;
 input bool PrintDebugLogs      = true;
@@ -77,20 +66,6 @@ struct LevelResult
    double previousDayHigh;
    double previousDayLow;
 };
-
-//+------------------------------------------------------------------+
-//| Get selected webhook URL                                         |
-//+------------------------------------------------------------------+
-string GetWebhookUrl()
-{
-   if(WebhookEnvironment == ENV_LOCAL)
-      return LocalWebhookUrl;
-
-   if(WebhookEnvironment == ENV_PRODUCTION)
-      return ProductionWebhookUrl;
-
-   return CustomWebhookUrl;
-}
 
 //+------------------------------------------------------------------+
 //| Timeframe to text                                                |
@@ -253,9 +228,6 @@ void PrintWebRequestHelp(string url, int errorCode)
       Print("   http://127.0.0.1");
       Print("   http://127.0.0.1:8000");
       Print("   http://127.0.0.1:8000/webhook");
-      Print("   http://3.27.46.138");
-      Print("   http://3.27.46.138:8000");
-      Print("   http://3.27.46.138:8000/webhook");
    }
    else if(errorCode == 5200)
       Print("Meaning: Invalid URL.");
@@ -272,7 +244,7 @@ void PrintWebRequestHelp(string url, int errorCode)
 //+------------------------------------------------------------------+
 bool SendWebhook(string payload)
 {
-   string url = GetWebhookUrl();
+   string url = WebhookUrl;
 
    if(url == "")
    {
@@ -312,7 +284,6 @@ bool SendWebhook(string payload)
    if(PrintDebugLogs)
    {
       Print("========== WEBHOOK DEBUG START ==========");
-      Print("Selected Environment: ", EnumToString(WebhookEnvironment));
       Print("Webhook URL: ", url);
       Print("HTTP Code: ", responseCode);
       Print("MT5 Error Code: ", mt5Error);
@@ -921,11 +892,10 @@ int OnInit()
 
    Print("===================================");
    Print("Multi-Timeframe Candlestick Pattern Webhook EA started.");
-   Print("Version: 1.04");
+   Print("Version: 1.05");
    Print("Symbol: ", _Symbol);
    Print("Chart Period: ", EnumToString((ENUM_TIMEFRAMES)_Period));
-   Print("Selected Environment: ", EnumToString(WebhookEnvironment));
-   Print("Selected Webhook URL: ", GetWebhookUrl());
+   Print("Webhook URL: ", WebhookUrl);
    Print("Monitoring: M1, M5, M15, M30, H1, H4");
    Print("===================================");
 

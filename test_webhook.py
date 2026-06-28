@@ -466,11 +466,11 @@ class WebhookTest(unittest.TestCase):
 
             self.assertEqual(log_file.read_text(encoding="utf-8"), "")
 
-    def test_server_config_defaults_to_ec2_ready_bind(self):
+    def test_server_config_defaults_to_local_bind(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
                 webhook.server_config(),
-                ("0.0.0.0", 8000, "http://localhost:8000/webhook"),
+                ("127.0.0.1", 8000, "http://127.0.0.1:8000/webhook"),
             )
 
     def test_server_config_uses_env_values(self):
@@ -479,13 +479,13 @@ class WebhookTest(unittest.TestCase):
             {
                 "HOST": "127.0.0.1",
                 "PORT": "9000",
-                "PUBLIC_URL": "http://3.27.46.138:9000/webhook",
+                "PUBLIC_URL": "http://example.test:9000/webhook",
             },
             clear=True,
         ):
             self.assertEqual(
                 webhook.server_config(),
-                ("127.0.0.1", 9000, "http://3.27.46.138:9000/webhook"),
+                ("127.0.0.1", 9000, "http://example.test:9000/webhook"),
             )
 
     def test_health_endpoint_returns_text_status(self):

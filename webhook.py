@@ -33,9 +33,9 @@ def notify_error(error):
 
 
 def server_config():
-    host = os.environ.get("HOST", "0.0.0.0")
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8000"))
-    public_url = os.environ.get("PUBLIC_URL", f"http://localhost:{port}/webhook")
+    public_url = os.environ.get("PUBLIC_URL", f"http://{host}:{port}/webhook")
     return host, port, public_url
 
 

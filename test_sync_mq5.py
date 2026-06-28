@@ -39,6 +39,17 @@ class SyncMq5Test(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("same file", result.stderr.lower())
 
+    def test_canonical_mq5_uses_one_local_webhook_url(self):
+        source = CANONICAL.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'input string WebhookUrl = "http://127.0.0.1:8000/webhook";',
+            source,
+        )
+        self.assertNotIn("ENV_PRODUCTION", source)
+        self.assertNotIn("ProductionWebhookUrl", source)
+        self.assertNotIn("3.27.46.138", source)
+
 
 if __name__ == "__main__":
     unittest.main()

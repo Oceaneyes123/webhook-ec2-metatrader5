@@ -1,146 +1,118 @@
-# MT5 Webhook to Telegram
+# Local MT5 Webhook to Telegram
 
-Small Python webhook server for MetaTrader 5 alerts. MT5 posts candle signals to EC2, and the server forwards supported alerts to Telegram.
+This project runs a Python webhook on the same Windows machine as MetaTrader 5.
+The EA posts market snapshots to `127.0.0.1:8000`, and Python sends alerts and
+command reports through Telegram.
 
 ```text
-MT5 EA -> POST /webhook -> EC2 Python server -> Telegram
-Telegram -> POST /telegram -> pause/resume/status/recent commands
+MT5 EA -> http://127.0.0.1:8000/webhook -> Python -> Telegram
+Telegram polling -> Python -> /status, /summary, /levels, and other commands
 ```
 
-The EA sends one state snapshot after each closed candle. M1 and M5 use only
-EMA20/EMA50 trend bias. M15, M30, H1, and H4 include candle patterns and key
-levels.
+## Requirements
 
-## Endpoints
+- Python 3
+- MetaTrader 5 on the same machine
+- A Telegram bot token and chat ID
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/webhook` | Receive MT5 alert payloads |
-| `POST` | `/telegram` | Receive Telegram bot command updates |
-| `GET` | `/health` | Plain-text health check |
+No Python package installation is required.
 
-Health check example:
+## Telegram Credentials
+
+1. Create a bot with Telegram's `@BotFather` and copy its token.
+2. Send any message to the new bot.
+3. Before starting this server, open:
+
+   ```text
+   https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
+   ```
+
+4. Find `message.chat.id` in the response and use it as the chat ID.
+
+## Start the Local Server
+
+Open PowerShell in the repository:
+
+```powershell
+Set-Location D:\Project\Python\webhook-ec2
+
+$env:TELEGRAM_BOT_TOKEN = "your_bot_token"
+$env:TELEGRAM_CHAT_ID = "your_chat_id"
+$env:TIMEZONE_OFFSET_HOURS = "5"
+
+python webhook.py
+```
+
+The default configuration is:
+
+```text
+Host: 127.0.0.1
+Port: 8000
+Webhook: http://127.0.0.1:8000/webhook
+Health: http://127.0.0.1:8000/health
+```
+
+Optional environment overrides:
+
+```powershell
+$env:HOST = "127.0.0.1"
+$env:PORT = "8000"
+$env:PUBLIC_URL = "http://127.0.0.1:8000/webhook"
+$env:STATE_FILE = "D:\Project\Python\webhook-ec2\market_state.json"
+$env:TELEGRAM_POLL_SECONDS = "10"
+```
+
+PowerShell variables apply only to the current terminal. Start `webhook.py`
+from that same terminal.
+
+Verify the server:
+
+```powershell
+curl.exe http://127.0.0.1:8000/health
+```
+
+Expected output includes:
 
 ```text
 ✅ Webhook healthy
 Telegram: configured
 Alerts: running
-Uptime: 2h 15m
 ```
 
-## Environment
+## Install and Configure the MQ5 EA
 
-Create `.env` beside `webhook.py`:
+The tracked source is `mq5/Webhook.mq5`. Root `Webhook.mq5` is a symlink to the
+live MetaTrader Experts file.
 
-```env
-HOST=0.0.0.0
-PORT=8000
-PUBLIC_URL=http://YOUR_EC2_IP:8000/webhook
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_CHAT_ID=your_telegram_chat_id
-TIMEZONE_OFFSET_HOURS=5
-STATE_FILE=/opt/webhook-ec2/market_state.json
+After every MQ5 edit:
+
+```powershell
+python sync_mq5.py
 ```
 
-The included `webhook-ec2.service` loads this file through `EnvironmentFile`.
-`STATE_FILE` is optional; by default, state is stored as `market_state.json`
-beside `webhook.py`.
+Then compile the live `Webhook.mq5` in MetaEditor.
 
-For local shell runs, export the values first or use your shell's env loader, then run:
+In MetaTrader 5:
 
-```bash
-python3 webhook.py
-```
+1. Open **Tools > Options > Expert Advisors**.
+2. Enable **Allow WebRequest for listed URL**.
+3. Add:
 
-## EC2 Setup
+   ```text
+   http://127.0.0.1:8000
+   ```
 
-Clone and enter the project:
+4. Attach the EA to a chart and enable algorithmic trading.
 
-```bash
-git clone https://github.com/Oceaneyes123/webhook-ec2-metatrader5.git
-cd webhook-ec2-metatrader5
-```
-
-Open port `8000` only to the MT5 machine public IP when possible.
-
-AWS Security Group inbound rule:
+The EA's default URL is:
 
 ```text
-Type: Custom TCP
-Port: 8000
-Source: YOUR_MT5_MACHINE_PUBLIC_IP/32
+WebhookUrl = http://127.0.0.1:8000/webhook
 ```
 
-If `ufw` is active:
-
-```bash
-sudo ufw allow 8000/tcp
-sudo ufw reload
-```
-
-Install and start the service:
-
-```bash
-sudo cp webhook-ec2.service /etc/systemd/system/webhook-ec2.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now webhook-ec2
-sudo systemctl status webhook-ec2
-```
-
-## Telegram Commands
-
-Commands are read by polling every 10 seconds by default, so HTTPS is not required.
-
-Optional `.env` setting:
-
-```env
-TELEGRAM_POLL_SECONDS=10
-```
-
-If you later use an HTTPS domain, you can set a Telegram webhook instead:
-
-```bash
-curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=https://YOUR_DOMAIN/telegram"
-```
-
-Telegram requires an HTTPS webhook URL. Polling works with only the bot token and does not need a public `/telegram` URL.
-
-Available commands:
+Other useful EA inputs:
 
 ```text
-/status - Check bot status
-/pause - Pause MT5 alerts
-/resume - Resume MT5 alerts
-/help - Show available commands
-/recent Gold - Show last 5 saved signals for a pair
-/summary Gold - Show EMA and retained-pattern confluence
-/levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, and PDH/PDL
-```
-
-Telegram messages use HTML formatting. Pausing suppresses automatic pattern
-alerts while snapshots continue updating `/summary` and `/levels`.
-
-## MT5 Setup
-
-In MT5:
-
-```text
-Tools > Options > Expert Advisors > Allow WebRequest for listed URL
-```
-
-Add:
-
-```text
-http://YOUR_EC2_IP:8000
-```
-
-Attach the EA to a live chart. MT5 WebRequest does not work in Strategy Tester.
-
-Production EA inputs:
-
-```text
-WebhookEnvironment = ENV_PRODUCTION
-ProductionWebhookUrl = http://YOUR_EC2_IP:8000/webhook
 WebRequestTimeoutMs = 5000
 PrintDebugLogs = true
 LevelLookbackBars = 100
@@ -149,55 +121,76 @@ AtrPeriod = 14
 MinFvgAtrRatio = 0.25
 ```
 
-`MinFvgAtrRatio` filters out gaps smaller than 25% of ATR(14). Initialization
-snapshots populate command state without sending stale pattern alerts.
+M1 and M5 snapshots use EMA20/EMA50 only. M15, M30, H1, and H4 snapshots
+include candle patterns and key levels.
 
-## Test Requests
-
-Health:
-
-```bash
-curl -i http://YOUR_EC2_IP:8000/health
-```
-
-Webhook:
-
-```bash
-curl -i -X POST http://YOUR_EC2_IP:8000/webhook \
-  -H "Content-Type: application/json" \
-  -d '{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro","timeframe":"M1","candle_time":"2026.06.26 11:11:00","open":4029.07,"close":4030.23}'
-```
-
-Expected response:
+## Telegram Commands
 
 ```text
-HTTP/1.0 200 OK
-ok
+/status - Check bot status
+/pause - Suppress automatic pattern alerts
+/resume - Resume automatic pattern alerts
+/help - Show available commands
+/recent Gold - Show the last five alerts for a symbol
+/summary Gold - Show EMA and retained-pattern confluence
+/levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, and PDH/PDL
 ```
 
-## Troubleshooting
+Paused mode still stores incoming snapshots, so `/summary` and `/levels` remain
+current.
 
-Check listener:
+## Test the Webhook Manually
 
-```bash
-sudo ss -lntp | grep 8000
+```powershell
+$body = @{
+    event_type = "TIMEFRAME_SNAPSHOT"
+    symbol = "GOLDmicro"
+    timeframe = "M1"
+    candle_time = "2026.06.28 12:01:00"
+    open = 2300.0
+    high = 2310.0
+    low = 2290.0
+    close = 2305.0
+    digits = 2
+    notify_patterns = $true
+    ema20 = 2306.0
+    ema50 = 2305.0
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Uri http://127.0.0.1:8000/webhook `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $body
 ```
 
-Check service logs:
+The response should be `ok`.
 
-```bash
-journalctl -u webhook-ec2 -f
+## Tests and Logs
+
+Run all tests:
+
+```powershell
+python -m unittest
+```
+
+Follow the local log:
+
+```powershell
+Get-Content .\webhook.log -Wait
 ```
 
 Common MT5 errors:
 
 ```text
-4014 - URL is not in the MT5 WebRequest allow-list
-5203 - Connection issue; check Security Group, firewall, URL, and service status
+4014 - Add http://127.0.0.1:8000 to the WebRequest allow-list.
+5201 - Confirm the Python server is running.
+5202 - The local request timed out.
+5203 - Check the URL, port, and webhook log.
 ```
 
-Run tests:
+## Optional Future Linux Service
 
-```bash
-python -m unittest test_webhook.py
-```
+`webhook-ec2.service` is retained as a future systemd deployment artifact and
+is not used by the local Windows setup. Its paths and environment file must be
+adapted to the target Linux machine before use.
