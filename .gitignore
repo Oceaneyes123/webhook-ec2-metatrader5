@@ -2,3 +2,4 @@
 __pycache__/
 *.log
 .codegraph
+market_state.json

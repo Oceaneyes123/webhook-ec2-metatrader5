@@ -1,4 +1,5 @@
 import json
+import importlib.util
 import os
 import tempfile
 import time
@@ -11,6 +12,7 @@ from unittest.mock import patch
 
 import app_logger
 import json_data_parser
+import market_state
 import telegram_sender
 import webhook
 
@@ -31,6 +33,22 @@ class WebhookTest(unittest.TestCase):
         handler.send_header = lambda key, value: handler.responses.append((key, value))
         handler.end_headers = lambda: None
         return handler
+
+    def snapshot(self, timeframe, candle_time, **values):
+        payload = {
+            "event_type": "TIMEFRAME_SNAPSHOT",
+            "symbol": "GOLDmicro",
+            "timeframe": timeframe,
+            "candle_time": candle_time,
+            "open": 2300.0,
+            "high": 2310.0,
+            "low": 2290.0,
+            "close": 2305.0,
+            "digits": 2,
+            "notify_patterns": True,
+        }
+        payload.update(values)
+        return payload
 
     def test_webhook_ignores_non_engulfing_candle_close(self):
         sent = []
@@ -106,6 +124,7 @@ class WebhookTest(unittest.TestCase):
                 "Bias: Directional / UNKNOWN\n"
                 "🕒 2026.06.26 05:00 PM\n"
                 "💰 1.2345 - 1.2360",
+                "parse_mode": "HTML",
             },
         )
 
@@ -134,6 +153,32 @@ class WebhookTest(unittest.TestCase):
             telegram_sender.send_telegram_message("message", chat_id="command-chat")
 
         self.assertEqual(json.loads(requests[0].data)["chat_id"], "command-chat")
+
+    def test_send_telegram_message_can_disable_html(self):
+        requests = []
+
+        def fake_urlopen(request, timeout):
+            requests.append(request)
+
+            class Response:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return None
+
+                def read(self):
+                    return b'{"ok":true}'
+
+            return Response()
+
+        with patch.dict(
+            os.environ,
+            {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
+        ), patch("urllib.request.urlopen", fake_urlopen):
+            telegram_sender.send_telegram_message("<raw>", parse_mode=None)
+
+        self.assertNotIn("parse_mode", json.loads(requests[0].data))
 
     def test_engulfing_candle_message_uses_buy_format(self):
         self.assertEqual(
@@ -169,6 +214,22 @@ class WebhookTest(unittest.TestCase):
             ).splitlines()[0],
             "📈 EURUSD Hammer Candle - M15",
         )
+
+    def test_candle_message_escapes_dynamic_html(self):
+        message = json_data_parser.candle_alert_message(
+            {
+                "event_type": "ENGULFING_CANDLE",
+                "signal": "BUY",
+                "symbol": "X<Y",
+                "timeframe": "M15",
+                "candle_time": "2026.06.26 12:00",
+                "open": "1<2",
+                "close": "3&4",
+            }
+        )
+        self.assertIn("X&lt;Y", message)
+        self.assertIn("1&lt;2 - 3&amp;4", message)
+        self.assertNotIn("X<Y", message)
 
     def test_engulfing_candle_message_uses_sell_format(self):
         self.assertEqual(
@@ -452,7 +513,7 @@ class WebhookTest(unittest.TestCase):
             handler = self.make_handler(
                 "/webhook",
                 b'{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro",'
-                b'"timeframe":"M1","candle_time":"2026.06.26 11:11:00",'
+                b'"timeframe":"M15","candle_time":"2026.06.26 11:11:00",'
                 b'"open":4029.07,"close":4030.23}',
             )
             handler.do_POST()
@@ -513,6 +574,335 @@ class WebhookTest(unittest.TestCase):
         send.assert_called_once()
         self.assertEqual(send.call_args.kwargs["chat_id"], "cmd-chat")
         self.assertIn("Bot online", send.call_args.args[0])
+
+    def test_summary_and_levels_commands_require_a_symbol(self):
+        self.assertEqual(webhook.command_reply("/summary"), "Usage: /summary Gold")
+        self.assertEqual(webhook.command_reply("/levels"), "Usage: /levels Gold")
+
+    def test_help_lists_summary_and_levels_commands(self):
+        message = webhook.help_text()
+        self.assertIn("/summary Gold", message)
+        self.assertIn("/levels Gold", message)
+
+    def test_market_state_module_is_available(self):
+        self.assertIsNotNone(importlib.util.find_spec("market_state"))
+
+    def test_market_state_persists_ema_snapshot_and_neutral_equality(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            state = market_state.MarketState(path)
+            self.assertEqual(
+                state.update(
+                    self.snapshot(
+                        "M1", "2026.06.28 10:01:00", ema20=2306.0, ema50=2305.0
+                    )
+                ),
+                [],
+            )
+            state.update(
+                self.snapshot(
+                    "M5", "2026.06.28 10:05:00", ema20=2305.0, ema50=2305.0
+                )
+            )
+
+            report = market_state.MarketState(path).summary("Gold")
+
+        self.assertIn("<b>M1</b>", report)
+        self.assertIn("Bullish", report)
+        self.assertIn("<b>M5</b>", report)
+        self.assertIn("Neutral", report)
+
+    def test_market_state_rejects_snapshot_for_unknown_timeframe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            with self.assertRaisesRegex(ValueError, "timeframe"):
+                state.update(self.snapshot("D1", "2026.06.28 10:00:00"))
+
+    def test_higher_opposing_pattern_invalidates_older_lower_pattern(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                self.snapshot(
+                    "M15",
+                    "2026.06.28 10:00:00",
+                    patterns=[{"event_type": "ENGULFING_CANDLE", "signal": "BUY"}],
+                    levels={},
+                )
+            )
+            state.update(
+                self.snapshot(
+                    "H1",
+                    "2026.06.28 11:00:00",
+                    patterns=[{"event_type": "SHOOTING_STAR_CANDLE", "signal": "SELL"}],
+                    levels={},
+                )
+            )
+            report = state.summary("Gold")
+            self.assertIn("Engulfing Candle", report)
+            self.assertIn("(invalidated)", report)
+
+            state.update(
+                self.snapshot(
+                    "M15",
+                    "2026.06.28 12:00:00",
+                    patterns=[{"event_type": "HAMMER_CANDLE", "signal": "BUY"}],
+                    levels={},
+                )
+            )
+            report = state.summary("Gold")
+
+        self.assertIn("Hammer Candle", report)
+        self.assertNotIn("Hammer Candle — Bullish (invalidated)", report)
+
+    def test_summary_confluence_returns_buy_sell_or_wait(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                self.snapshot(
+                    "M1", "2026.06.28 12:01:00", ema20=2310.0, ema50=2300.0
+                )
+            )
+            state.update(
+                self.snapshot(
+                    "M5", "2026.06.28 12:05:00", ema20=2310.0, ema50=2300.0
+                )
+            )
+            state.update(
+                self.snapshot(
+                    "M15",
+                    "2026.06.28 12:15:00",
+                    patterns=[{"event_type": "HAMMER_CANDLE", "signal": "BUY"}],
+                    levels={},
+                )
+            )
+            self.assertIn("<b>Suggestion: BUY</b>", state.summary("Gold"))
+
+            state.update(
+                self.snapshot(
+                    "H1",
+                    "2026.06.28 13:00:00",
+                    patterns=[{"event_type": "EVENING_STAR", "signal": "SELL"}],
+                    levels={},
+                )
+            )
+            self.assertIn("<b>Suggestion: WAIT</b>", state.summary("Gold"))
+
+            state.update(
+                self.snapshot(
+                    "M1", "2026.06.28 13:01:00", ema20=2290.0, ema50=2300.0
+                )
+            )
+            state.update(
+                self.snapshot(
+                    "M5", "2026.06.28 13:05:00", ema20=2290.0, ema50=2300.0
+                )
+            )
+
+            self.assertIn("<b>Suggestion: SELL</b>", state.summary("Gold"))
+
+    def test_levels_report_formats_all_higher_timeframes_and_missing_data(self):
+        levels = {
+            "support": 2280.0,
+            "resistance": 2340.0,
+            "fib": {
+                "direction": "UP",
+                "start": 2260.0,
+                "end": 2360.0,
+                "38.2": 2321.8,
+                "50.0": 2310.0,
+                "61.8": 2298.2,
+            },
+            "bullish_fvg": {"low": 2275.0, "high": 2285.0},
+            "bearish_fvg": None,
+            "previous_day_high": 2350.0,
+            "previous_day_low": 2250.0,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                self.snapshot(
+                    "M15", "2026.06.28 12:15:00", patterns=[], levels=levels
+                )
+            )
+            report = state.levels("Gold")
+
+        self.assertIn("<b>M15</b>", report)
+        self.assertIn("Support: <code>2280.00</code>", report)
+        self.assertIn("Fib 38.2/50/61.8", report)
+        self.assertIn("Bearish FVG: None found", report)
+        self.assertIn("<b>M30</b>\nAwaiting data", report)
+        self.assertIn("PDH / PDL: <code>2350.00</code> / <code>2250.00</code>", report)
+
+    def test_summary_escapes_dynamic_symbol(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            payload = self.snapshot(
+                "M1", "2026.06.28 12:01:00", ema20=2310.0, ema50=2300.0
+            )
+            payload["symbol"] = "X<Y"
+            state.update(payload)
+
+            report = state.summary("X<Y")
+
+        self.assertIn("X&lt;Y", report)
+        self.assertNotIn("X<Y", report)
+
+    def test_market_state_returns_each_pattern_notification_once(self):
+        payload = self.snapshot(
+            "M15",
+            "2026.06.28 12:15:00",
+            patterns=[
+                {"event_type": "ENGULFING_CANDLE", "signal": "BUY"},
+                {"event_type": "MORNING_STAR", "signal": "BUY"},
+            ],
+            levels={},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            first = state.update(payload)
+            for pattern in first:
+                state.mark_notified(pattern)
+            duplicate = state.update(payload)
+
+        self.assertEqual(
+            [pattern["event_type"] for pattern in first],
+            ["ENGULFING_CANDLE", "MORNING_STAR"],
+        )
+        self.assertEqual(duplicate, [])
+
+    def test_initial_snapshot_stores_patterns_without_notification(self):
+        payload = self.snapshot(
+            "H4",
+            "2026.06.28 12:00:00",
+            notify_patterns=False,
+            patterns=[{"event_type": "EVENING_STAR", "signal": "SELL"}],
+            levels={},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            self.assertEqual(state.update(payload), [])
+            report = state.summary("Gold")
+
+        self.assertIn("Evening Star", report)
+
+    def test_webhook_stores_snapshot_and_sends_new_patterns_once(self):
+        payload = self.snapshot(
+            "M15",
+            "2026.06.28 12:15:00",
+            patterns=[{"event_type": "ENGULFING_CANDLE", "signal": "BUY"}],
+            levels={},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            with patch.object(webhook, "MARKET_STATE", state, create=True), patch(
+                "webhook.send_telegram_message"
+            ) as send:
+                first = self.make_handler("/webhook", json.dumps(payload).encode())
+                first.do_POST()
+                duplicate = self.make_handler("/webhook", json.dumps(payload).encode())
+                duplicate.do_POST()
+
+            report = state.summary("Gold")
+
+        self.assertEqual(first.wfile.getvalue(), b"ok")
+        self.assertEqual(duplicate.wfile.getvalue(), b"ok")
+        send.assert_called_once()
+        self.assertIn("Engulfing Candle", send.call_args.args[0])
+        self.assertIn("Engulfing Candle", report)
+
+    def test_webhook_retries_pattern_alert_after_telegram_failure(self):
+        payload = self.snapshot(
+            "M15",
+            "2026.06.28 12:15:00",
+            patterns=[{"event_type": "ENGULFING_CANDLE", "signal": "BUY"}],
+            levels={},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            with patch.object(webhook, "MARKET_STATE", state), patch(
+                "webhook.send_telegram_message",
+                side_effect=[RuntimeError("Telegram unavailable"), b'{"ok":true}'],
+            ) as send, patch("webhook.notify_error"):
+                first = self.make_handler("/webhook", json.dumps(payload).encode())
+                first.do_POST()
+                retry = self.make_handler("/webhook", json.dumps(payload).encode())
+                retry.do_POST()
+
+        self.assertEqual(first.responses[0], ("code", 500))
+        self.assertEqual(retry.wfile.getvalue(), b"ok")
+        self.assertEqual(send.call_count, 2)
+
+    def test_paused_webhook_stores_snapshot_without_pattern_alert(self):
+        payload = self.snapshot(
+            "H1",
+            "2026.06.28 13:00:00",
+            patterns=[{"event_type": "EVENING_STAR", "signal": "SELL"}],
+            levels={},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            with patch.object(webhook, "MARKET_STATE", state, create=True), patch(
+                "webhook.send_telegram_message"
+            ) as send:
+                webhook.ALERTS_PAUSED = True
+                handler = self.make_handler("/webhook", json.dumps(payload).encode())
+                handler.do_POST()
+                webhook.ALERTS_PAUSED = False
+                retry = self.make_handler("/webhook", json.dumps(payload).encode())
+                retry.do_POST()
+
+            report = state.summary("Gold")
+
+        self.assertEqual(handler.wfile.getvalue(), b"ok")
+        self.assertEqual(retry.wfile.getvalue(), b"ok")
+        send.assert_not_called()
+        self.assertIn("Evening Star", report)
+
+    def test_webhook_ignores_legacy_pattern_on_m1(self):
+        payload = {
+            "event_type": "ENGULFING_CANDLE",
+            "signal": "BUY",
+            "symbol": "GOLDmicro",
+            "timeframe": "M1",
+            "candle_time": "2026.06.28 13:00:00",
+            "open": 2300.0,
+            "close": 2310.0,
+        }
+        with patch("webhook.send_telegram_message") as send:
+            handler = self.make_handler("/webhook", json.dumps(payload).encode())
+            handler.do_POST()
+
+        self.assertEqual(handler.wfile.getvalue(), b"ignored")
+        send.assert_not_called()
+
+    def test_summary_and_levels_commands_use_market_state(self):
+        levels = {
+            "support": 2280.0,
+            "resistance": 2340.0,
+            "fib": None,
+            "bullish_fvg": None,
+            "bearish_fvg": None,
+            "previous_day_high": 2350.0,
+            "previous_day_low": 2250.0,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                self.snapshot(
+                    "M1", "2026.06.28 13:01:00", ema20=2310.0, ema50=2300.0
+                )
+            )
+            state.update(
+                self.snapshot(
+                    "M15", "2026.06.28 13:15:00", patterns=[], levels=levels
+                )
+            )
+            with patch.object(webhook, "MARKET_STATE", state, create=True):
+                summary = webhook.command_reply("/summary Gold")
+                level_report = webhook.command_reply("/levels Gold")
+
+        self.assertIn("<b>GOLD Market Summary</b>", summary)
+        self.assertIn("<b>GOLD Key Levels</b>", level_report)
 
 
 if __name__ == "__main__":

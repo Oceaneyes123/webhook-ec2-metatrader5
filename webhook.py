@@ -1,3 +1,4 @@
+import html
 import json
 import os
 import threading
@@ -6,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from app_logger import get_logger
 from json_data_parser import candle_alert_message, display_symbol, is_supported_payload
+from market_state import MarketState, PATTERN_TIMEFRAMES
 from telegram_sender import get_telegram_updates, send_telegram_message
 
 
@@ -13,10 +15,14 @@ logger = get_logger()
 START_TIME = time.monotonic()
 ALERTS_PAUSED = False
 RECENT_SIGNALS = []
+MARKET_STATE = MarketState()
 
 
 def error_message(error):
-    return f"⚠️ Webhook Error\n{type(error).__name__}: {error}"
+    return (
+        "⚠️ Webhook Error\n"
+        f"{html.escape(type(error).__name__)}: {html.escape(str(error))}"
+    )
 
 
 def notify_error(error):
@@ -72,6 +78,8 @@ def help_text():
             "/resume - Resume MT5 alerts",
             "/help - Show available commands",
             "/recent Gold - Last 5 signals on a pair",
+            "/summary Gold - Multi-timeframe market summary",
+            "/levels Gold - M15-H4 key levels",
         ]
     )
 
@@ -107,6 +115,15 @@ def command_reply(text):
             return f"No recent {symbol} signals"
         lines = [f"{index}. {message}" for index, message in enumerate(signals, 1)]
         return f"Recent {symbol} signals:\n" + "\n".join(lines)
+    if command in ("/summary", "/levels"):
+        if len(parts) < 2:
+            return f"Usage: {command} Gold"
+        symbol = display_symbol(parts[1]).upper()
+        return (
+            MARKET_STATE.summary(symbol)
+            if command == "/summary"
+            else MARKET_STATE.levels(symbol)
+        )
     return help_text()
 
 
@@ -189,6 +206,31 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b"ignored")
+                return
+            if payload.get("event_type") == "TIMEFRAME_SNAPSHOT":
+                notifications = MARKET_STATE.update(payload)
+                if not ALERTS_PAUSED:
+                    for notification in notifications:
+                        message = candle_alert_message(notification)
+                        send_telegram_message(message)
+                        MARKET_STATE.mark_notified(notification)
+                        RECENT_SIGNALS.append(
+                            {
+                                "symbol": display_symbol(
+                                    notification.get("symbol")
+                                ).upper(),
+                                "message": message,
+                            }
+                        )
+                    del RECENT_SIGNALS[:-50]
+                else:
+                    for notification in notifications:
+                        MARKET_STATE.mark_notified(notification)
+                self.write_text(200, "ok")
+                return
+            if str(payload.get("timeframe", "")).upper() not in PATTERN_TIMEFRAMES:
+                logger.info("Ignored candle pattern outside M15-H4")
+                self.write_text(200, "ignored")
                 return
             if ALERTS_PAUSED:
                 logger.info("Ignored webhook while alerts are paused")

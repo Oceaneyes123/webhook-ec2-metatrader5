@@ -1,3 +1,4 @@
+import html
 import os
 from datetime import datetime, timedelta
 
@@ -34,7 +35,10 @@ def display_time(value):
 
 
 def is_supported_payload(payload):
-    return isinstance(payload, dict) and payload.get("event_type") in SUPPORTED_EVENTS
+    return isinstance(payload, dict) and (
+        payload.get("event_type") in SUPPORTED_EVENTS
+        or payload.get("event_type") == "TIMEFRAME_SNAPSHOT"
+    )
 
 
 def display_symbol(value):
@@ -74,20 +78,26 @@ def candle_alert_message(payload):
     direction = "📈" if signal == "BUY" else "📉" if signal == "SELL" else "📊"
     title = SUPPORTED_EVENTS.get(payload.get("event_type"), "Candle Alert")
     symbol = display_symbol(payload.get("symbol"))
-    symbol_text = f"{symbol} " if symbol else ""
+    symbol_text = f"{html.escape(symbol)} " if symbol else ""
     candle_time = display_time(payload.get("candle_time", payload.get("time", "")))
     if all(payload.get(key) not in (None, "") for key in ("high", "low")):
         price = (
-            f"O: {payload['open']} | H: {payload['high']} | "
-            f"L: {payload['low']} | C: {payload['close']}"
+            f"O: {html.escape(str(payload['open']))} | "
+            f"H: {html.escape(str(payload['high']))} | "
+            f"L: {html.escape(str(payload['low']))} | "
+            f"C: {html.escape(str(payload['close']))}"
         )
     else:
-        price = f"{payload.get('open', '')} - {payload.get('close', '')}"
+        price = (
+            f"{html.escape(str(payload.get('open', '')))} - "
+            f"{html.escape(str(payload.get('close', '')))}"
+        )
 
     return (
-        f"{direction} {symbol_text}{title} - {payload.get('timeframe', '')}\n"
+        f"{direction} {symbol_text}{title} - "
+        f"{html.escape(str(payload.get('timeframe', '')))}\n"
         f"Bias: {bias}\n"
-        f"🕒 {candle_time}\n"
+        f"🕒 {html.escape(candle_time)}\n"
         f"💰 {price}"
     )
 

@@ -7,6 +7,10 @@ MT5 EA -> POST /webhook -> EC2 Python server -> Telegram
 Telegram -> POST /telegram -> pause/resume/status/recent commands
 ```
 
+The EA sends one state snapshot after each closed candle. M1 and M5 use only
+EMA20/EMA50 trend bias. M15, M30, H1, and H4 include candle patterns and key
+levels.
+
 ## Endpoints
 
 | Method | Path | Purpose |
@@ -35,9 +39,12 @@ PUBLIC_URL=http://YOUR_EC2_IP:8000/webhook
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_CHAT_ID=your_telegram_chat_id
 TIMEZONE_OFFSET_HOURS=5
+STATE_FILE=/opt/webhook-ec2/market_state.json
 ```
 
 The included `webhook-ec2.service` loads this file through `EnvironmentFile`.
+`STATE_FILE` is optional; by default, state is stored as `market_state.json`
+beside `webhook.py`.
 
 For local shell runs, export the values first or use your shell's env loader, then run:
 
@@ -106,9 +113,12 @@ Available commands:
 /resume - Resume MT5 alerts
 /help - Show available commands
 /recent Gold - Show last 5 saved signals for a pair
+/summary Gold - Show EMA and retained-pattern confluence
+/levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, and PDH/PDL
 ```
 
-Paused alerts return `paused` to MT5 and are not sent to Telegram.
+Telegram messages use HTML formatting. Pausing suppresses automatic pattern
+alerts while snapshots continue updating `/summary` and `/levels`.
 
 ## MT5 Setup
 
@@ -133,7 +143,14 @@ WebhookEnvironment = ENV_PRODUCTION
 ProductionWebhookUrl = http://YOUR_EC2_IP:8000/webhook
 WebRequestTimeoutMs = 5000
 PrintDebugLogs = true
+LevelLookbackBars = 100
+SwingStrength = 2
+AtrPeriod = 14
+MinFvgAtrRatio = 0.25
 ```
+
+`MinFvgAtrRatio` filters out gaps smaller than 25% of ATR(14). Initialization
+snapshots populate command state without sending stale pattern alerts.
 
 ## Test Requests
 
