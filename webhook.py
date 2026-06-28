@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 from app_logger import get_logger
 from json_data_parser import candle_alert_message, display_symbol, is_supported_payload
@@ -11,6 +12,23 @@ from market_state import MarketState, PATTERN_TIMEFRAMES
 from telegram_sender import get_telegram_updates, send_telegram_message
 
 
+def load_dotenv(path=None):
+    path = Path(path) if path is not None else Path(__file__).with_name(".env")
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if not key:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
+
+
+load_dotenv()
 logger = get_logger()
 START_TIME = time.monotonic()
 ALERTS_PAUSED = False

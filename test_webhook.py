@@ -22,6 +22,29 @@ class WebhookTest(unittest.TestCase):
         webhook.ALERTS_PAUSED = False
         webhook.RECENT_SIGNALS.clear()
 
+    def test_load_dotenv(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            path.write_text(
+                'TELEGRAM_BOT_TOKEN=file-token\n'
+                'TELEGRAM_CHAT_ID="123456789"\n'
+                "PORT=9001\n",
+                encoding="utf-8",
+            )
+            with patch.dict(
+                os.environ, {"TELEGRAM_BOT_TOKEN": "process-token"}, clear=True
+            ):
+                webhook.load_dotenv(path)
+
+                self.assertEqual(os.environ["TELEGRAM_BOT_TOKEN"], "process-token")
+                self.assertEqual(os.environ["TELEGRAM_CHAT_ID"], "123456789")
+                self.assertEqual(os.environ["PORT"], "9001")
+
+    def test_load_dotenv_ignores_missing_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {}, clear=True):
+                webhook.load_dotenv(Path(directory) / ".env")
+
     def make_handler(self, path, body=b"", method="POST"):
         handler = webhook.WebhookHandler.__new__(webhook.WebhookHandler)
         handler.path = path
