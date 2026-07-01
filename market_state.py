@@ -7,12 +7,17 @@ import os
 import threading
 from pathlib import Path
 
-from json_data_parser import SUPPORTED_EVENTS, display_symbol
+from PIL import Image, ImageDraw, ImageFont
+
+from json_data_parser import SUPPORTED_EVENTS, display_symbol, display_time
 
 
 TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4")
 EMA_TIMEFRAMES = TIMEFRAMES[:2]
 PATTERN_TIMEFRAMES = TIMEFRAMES[2:]
+RSI_TIMEFRAMES = ("M5", "M15", "M30", "H1", "H4")
+RSI_LOOKBACKS = {"M5": 30, "M15": 30, "M30": 10, "H1": 10, "H4": 10}
+CHART_CANDLE_LOOKBACK = 60
 
 
 def _number(value, field):
@@ -88,6 +93,9 @@ def validate_snapshot(payload):
             for key in ("open", "high", "low", "close")
         },
     }
+
+    if payload.get("rsi14") is not None:
+        snapshot["rsi14"] = _number(payload.get("rsi14"), "rsi14")
 
     if timeframe in EMA_TIMEFRAMES:
         snapshot["ema20"] = _number(payload.get("ema20"), "ema20")
@@ -169,6 +177,34 @@ class MarketState:
             same_candle = previous.get("candle_time") == snapshot["candle_time"]
             notified = set(previous.get("notified_patterns", [])) if same_candle else set()
             retained = previous.get("retained_patterns", [])
+
+            if "rsi14" in snapshot:
+                history = list(previous.get("rsi_history", []))
+                current_entry = {
+                    "candle_time": snapshot["candle_time"],
+                    "rsi14": snapshot["rsi14"],
+                }
+                if history and history[-1].get("candle_time") == snapshot["candle_time"]:
+                    history[-1] = current_entry
+                else:
+                    history.append(current_entry)
+                snapshot["rsi_history"] = history[-max(RSI_LOOKBACKS.values()):]
+            elif previous.get("rsi_history"):
+                snapshot["rsi_history"] = previous["rsi_history"]
+
+            candle_history = list(previous.get("candle_history", []))
+            current_candle = {
+                "candle_time": snapshot["candle_time"],
+                "open": snapshot["open"],
+                "high": snapshot["high"],
+                "low": snapshot["low"],
+                "close": snapshot["close"],
+            }
+            if candle_history and candle_history[-1].get("candle_time") == snapshot["candle_time"]:
+                candle_history[-1] = current_candle
+            else:
+                candle_history.append(current_candle)
+            snapshot["candle_history"] = candle_history[-CHART_CANDLE_LOOKBACK:]
 
             if snapshot["patterns"]:
                 retained = [
@@ -304,7 +340,7 @@ class MarketState:
                         f"{SUPPORTED_EVENTS[pattern['event_type']]} — "
                         f"{direction}{status}"
                     )
-                    lines.append(f"<i>{html.escape(pattern['candle_time'])}</i>")
+                    lines.append(f"<i>{html.escape(display_time(pattern['candle_time']))}</i>")
 
             suggestion, reason = self._suggestion(timeframes)
             lines.extend(
@@ -338,6 +374,47 @@ class MarketState:
         if not signals:
             return "WAIT", "No active M15-H4 pattern confirmation."
         return "WAIT", "EMA and higher-timeframe pattern directions conflict."
+
+    def rsi_summary(self, symbol):
+        symbol = display_symbol(symbol).upper()
+        with self.lock:
+            timeframes = self.data["symbols"].get(symbol)
+            if not timeframes:
+                return f"<b>{html.escape(symbol)}</b>\nAwaiting RSI data"
+
+            lines = [f"📈 <b>{html.escape(symbol)} RSI(14)</b>"]
+            for timeframe in RSI_TIMEFRAMES:
+                snapshot = timeframes.get(timeframe)
+                lines.append(f"\n<b>{timeframe}</b>")
+                if not snapshot or "rsi14" not in snapshot:
+                    lines.append("Awaiting data")
+                    continue
+
+                rsi = snapshot["rsi14"]
+                status = "Overbought" if rsi >= 70 else "Oversold" if rsi <= 30 else "Neutral"
+                lines[-1] = f"<b>{timeframe}</b>: <code>{rsi:.2f}</code> — {status}"
+                history = snapshot.get("rsi_history", [])[-RSI_LOOKBACKS[timeframe]:]
+                above = [entry for entry in history if entry.get("rsi14", 0) >= 70]
+                below = [entry for entry in history if entry.get("rsi14", 100) <= 30]
+                if above:
+                    latest = above[-1]
+                    lines.append(
+                        "Closed above 70: "
+                        f"<code>{latest['rsi14']:.2f}</code> at "
+                        f"<i>{html.escape(display_time(latest['candle_time']))}</i>"
+                    )
+                if below:
+                    latest = below[-1]
+                    lines.append(
+                        "Closed below 30: "
+                        f"<code>{latest['rsi14']:.2f}</code> at "
+                        f"<i>{html.escape(display_time(latest['candle_time']))}</i>"
+                    )
+                if not above and not below:
+                    lines.append(
+                        f"No 70/30 extreme in last {RSI_LOOKBACKS[timeframe]} candles"
+                    )
+            return "\n".join(lines)
 
     def levels(self, symbol):
         symbol = display_symbol(symbol).upper()
@@ -401,6 +478,188 @@ class MarketState:
             else:
                 lines.append("PDH / PDL: None found")
             return "\n".join(lines)
+
+    def levels_chart(self, symbol, output_path):
+        symbol = display_symbol(symbol).upper()
+        output_path = Path(output_path)
+        with self.lock:
+            timeframes = self.data["symbols"].get(symbol)
+            if not timeframes:
+                return None
+            chart_items, prices, latest_snapshot, candles, candle_timeframe = self._chart_items(timeframes)
+
+        if not latest_snapshot or not prices:
+            return None
+
+        width, height = 1100, 760
+        margin_left, margin_right, margin_top, margin_bottom = 90, 280, 70, 70
+        plot_left, plot_right = margin_left, width - margin_right
+        plot_top, plot_bottom = margin_top, height - margin_bottom
+        low, high = min(prices), max(prices)
+        padding = max((high - low) * 0.12, latest_snapshot["close"] * 0.002, 1)
+        low -= padding
+        high += padding
+
+        def y_for(price):
+            return int(plot_bottom - ((price - low) / (high - low)) * (plot_bottom - plot_top))
+
+        image = Image.new("RGB", (width, height), "#0f172a")
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+        draw.rectangle([plot_left, plot_top, plot_right, plot_bottom], outline="#334155", width=2)
+        draw.text((margin_left, 24), f"{symbol} Key Levels", fill="#f8fafc", font=font)
+        draw.text(
+            (margin_left, 44),
+            f"Latest {latest_snapshot['timeframe']} close: {self._price(latest_snapshot['close'], latest_snapshot)} at {display_time(latest_snapshot['candle_time'])}",
+            fill="#cbd5e1",
+            font=font,
+        )
+        if candles:
+            draw.text(
+                (margin_left, 60),
+                f"Candlesticks: recent {candle_timeframe} candles from EA snapshots",
+                fill="#94a3b8",
+                font=font,
+            )
+
+        for tick in range(6):
+            price = low + (high - low) * tick / 5
+            y = y_for(price)
+            draw.line([plot_left, y, plot_right, y], fill="#1e293b")
+            draw.text((12, y - 6), self._price(price, latest_snapshot), fill="#94a3b8", font=font)
+
+        current_y = y_for(latest_snapshot["close"])
+        draw.line([plot_left, current_y, plot_right, current_y], fill="#f8fafc", width=3)
+        draw.text((plot_right + 8, current_y - 8), "Current", fill="#f8fafc", font=font)
+
+        colors = {
+            "support": "#22c55e",
+            "resistance": "#ef4444",
+            "fib": "#38bdf8",
+            "previous_day": "#f59e0b",
+            "bullish_fvg": "#16a34a",
+            "bearish_fvg": "#dc2626",
+        }
+        labels = []
+        for item in chart_items:
+            color = colors[item["kind"]]
+            if "low" in item:
+                y1, y2 = y_for(item["high"]), y_for(item["low"])
+                draw.rectangle([plot_left, y1, plot_right, y2], fill=color, outline=color)
+                draw.line([plot_left, y1, plot_right, y1], fill="#e2e8f0", width=1)
+                draw.line([plot_left, y2, plot_right, y2], fill="#e2e8f0", width=1)
+                label_y = (y1 + y2) // 2
+                label = f"{item['label']} {self._price(item['low'], latest_snapshot)}-{self._price(item['high'], latest_snapshot)}"
+            else:
+                label_y = y_for(item["price"])
+                draw.line([plot_left, label_y, plot_right, label_y], fill=color, width=2)
+                label = f"{item['label']} {self._price(item['price'], latest_snapshot)}"
+            labels.append((label_y, label))
+
+        if candles:
+            self._draw_candles(draw, candles, plot_left, plot_right, y_for)
+
+        labels.sort(key=lambda entry: entry[0])
+        next_y = plot_top
+        for label_y, label in labels:
+            adjusted_y = max(label_y - 7, next_y)
+            adjusted_y = min(adjusted_y, plot_bottom - 12)
+            draw.text((plot_right + 8, adjusted_y), label, fill="#f8fafc", font=font)
+            next_y = adjusted_y + 14
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path, "PNG")
+        return output_path
+
+    def _chart_items(self, timeframes):
+        items = []
+        prices = []
+        latest_snapshot = None
+        previous_day_added = False
+        for timeframe in PATTERN_TIMEFRAMES:
+            snapshot = timeframes.get(timeframe)
+            if not snapshot:
+                continue
+            latest_snapshot = snapshot if latest_snapshot is None or snapshot["candle_time"] > latest_snapshot["candle_time"] else latest_snapshot
+            prices.extend([snapshot["open"], snapshot["high"], snapshot["low"], snapshot["close"]])
+            levels = snapshot["levels"]
+            for key, label, kind in (
+                ("support", f"{timeframe} Support", "support"),
+                ("resistance", f"{timeframe} Resistance", "resistance"),
+            ):
+                value = levels.get(key)
+                if value is not None:
+                    items.append({"kind": kind, "label": label, "price": value})
+                    prices.append(value)
+            if not previous_day_added:
+                previous_day_high = levels.get("previous_day_high")
+                previous_day_low = levels.get("previous_day_low")
+                if previous_day_high is not None and previous_day_low is not None:
+                    items.append({"kind": "previous_day", "label": "PDH", "price": previous_day_high})
+                    items.append({"kind": "previous_day", "label": "PDL", "price": previous_day_low})
+                    prices.extend([previous_day_high, previous_day_low])
+                    previous_day_added = True
+            fib = levels.get("fib")
+            if fib:
+                for key in ("38.2", "50.0", "61.8"):
+                    items.append({"kind": "fib", "label": f"{timeframe} Fib {key}", "price": fib[key]})
+                    prices.append(fib[key])
+            for key, label, kind in (
+                ("bullish_fvg", f"{timeframe} Bull FVG", "bullish_fvg"),
+                ("bearish_fvg", f"{timeframe} Bear FVG", "bearish_fvg"),
+            ):
+                zone = levels.get(key)
+                if zone:
+                    items.append({"kind": kind, "label": label, "low": zone["low"], "high": zone["high"]})
+                    prices.extend([zone["low"], zone["high"]])
+        candles, candle_timeframe = self._chart_candles(timeframes)
+        for candle in candles:
+            prices.extend([candle["open"], candle["high"], candle["low"], candle["close"]])
+        return items, prices, latest_snapshot, candles, candle_timeframe
+
+    def _chart_candles(self, timeframes):
+        for timeframe in PATTERN_TIMEFRAMES:
+            snapshot = timeframes.get(timeframe)
+            if not snapshot:
+                continue
+            history = snapshot.get("candle_history") or [
+                {
+                    "candle_time": snapshot["candle_time"],
+                    "open": snapshot["open"],
+                    "high": snapshot["high"],
+                    "low": snapshot["low"],
+                    "close": snapshot["close"],
+                }
+            ]
+            return history[-40:], timeframe
+        return [], None
+
+    @staticmethod
+    def _draw_candles(draw, candles, plot_left, plot_right, y_for):
+        count = len(candles)
+        if not count:
+            return
+        span = max(plot_right - plot_left, 1)
+        slot = span / count
+        body_half_width = max(3, min(11, int(slot * 0.28)))
+        for index, candle in enumerate(candles):
+            x = int(plot_left + slot * (index + 0.5))
+            open_y = y_for(candle["open"])
+            high_y = y_for(candle["high"])
+            low_y = y_for(candle["low"])
+            close_y = y_for(candle["close"])
+            bullish = candle["close"] >= candle["open"]
+            color = "#14b8a6" if bullish else "#f87171"
+            draw.line([x, high_y, x, low_y], fill=color, width=2)
+            body_top = min(open_y, close_y)
+            body_bottom = max(open_y, close_y)
+            if body_top == body_bottom:
+                body_bottom += 1
+            draw.rectangle(
+                [x - body_half_width, body_top, x + body_half_width, body_bottom],
+                fill=color,
+                outline=color,
+            )
 
     def _level(self, value, snapshot):
         return (

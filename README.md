@@ -133,7 +133,11 @@ include candle patterns and key levels.
 /help - Show available commands
 /recent Gold - Show the last five alerts for a symbol
 /summary Gold - Show EMA and retained-pattern confluence
-/levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, and PDH/PDL
+/levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, PDH/PDL, and a key-levels plot image
+/rsi Gold - Show RSI(14) status and 70/30 extreme lookback
+/buy - Start trailing buy-limit mode
+/sell - Start trailing sell-limit mode
+/notrade - Stop trading activity
 ```
 
 Paused mode still stores incoming snapshots, so `/summary` and `/levels` remain

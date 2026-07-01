@@ -1,15 +1,17 @@
 import html
 import json
 import os
+import tempfile
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from app_logger import get_logger
 from json_data_parser import candle_alert_message, display_symbol, is_supported_payload
 from market_state import MarketState, PATTERN_TIMEFRAMES
-from telegram_sender import get_telegram_updates, send_telegram_message
+from telegram_sender import get_telegram_updates, send_telegram_message, send_telegram_photo
 
 
 def load_dotenv(path=None):
@@ -32,6 +34,7 @@ load_dotenv()
 logger = get_logger()
 START_TIME = time.monotonic()
 ALERTS_PAUSED = False
+TRADE_MODE = "NOTRADE"
 RECENT_SIGNALS = []
 MARKET_STATE = MarketState()
 
@@ -50,11 +53,35 @@ def notify_error(error):
         logger.exception("Failed to send Telegram error notification")
 
 
+def ea_issue_message(payload):
+    symbol = display_symbol(payload.get("symbol")).upper()
+    timeframe = str(payload.get("timeframe", "")).upper()
+    message = str(payload.get("message", "EA issue")).strip() or "EA issue"
+    detail = str(payload.get("detail", "")).strip()
+    lines = ["⚠️ EA Issue"]
+    if symbol:
+        lines.append(f"Symbol: <b>{html.escape(symbol)}</b>")
+    if timeframe:
+        lines.append(f"Timeframe: <b>{html.escape(timeframe)}</b>")
+    lines.append(html.escape(message))
+    if detail:
+        lines.append(f"<code>{html.escape(detail)}</code>")
+    return "\n".join(lines)
+
+
 def server_config():
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8000"))
     public_url = os.environ.get("PUBLIC_URL", f"http://{host}:{port}/webhook")
     return host, port, public_url
+
+
+def trade_config():
+    return {
+        "mode": TRADE_MODE,
+        "lot_size": float(os.environ.get("TRADE_LOT_SIZE", "0.2")),
+        "trail_pips": float(os.environ.get("TRAIL_PIPS", "20")),
+    }
 
 
 def polling_interval():
@@ -98,12 +125,16 @@ def help_text():
             "/recent Gold - Last 5 signals on a pair",
             "/summary Gold - Multi-timeframe market summary",
             "/levels Gold - M15-H4 key levels",
+            "/rsi Gold - RSI(14) 70/30 extremes",
+            "/buy - Start trailing buy-limit mode",
+            "/sell - Start trailing sell-limit mode",
+            "/notrade - Stop trading activity",
         ]
     )
 
 
 def command_reply(text):
-    global ALERTS_PAUSED
+    global ALERTS_PAUSED, TRADE_MODE
 
     parts = text.strip().split()
     command = parts[0].split("@", 1)[0].lower() if parts else ""
@@ -124,6 +155,27 @@ def command_reply(text):
         )
     if command == "/help":
         return help_text()
+    if command == "/buy":
+        TRADE_MODE = "BUY"
+        config = trade_config()
+        return (
+            "🟢 BUY limit mode enabled\n"
+            f"Lot: {config['lot_size']}\n"
+            f"Trail: {config['trail_pips']} pips below EMA20\n"
+            "Confluence: M5/M15 previous candle above EMA20 and M1 EMA20 > EMA50"
+        )
+    if command == "/sell":
+        TRADE_MODE = "SELL"
+        config = trade_config()
+        return (
+            "🔴 SELL limit mode enabled\n"
+            f"Lot: {config['lot_size']}\n"
+            f"Trail: {config['trail_pips']} pips above EMA20\n"
+            "Confluence: M5/M15 previous candle below EMA20 and M1 EMA50 > EMA20"
+        )
+    if command == "/notrade":
+        TRADE_MODE = "NOTRADE"
+        return "⏹️ Trading paused. No buy or sell limit orders will be trailed."
     if command == "/recent":
         symbol = display_symbol(parts[1]).upper() if len(parts) > 1 else ""
         if not symbol:
@@ -133,15 +185,15 @@ def command_reply(text):
             return f"No recent {symbol} signals"
         lines = [f"{index}. {message}" for index, message in enumerate(signals, 1)]
         return f"Recent {symbol} signals:\n" + "\n".join(lines)
-    if command in ("/summary", "/levels"):
+    if command in ("/summary", "/levels", "/rsi"):
         if len(parts) < 2:
             return f"Usage: {command} Gold"
         symbol = display_symbol(parts[1]).upper()
-        return (
-            MARKET_STATE.summary(symbol)
-            if command == "/summary"
-            else MARKET_STATE.levels(symbol)
-        )
+        if command == "/summary":
+            return MARKET_STATE.summary(symbol)
+        if command == "/levels":
+            return MARKET_STATE.levels(symbol)
+        return MARKET_STATE.rsi_summary(symbol)
     return help_text()
 
 
@@ -153,8 +205,33 @@ def reply_to_telegram_update(update):
     message = update.get("message", {})
     text = message.get("text", "")
     chat_id = str(message.get("chat", {}).get("id", ""))
-    if text and chat_id:
-        send_telegram_message(command_reply(text), chat_id=chat_id)
+    if not text or not chat_id:
+        return
+    if maybe_send_levels_chart(text, chat_id):
+        return
+    send_telegram_message(command_reply(text), chat_id=chat_id)
+
+
+def maybe_send_levels_chart(text, chat_id):
+    parts = text.strip().split()
+    command = parts[0].split("@", 1)[0].lower() if parts else ""
+    if command != "/levels" or len(parts) < 2:
+        return False
+    symbol = display_symbol(parts[1]).upper()
+    report = MARKET_STATE.levels(symbol)
+    safe_symbol = "".join(character for character in symbol if character.isalnum()) or "symbol"
+    output_path = Path(tempfile.gettempdir()) / f"{safe_symbol.lower()}_key_levels.png"
+    chart_path = MARKET_STATE.levels_chart(symbol, output_path)
+    if not chart_path:
+        logger.info("No levels chart data for symbol=%s; sending text report only", symbol)
+        send_telegram_message(report, chat_id=chat_id)
+        return True
+    caption = report if len(report) <= 1000 else f"🧭 <b>{html.escape(symbol)} Key Levels</b>"
+    logger.info("Sending levels chart photo symbol=%s path=%s", symbol, chart_path)
+    send_telegram_photo(str(chart_path), caption=caption, chat_id=chat_id)
+    if caption != report:
+        send_telegram_message(report, chat_id=chat_id)
+    return True
 
 
 def poll_telegram_once(offset=None):
@@ -189,9 +266,20 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(text.encode())
 
+    def write_json(self, code, payload):
+        self.write_text(
+            code,
+            json.dumps(payload, separators=(",", ":")),
+            "application/json; charset=utf-8",
+        )
+
     def do_GET(self):
-        if self.path == "/health":
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/health":
             self.write_text(200, health_text())
+            return
+        if path == "/trade-config":
+            self.write_json(200, trade_config())
             return
         self.send_error(404)
 
@@ -224,6 +312,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b"ignored")
+                return
+            if payload.get("event_type") == "EA_ERROR":
+                send_telegram_message(ea_issue_message(payload))
+                self.write_text(200, "ok")
                 return
             if payload.get("event_type") == "TIMEFRAME_SNAPSHOT":
                 notifications = MARKET_STATE.update(payload)

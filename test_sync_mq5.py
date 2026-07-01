@@ -49,6 +49,22 @@ class SyncMq5Test(unittest.TestCase):
         self.assertNotIn("ENV_PRODUCTION", source)
         self.assertNotIn("ProductionWebhookUrl", source)
         self.assertNotIn("3.27.46.138", source)
+    def test_canonical_mq5_contains_rsi_and_trade_control_features(self):
+        source = CANONICAL.read_text(encoding="utf-8")
+
+        self.assertIn("iRSI(_Symbol, Timeframes[i], 14, PRICE_CLOSE)", source)
+        self.assertIn("/trade-config", source)
+        self.assertIn("TradeMagicNumber", source)
+        self.assertIn("BuyConfluence()", source)
+        self.assertIn("SellConfluence()", source)
+        self.assertIn("trade.BuyLimit", source)
+        self.assertIn("trade.SellLimit", source)
+        self.assertIn("HasOpenPositionForSymbol()", source)
+        self.assertIn("One open position per symbol", source)
+        self.assertIn("SendEaIssue", source)
+        self.assertIn("EA_ERROR", source)
+        self.assertIn("TradeResultText", source)
+        self.assertIn("ManageTrading();", source)
 
 
 if __name__ == "__main__":

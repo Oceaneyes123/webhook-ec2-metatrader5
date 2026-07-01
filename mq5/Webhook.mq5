@@ -3,12 +3,16 @@
 //|        Sends webhook alerts for supported candle patterns         |
 //+------------------------------------------------------------------+
 #property strict
-#property version "1.05"
+#property version "1.06"
+
+#include <Trade/Trade.mqh>
 
 input string WebhookUrl = "http://127.0.0.1:8000/webhook";
 
 input int  WebRequestTimeoutMs = 5000;
 input bool PrintDebugLogs      = true;
+input long TradeMagicNumber = 260628;
+input int EaIssueRepeatSeconds = 60;
 input double MaxBodyPercent = 35.0;
 input double MinLongWickBodyRatio = 2.0;
 input double MaxSmallWickBodyRatio = 1.0;
@@ -32,8 +36,19 @@ ENUM_TIMEFRAMES Timeframes[TF_COUNT] =
 
 datetime lastBarTimes[TF_COUNT];
 bool hasSnapshot[TF_COUNT];
-int ema20Handles[2];
-int ema50Handles[2];
+int ema20Handles[TF_COUNT];
+int ema50Handles[TF_COUNT];
+int rsiHandles[TF_COUNT];
+CTrade trade;
+string lastEaIssueKey = "";
+datetime lastEaIssueTime = 0;
+
+struct TradeConfig
+{
+   string mode;
+   double lotSize;
+   double trailPips;
+};
 
 struct Candle
 {
@@ -176,6 +191,8 @@ string BuildSnapshotPayload(
    bool hasEma,
    double ema20,
    double ema50,
+   bool hasRsi,
+   double rsi14,
    const LevelResult &levels
 )
 {
@@ -192,6 +209,9 @@ string BuildSnapshotPayload(
          "\"close\":" + DoubleToString(candle.close, digits) + ","
          "\"digits\":" + IntegerToString(digits) + ","
          "\"notify_patterns\":" + (notifyPatterns ? "true" : "false");
+
+   if(hasRsi)
+      payload += ",\"rsi14\":" + DoubleToString(rsi14, 2);
 
    if(hasEma)
    {
@@ -308,6 +328,135 @@ bool SendWebhook(string payload)
 
    Print("Webhook sent successfully.");
 
+   return true;
+}
+
+bool SendEaIssue(string message, string detail = "", ENUM_TIMEFRAMES timeframe = PERIOD_CURRENT)
+{
+   string tfText = timeframe == PERIOD_CURRENT ? "" : TimeframeToText(timeframe);
+   string key = message + "|" + detail + "|" + tfText;
+   datetime now = TimeCurrent();
+   if(key == lastEaIssueKey && EaIssueRepeatSeconds > 0
+      && now - lastEaIssueTime < EaIssueRepeatSeconds)
+      return false;
+   lastEaIssueKey = key;
+   lastEaIssueTime = now;
+
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   string payload =
+      "{"
+         "\"event_type\":\"EA_ERROR\","
+         "\"symbol\":\"" + JsonEscape(_Symbol) + "\","
+         "\"timeframe\":\"" + JsonEscape(tfText) + "\","
+         "\"message\":\"" + JsonEscape(message) + "\","
+         "\"detail\":\"" + JsonEscape(detail) + "\","
+         "\"digits\":" + IntegerToString(digits) +
+      "}";
+   return SendWebhook(payload);
+}
+
+string TradeResultText()
+{
+   return "retcode=" + IntegerToString((int)trade.ResultRetcode())
+      + " " + trade.ResultRetcodeDescription();
+}
+
+string TradeConfigUrl()
+{
+   string url = WebhookUrl;
+   int marker = StringFind(url, "/webhook");
+   if(marker >= 0)
+      return StringSubstr(url, 0, marker) + "/trade-config";
+   return url + "/trade-config";
+}
+
+bool HttpGet(string url, string &responseBody)
+{
+   char data[];
+   char result[];
+   string resultHeaders;
+   string headers =
+      "Accept: application/json\r\n"
+      "User-Agent: MT5-Trade-Config\r\n";
+
+   ResetLastError();
+   int responseCode = WebRequest(
+      "GET",
+      url,
+      headers,
+      WebRequestTimeoutMs,
+      data,
+      result,
+      resultHeaders
+   );
+   int mt5Error = GetLastError();
+   responseBody = CharArrayToString(result, 0, -1, CP_UTF8);
+
+   if(responseCode == -1)
+   {
+      if(PrintDebugLogs)
+         PrintWebRequestHelp(url, mt5Error);
+      return false;
+   }
+   if(responseCode < 200 || responseCode >= 300)
+   {
+      if(PrintDebugLogs)
+         Print("GET ", url, " returned HTTP ", responseCode, ": ", responseBody);
+      return false;
+   }
+   return true;
+}
+
+string JsonStringValue(string json, string key, string fallback)
+{
+   string marker = "\"" + key + "\":\"";
+   int start = StringFind(json, marker);
+   if(start < 0)
+      return fallback;
+   start += StringLen(marker);
+   int end = StringFind(json, "\"", start);
+   if(end < 0)
+      return fallback;
+   return StringSubstr(json, start, end - start);
+}
+
+double JsonDoubleValue(string json, string key, double fallback)
+{
+   string marker = "\"" + key + "\":";
+   int start = StringFind(json, marker);
+   if(start < 0)
+      return fallback;
+   start += StringLen(marker);
+   int end = start;
+   while(end < StringLen(json))
+   {
+      ushort ch = StringGetCharacter(json, end);
+      if((ch >= 48 && ch <= 57) || ch == 46 || ch == 45)
+         end++;
+      else
+         break;
+   }
+   if(end == start)
+      return fallback;
+   return StringToDouble(StringSubstr(json, start, end - start));
+}
+
+bool FetchTradeConfig(TradeConfig &config)
+{
+   string body;
+   if(!HttpGet(TradeConfigUrl(), body))
+   {
+      SendEaIssue("Trade config fetch failed", TradeConfigUrl());
+      return false;
+   }
+   config.mode = JsonStringValue(body, "mode", "NOTRADE");
+   config.lotSize = JsonDoubleValue(body, "lot_size", 0.2);
+   config.trailPips = JsonDoubleValue(body, "trail_pips", 20.0);
+   if(config.lotSize <= 0 || config.trailPips < 0)
+   {
+      SendEaIssue("Invalid trade config", body);
+      return false;
+   }
    return true;
 }
 
@@ -560,6 +709,15 @@ bool ReadEmaValues(int index, double &ema20, double &ema50)
    return ema20 != EMPTY_VALUE && ema50 != EMPTY_VALUE;
 }
 
+bool ReadRsiValue(int index, double &rsi14)
+{
+   double rsiBuffer[1];
+   if(CopyBuffer(rsiHandles[index], 0, 1, 1, rsiBuffer) != 1)
+      return false;
+   rsi14 = rsiBuffer[0];
+   return rsi14 != EMPTY_VALUE;
+}
+
 bool IsSwingHigh(ENUM_TIMEFRAMES timeframe, int shift)
 {
    double center = iHigh(_Symbol, timeframe, shift);
@@ -780,6 +938,8 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
    bool hasEma = index < 2;
    double ema20 = 0;
    double ema50 = 0;
+   double rsi14 = 0;
+   bool hasRsi = ReadRsiValue(index, rsi14);
 
    if(hasEma)
    {
@@ -829,6 +989,8 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
       hasEma,
       ema20,
       ema50,
+      hasRsi,
+      rsi14,
       levels
    );
    if(PrintDebugLogs)
@@ -855,6 +1017,205 @@ void CheckAllTimeframes()
       CheckTimeframe(i);
 }
 
+double PipSize()
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   return (digits == 3 || digits == 5) ? point * 10.0 : point;
+}
+
+bool ClosedCandleAboveEma20(int index)
+{
+   double ema20 = 0;
+   double ema50 = 0;
+   if(!ReadEmaValues(index, ema20, ema50))
+   {
+      SendEaIssue("EMA data unavailable", "Above EMA20 confluence check", Timeframes[index]);
+      return false;
+   }
+   Candle candle = ReadCandle(Timeframes[index], 1);
+   return candle.open > ema20 && candle.close > ema20;
+}
+
+bool ClosedCandleBelowEma20(int index)
+{
+   double ema20 = 0;
+   double ema50 = 0;
+   if(!ReadEmaValues(index, ema20, ema50))
+   {
+      SendEaIssue("EMA data unavailable", "Below EMA20 confluence check", Timeframes[index]);
+      return false;
+   }
+   Candle candle = ReadCandle(Timeframes[index], 1);
+   return candle.open < ema20 && candle.close < ema20;
+}
+
+bool BuyConfluence()
+{
+   double ema20 = 0;
+   double ema50 = 0;
+   if(!ReadEmaValues(0, ema20, ema50))
+   {
+      SendEaIssue("M1 EMA data unavailable", "Buy confluence check", PERIOD_M1);
+      return false;
+   }
+   return ema20 > ema50
+      && ClosedCandleAboveEma20(1)
+      && ClosedCandleAboveEma20(2);
+}
+
+bool SellConfluence()
+{
+   double ema20 = 0;
+   double ema50 = 0;
+   if(!ReadEmaValues(0, ema20, ema50))
+   {
+      SendEaIssue("M1 EMA data unavailable", "Sell confluence check", PERIOD_M1);
+      return false;
+   }
+   return ema50 > ema20
+      && ClosedCandleBelowEma20(1)
+      && ClosedCandleBelowEma20(2);
+}
+
+ulong FindPendingOrder(ENUM_ORDER_TYPE type)
+{
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) == _Symbol
+         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type)
+         return ticket;
+   }
+   return 0;
+}
+
+bool HasOpenPositionForSymbol()
+{
+   // One open position per symbol: once a pending order is filled, stop
+   // creating new orders for this symbol until the position is closed.
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol
+         && (long)PositionGetInteger(POSITION_MAGIC) == TradeMagicNumber)
+         return true;
+   }
+   return false;
+}
+
+void DeletePendingOrders(ENUM_ORDER_TYPE type)
+{
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) == _Symbol
+         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type)
+      {
+         if(!trade.OrderDelete(ticket))
+            SendEaIssue("OrderDelete failed", TradeResultText());
+      }
+   }
+}
+
+void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
+{
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   targetPrice = NormalizeDouble(targetPrice, digits);
+   ulong ticket = FindPendingOrder(type);
+   if(ticket > 0)
+   {
+      double currentPrice = OrderGetDouble(ORDER_PRICE_OPEN);
+      if(MathAbs(currentPrice - targetPrice) >= PipSize() * 0.1)
+      {
+         if(!trade.OrderModify(ticket, targetPrice, 0, 0, ORDER_TIME_GTC, 0))
+            SendEaIssue("OrderModify failed", TradeResultText());
+      }
+      return;
+   }
+
+   if(type == ORDER_TYPE_BUY_LIMIT)
+   {
+      if(!trade.BuyLimit(lotSize, targetPrice, _Symbol, 0, 0, ORDER_TIME_GTC, 0, "Hermes trailing buy limit"))
+         SendEaIssue("BuyLimit failed", TradeResultText(), PERIOD_M1);
+   }
+   else if(type == ORDER_TYPE_SELL_LIMIT)
+   {
+      if(!trade.SellLimit(lotSize, targetPrice, _Symbol, 0, 0, ORDER_TIME_GTC, 0, "Hermes trailing sell limit"))
+         SendEaIssue("SellLimit failed", TradeResultText(), PERIOD_M1);
+   }
+}
+
+void ManageTrading()
+{
+   TradeConfig config;
+   if(!FetchTradeConfig(config))
+      return;
+
+   trade.SetExpertMagicNumber(TradeMagicNumber);
+   if(HasOpenPositionForSymbol())
+   {
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      return;
+   }
+
+   if(config.mode == "BUY")
+   {
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      if(!BuyConfluence())
+      {
+         DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+         return;
+      }
+      double ema20 = 0;
+      double ema50 = 0;
+      if(!ReadEmaValues(0, ema20, ema50))
+         return;
+      double price = ema20 - config.trailPips * PipSize();
+      if(price < SymbolInfoDouble(_Symbol, SYMBOL_ASK))
+         TrailPendingOrder(ORDER_TYPE_BUY_LIMIT, config.lotSize, price);
+      return;
+   }
+
+   if(config.mode == "SELL")
+   {
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      if(!SellConfluence())
+      {
+         DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+         return;
+      }
+      double ema20 = 0;
+      double ema50 = 0;
+      if(!ReadEmaValues(0, ema20, ema50))
+         return;
+      double price = ema20 + config.trailPips * PipSize();
+      if(price > SymbolInfoDouble(_Symbol, SYMBOL_BID))
+         TrailPendingOrder(ORDER_TYPE_SELL_LIMIT, config.lotSize, price);
+      return;
+   }
+
+   if(config.mode == "NOTRADE")
+   {
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      return;
+   }
+
+   SendEaIssue("Unknown trade mode", config.mode);
+   DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+   DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+}
+
 //+------------------------------------------------------------------+
 //| Expert initialization                                            |
 //+------------------------------------------------------------------+
@@ -866,6 +1227,7 @@ int OnInit()
       || MinFvgAtrRatio < 0)
    {
       Print("Invalid level inputs.");
+      SendEaIssue("Invalid EA inputs", "LevelLookbackBars/SwingStrength/AtrPeriod/MinFvgAtrRatio");
       return INIT_PARAMETERS_INCORRECT;
    }
 
@@ -873,26 +1235,26 @@ int OnInit()
    {
       lastBarTimes[i] = 0;
       hasSnapshot[i] = false;
-   }
-   for(int i = 0; i < 2; i++)
-   {
       ema20Handles[i] = iMA(
          _Symbol, Timeframes[i], 20, 0, MODE_EMA, PRICE_CLOSE
       );
       ema50Handles[i] = iMA(
          _Symbol, Timeframes[i], 50, 0, MODE_EMA, PRICE_CLOSE
       );
+      rsiHandles[i] = iRSI(_Symbol, Timeframes[i], 14, PRICE_CLOSE);
       if(ema20Handles[i] == INVALID_HANDLE
-         || ema50Handles[i] == INVALID_HANDLE)
+         || ema50Handles[i] == INVALID_HANDLE
+         || rsiHandles[i] == INVALID_HANDLE)
       {
-         Print("Failed to create EMA handles for ", TimeframeToText(Timeframes[i]));
+         Print("Failed to create indicator handles for ", TimeframeToText(Timeframes[i]));
+         SendEaIssue("Failed to create indicator handles", TimeframeToText(Timeframes[i]), Timeframes[i]);
          return INIT_FAILED;
       }
    }
 
    Print("===================================");
    Print("Multi-Timeframe Candlestick Pattern Webhook EA started.");
-   Print("Version: 1.05");
+   Print("Version: 1.06");
    Print("Symbol: ", _Symbol);
    Print("Chart Period: ", EnumToString((ENUM_TIMEFRAMES)_Period));
    Print("Webhook URL: ", WebhookUrl);
@@ -908,12 +1270,14 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
-   for(int i = 0; i < 2; i++)
+   for(int i = 0; i < TF_COUNT; i++)
    {
       if(ema20Handles[i] != INVALID_HANDLE)
          IndicatorRelease(ema20Handles[i]);
       if(ema50Handles[i] != INVALID_HANDLE)
          IndicatorRelease(ema50Handles[i]);
+      if(rsiHandles[i] != INVALID_HANDLE)
+         IndicatorRelease(rsiHandles[i]);
    }
    Print("Multi-Timeframe Candlestick Pattern Webhook EA stopped. Reason: ", reason);
 }
@@ -924,5 +1288,6 @@ void OnDeinit(const int reason)
 void OnTick()
 {
    CheckAllTimeframes();
+   ManageTrading();
 }
 //+------------------------------------------------------------------+

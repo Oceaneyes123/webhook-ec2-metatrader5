@@ -1,6 +1,8 @@
 import json
+import mimetypes
 import os
 import time
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,19 +13,7 @@ from app_logger import get_logger
 logger = get_logger()
 
 
-def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML"):
-    token = os.environ["TELEGRAM_BOT_TOKEN"]
-    chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
-    payload = {"chat_id": chat_id, "text": text}
-    if parse_mode:
-        payload["parse_mode"] = parse_mode
-    data = json.dumps(payload).encode()
-    request = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+def _post_telegram_request(request, retries):
     for attempt in range(retries):
         try:
             logger.info("Sending Telegram request attempt=%s", attempt + 1)
@@ -40,6 +30,64 @@ def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML"):
             if attempt == retries - 1:
                 raise
             time.sleep(2)
+
+
+def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML"):
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
+    payload = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    data = json.dumps(payload).encode()
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    return _post_telegram_request(request, retries)
+
+
+def send_telegram_photo(photo_path, caption=None, retries=3, chat_id=None, parse_mode="HTML"):
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
+    boundary = f"----HermesTelegramBoundary{uuid.uuid4().hex}"
+    filename = os.path.basename(photo_path)
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+    fields = {"chat_id": str(chat_id)}
+    if caption:
+        fields["caption"] = caption
+    if parse_mode:
+        fields["parse_mode"] = parse_mode
+
+    body = bytearray()
+    for name, value in fields.items():
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        body.extend(str(value).encode())
+        body.extend(b"\r\n")
+
+    with open(photo_path, "rb") as file:
+        photo = file.read()
+    body.extend(f"--{boundary}\r\n".encode())
+    body.extend(
+        (
+            f'Content-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode()
+    )
+    body.extend(photo)
+    body.extend(b"\r\n")
+    body.extend(f"--{boundary}--\r\n".encode())
+
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendPhoto",
+        data=bytes(body),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    return _post_telegram_request(request, retries)
 
 
 def get_telegram_updates(offset=None, timeout_seconds=10):
