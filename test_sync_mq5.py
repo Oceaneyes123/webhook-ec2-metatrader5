@@ -71,12 +71,16 @@ class SyncMq5Test(unittest.TestCase):
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn('#include "includes/MarketSnapshot.mqh"', ea)
-        self.assertIn("input int ChartHistoryBars = 80;", ea)
+        self.assertIn("input int ChartHistoryBars = 200;", ea)
         self.assertIn("CheckAllTimeframes();", ea)
         self.assertNotIn("ManageTrading", ea)
         self.assertIn('\\"source\\":\\"webhook1\\"', market)
         self.assertIn('\\"candles\\":', market)
         self.assertIn("BuildCandlesJson", market)
+        self.assertIn(
+            "for(int shift = ChartHistoryBars; shift >= 1; shift--)", market
+        )
+        self.assertIn('{\\"time\\":\\"', market)
         self.assertIn("CalculateLevels", market)
 
     def test_trade_ea_owns_trade_management_only(self):
@@ -85,6 +89,7 @@ class SyncMq5Test(unittest.TestCase):
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn('#include "includes/TradeManager.mqh"', ea)
+        self.assertIn("does not send chart/history data", ea)
         self.assertIn("ManageTrading();", ea)
         self.assertNotIn("CheckAllTimeframes", ea)
         self.assertNotIn("rsiHandles", ea)

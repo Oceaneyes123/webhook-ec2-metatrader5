@@ -17,7 +17,7 @@ EMA_TIMEFRAMES = TIMEFRAMES[:2]
 PATTERN_TIMEFRAMES = TIMEFRAMES[2:]
 RSI_TIMEFRAMES = ("M5", "M15", "M30", "H1", "H4")
 RSI_LOOKBACKS = {"M5": 30, "M15": 30, "M30": 10, "H1": 10, "H4": 10}
-CHART_CANDLE_LOOKBACK = 60
+CHART_CANDLE_LOOKBACK = 200
 
 
 def _number(value, field):
@@ -93,22 +93,28 @@ def validate_snapshot(payload):
             for key in ("open", "high", "low", "close")
         },
     }
-    candles = payload.get("candles", [])
-    if not isinstance(candles, list):
-        raise ValueError("candles must be a list")
-    snapshot["candles"] = []
-    for index, candle in enumerate(candles):
-        if not isinstance(candle, dict) or not str(candle.get("candle_time", "")).strip():
-            raise ValueError(f"candles[{index}] must contain candle_time")
-        snapshot["candles"].append(
-            {
-                "candle_time": str(candle["candle_time"]).strip(),
-                **{
-                    key: _number(candle.get(key), f"candles[{index}].{key}")
-                    for key in ("open", "high", "low", "close")
-                },
-            }
-        )
+    if "candles" in payload:
+        candles = payload["candles"]
+        if not isinstance(candles, list):
+            raise ValueError("candles must be a list")
+        snapshot["candles"] = []
+        for index, candle in enumerate(candles):
+            if not isinstance(candle, dict):
+                raise ValueError(f"candles[{index}] must be an object")
+            candle_time = str(
+                candle.get("time") or candle.get("candle_time") or ""
+            ).strip()
+            if not candle_time:
+                raise ValueError(f"candles[{index}] must contain time or candle_time")
+            snapshot["candles"].append(
+                {
+                    "candle_time": candle_time,
+                    **{
+                        key: _number(candle.get(key), f"candles[{index}].{key}")
+                        for key in ("open", "high", "low", "close")
+                    },
+                }
+            )
 
     if payload.get("rsi14") is not None:
         snapshot["rsi14"] = _number(payload.get("rsi14"), "rsi14")
@@ -208,23 +214,25 @@ class MarketState:
             elif previous.get("rsi_history"):
                 snapshot["rsi_history"] = previous["rsi_history"]
 
-            supplied_candles = snapshot.pop("candles", [])
-            candle_history = (
-                list(reversed(supplied_candles))
-                if supplied_candles
-                else list(previous.get("candle_history", []))
-            )
-            current_candle = {
-                "candle_time": snapshot["candle_time"],
-                "open": snapshot["open"],
-                "high": snapshot["high"],
-                "low": snapshot["low"],
-                "close": snapshot["close"],
-            }
-            if candle_history and candle_history[-1].get("candle_time") == snapshot["candle_time"]:
-                candle_history[-1] = current_candle
+            if "candles" in snapshot:
+                candle_history = list(snapshot.pop("candles"))
             else:
-                candle_history.append(current_candle)
+                candle_history = list(previous.get("candle_history", []))
+                current_candle = {
+                    "candle_time": snapshot["candle_time"],
+                    "open": snapshot["open"],
+                    "high": snapshot["high"],
+                    "low": snapshot["low"],
+                    "close": snapshot["close"],
+                }
+                if (
+                    candle_history
+                    and candle_history[-1].get("candle_time")
+                    == snapshot["candle_time"]
+                ):
+                    candle_history[-1] = current_candle
+                else:
+                    candle_history.append(current_candle)
             snapshot["candle_history"] = candle_history[-CHART_CANDLE_LOOKBACK:]
 
             if snapshot["patterns"]:
@@ -507,17 +515,26 @@ class MarketState:
             timeframes = self.data["symbols"].get(symbol)
             if not timeframes:
                 return None
-            chart_items, prices, latest_snapshot, candles, candle_timeframe = self._chart_items(timeframes)
+            chart_items, latest_snapshot, candles, candle_timeframe = self._chart_items(
+                timeframes
+            )
 
-        if not latest_snapshot or not prices:
+        if not latest_snapshot or not candles:
             return None
 
         width, height = 1100, 760
         margin_left, margin_right, margin_top, margin_bottom = 90, 280, 70, 70
         plot_left, plot_right = margin_left, width - margin_right
         plot_top, plot_bottom = margin_top, height - margin_bottom
-        low, high = min(prices), max(prices)
-        padding = max((high - low) * 0.12, latest_snapshot["close"] * 0.002, 1)
+        latest_candle = candles[-1]
+        # Candle range defines the chart; key levels are overlays only.
+        low = min(candle["low"] for candle in candles)
+        high = max(candle["high"] for candle in candles)
+        padding = max(
+            (high - low) * 0.15,
+            latest_candle["close"] * 0.001,
+            1,
+        )
         low -= padding
         high += padding
 
@@ -531,17 +548,12 @@ class MarketState:
         draw.text((margin_left, 24), f"{symbol} Key Levels", fill="#f8fafc", font=font)
         draw.text(
             (margin_left, 44),
-            f"Latest {latest_snapshot['timeframe']} close: {self._price(latest_snapshot['close'], latest_snapshot)} at {display_time(latest_snapshot['candle_time'])}",
+            f"Candlestick chart: {candle_timeframe}, latest close "
+            f"{self._price(latest_candle['close'], latest_snapshot)} at "
+            f"{display_time(latest_candle['candle_time'])}",
             fill="#cbd5e1",
             font=font,
         )
-        if candles:
-            draw.text(
-                (margin_left, 60),
-                f"Candlesticks: recent {candle_timeframe} candles from EA snapshots",
-                fill="#94a3b8",
-                font=font,
-            )
 
         for tick in range(6):
             price = low + (high - low) * tick / 5
@@ -549,7 +561,7 @@ class MarketState:
             draw.line([plot_left, y, plot_right, y], fill="#1e293b")
             draw.text((12, y - 6), self._price(price, latest_snapshot), fill="#94a3b8", font=font)
 
-        current_y = y_for(latest_snapshot["close"])
+        current_y = y_for(latest_candle["close"])
         draw.line([plot_left, current_y, plot_right, current_y], fill="#f8fafc", width=3)
         draw.text((plot_right + 8, current_y - 8), "Current", fill="#f8fafc", font=font)
 
@@ -561,24 +573,64 @@ class MarketState:
             "bullish_fvg": "#16a34a",
             "bearish_fvg": "#dc2626",
         }
+        zone_fills = {
+            "bullish_fvg": "#173f3a",
+            "bearish_fvg": "#4a252e",
+        }
         labels = []
-        for item in chart_items:
+        for item in (item for item in chart_items if "low" in item):
             color = colors[item["kind"]]
-            if "low" in item:
-                y1, y2 = y_for(item["high"]), y_for(item["low"])
-                draw.rectangle([plot_left, y1, plot_right, y2], fill=color, outline=color)
+            label = (
+                f"{item['label']} {self._price(item['low'], latest_snapshot)}-"
+                f"{self._price(item['high'], latest_snapshot)}"
+            )
+            if item["low"] > high:
+                labels.append((plot_top, f"{label} above chart"))
+            elif item["high"] < low:
+                labels.append((plot_bottom, f"{label} below chart"))
+            else:
+                clipped_low = max(item["low"], low)
+                clipped_high = min(item["high"], high)
+                y1, y2 = y_for(clipped_high), y_for(clipped_low)
+                draw.rectangle(
+                    [plot_left, y1, plot_right, y2],
+                    fill=zone_fills[item["kind"]],
+                    outline=color,
+                )
                 draw.line([plot_left, y1, plot_right, y1], fill="#e2e8f0", width=1)
                 draw.line([plot_left, y2, plot_right, y2], fill="#e2e8f0", width=1)
-                label_y = (y1 + y2) // 2
-                label = f"{item['label']} {self._price(item['low'], latest_snapshot)}-{self._price(item['high'], latest_snapshot)}"
+                labels.append(((y1 + y2) // 2, label))
+
+        for item in (item for item in chart_items if "low" not in item):
+            color = colors[item["kind"]]
+            label = (
+                f"{item['label']} {self._price(item['price'], latest_snapshot)}"
+            )
+            if item["price"] > high:
+                labels.append((plot_top, f"{label} above chart"))
+            elif item["price"] < low:
+                labels.append((plot_bottom, f"{label} below chart"))
             else:
                 label_y = y_for(item["price"])
                 draw.line([plot_left, label_y, plot_right, label_y], fill=color, width=2)
-                label = f"{item['label']} {self._price(item['price'], latest_snapshot)}"
-            labels.append((label_y, label))
+                labels.append((label_y, label))
 
-        if candles:
-            self._draw_candles(draw, candles, plot_left, plot_right, y_for)
+        self._draw_candles(draw, candles, plot_left, plot_right, y_for)
+
+        time_labels = (
+            (0, plot_left),
+            (len(candles) // 2, (plot_left + plot_right) // 2),
+            (len(candles) - 1, plot_right),
+        )
+        for index, x in time_labels:
+            text = display_time(candles[index]["candle_time"])
+            text_width = draw.textbbox((0, 0), text, font=font)[2]
+            draw.text(
+                (max(plot_left, min(x - text_width // 2, plot_right - text_width)), plot_bottom + 12),
+                text,
+                fill="#94a3b8",
+                font=font,
+            )
 
         labels.sort(key=lambda entry: entry[0])
         next_y = plot_top
@@ -594,7 +646,6 @@ class MarketState:
 
     def _chart_items(self, timeframes):
         items = []
-        prices = []
         latest_snapshot = None
         previous_day_added = False
         for timeframe in PATTERN_TIMEFRAMES:
@@ -602,7 +653,6 @@ class MarketState:
             if not snapshot:
                 continue
             latest_snapshot = snapshot if latest_snapshot is None or snapshot["candle_time"] > latest_snapshot["candle_time"] else latest_snapshot
-            prices.extend([snapshot["open"], snapshot["high"], snapshot["low"], snapshot["close"]])
             levels = snapshot["levels"]
             for key, label, kind in (
                 ("support", f"{timeframe} Support", "support"),
@@ -611,20 +661,17 @@ class MarketState:
                 value = levels.get(key)
                 if value is not None:
                     items.append({"kind": kind, "label": label, "price": value})
-                    prices.append(value)
             if not previous_day_added:
                 previous_day_high = levels.get("previous_day_high")
                 previous_day_low = levels.get("previous_day_low")
                 if previous_day_high is not None and previous_day_low is not None:
                     items.append({"kind": "previous_day", "label": "PDH", "price": previous_day_high})
                     items.append({"kind": "previous_day", "label": "PDL", "price": previous_day_low})
-                    prices.extend([previous_day_high, previous_day_low])
                     previous_day_added = True
             fib = levels.get("fib")
             if fib:
                 for key in ("38.2", "50.0", "61.8"):
                     items.append({"kind": "fib", "label": f"{timeframe} Fib {key}", "price": fib[key]})
-                    prices.append(fib[key])
             for key, label, kind in (
                 ("bullish_fvg", f"{timeframe} Bull FVG", "bullish_fvg"),
                 ("bearish_fvg", f"{timeframe} Bear FVG", "bearish_fvg"),
@@ -632,27 +679,30 @@ class MarketState:
                 zone = levels.get(key)
                 if zone:
                     items.append({"kind": kind, "label": label, "low": zone["low"], "high": zone["high"]})
-                    prices.extend([zone["low"], zone["high"]])
         candles, candle_timeframe = self._chart_candles(timeframes)
-        for candle in candles:
-            prices.extend([candle["open"], candle["high"], candle["low"], candle["close"]])
-        return items, prices, latest_snapshot, candles, candle_timeframe
+        if latest_snapshot is None and candle_timeframe:
+            latest_snapshot = timeframes[candle_timeframe]
+        return items, latest_snapshot, candles, candle_timeframe
 
     def _chart_candles(self, timeframes):
-        for timeframe in PATTERN_TIMEFRAMES:
+        priority = ("M15", "M30", "H1", "H4", "M1", "M5")
+        for timeframe in priority:
             snapshot = timeframes.get(timeframe)
-            if not snapshot:
-                continue
-            history = snapshot.get("candle_history") or [
-                {
-                    "candle_time": snapshot["candle_time"],
-                    "open": snapshot["open"],
-                    "high": snapshot["high"],
-                    "low": snapshot["low"],
-                    "close": snapshot["close"],
-                }
-            ]
-            return history[-40:], timeframe
+            history = snapshot.get("candle_history") if snapshot else None
+            if history:
+                return history[-CHART_CANDLE_LOOKBACK:], timeframe
+        for timeframe in priority:
+            snapshot = timeframes.get(timeframe)
+            if snapshot:
+                return [
+                    {
+                        "candle_time": snapshot["candle_time"],
+                        "open": snapshot["open"],
+                        "high": snapshot["high"],
+                        "low": snapshot["low"],
+                        "close": snapshot["close"],
+                    }
+                ], timeframe
         return [], None
 
     @staticmethod
@@ -662,7 +712,7 @@ class MarketState:
             return
         span = max(plot_right - plot_left, 1)
         slot = span / count
-        body_half_width = max(3, min(11, int(slot * 0.28)))
+        body_half_width = max(1, min(11, int(slot * 0.28)))
         for index, candle in enumerate(candles):
             x = int(plot_left + slot * (index + 0.5))
             open_y = y_for(candle["open"])
@@ -679,7 +729,7 @@ class MarketState:
             draw.rectangle(
                 [x - body_half_width, body_top, x + body_half_width, body_bottom],
                 fill=color,
-                outline=color,
+                outline="#0f172a",
             )
 
     def _level(self, value, snapshot):

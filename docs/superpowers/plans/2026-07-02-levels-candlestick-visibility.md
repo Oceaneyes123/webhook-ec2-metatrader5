@@ -1,90 +1,211 @@
-# `/levels` Candlestick Visibility Implementation Plan
+# `/levels` Candle-First Chart Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Keep `/levels` candlesticks visible when their prices overlap opaque key-level zones.
+**Goal:** Send 200 closed MT5 candles per snapshot and render `/levels` with a candle-defined y-axis plus non-distorting key-level overlays.
 
-**Architecture:** Preserve the existing chart data and drawing helpers. Add an overlapping-zone regression case, then change only the layer order in `MarketState.levels_chart` so level graphics render before candlesticks.
+**Architecture:** `Webhook1` and `MarketSnapshot.mqh` own chronological candle-history production. `market_state.py` normalizes optional history, prefers M15 for charts, and separates the candle price range from overlay positioning. Existing Pillow and Telegram paths remain in place.
 
-**Tech Stack:** Python, Pillow, `unittest`
+**Tech Stack:** MQL5, Python standard library, Pillow, `unittest`
 
 ---
 
-### Task 1: Prove and fix candlestick visibility
+### Task 1: Lock the MQL5 snapshot contract
 
 **Files:**
-- Modify: `test_webhook.py:1063`
-- Modify: `market_state.py:531-560`
+- Modify: `test_sync_mq5.py`
+- Modify: `mq5/Webhook1.mq5`
+- Modify: `mq5/Webhook2.mq5`
+- Modify: `mq5/includes/MarketSnapshot.mqh`
 
-- [ ] **Step 1: Write the failing regression test**
+- [x] **Step 1: Write failing source-contract assertions**
 
-In `test_levels_chart_draws_recent_candlesticks`, replace the empty bullish FVG
-with a zone covering both test candles:
+Update `test_market_ea_owns_snapshots_only` to require:
 
 ```python
-"bullish_fvg": {"low": 2290.0, "high": 2320.0},
+self.assertIn("input int ChartHistoryBars = 200;", ea)
+self.assertIn("for(int shift = ChartHistoryBars; shift >= 1; shift--)", market)
+self.assertIn('{\\"time\\":\\"', market)
 ```
 
-Keep the existing pixel assertion. With the current layer order, the opaque
-zone is drawn over the candles and removes their teal/red pixels.
+Update `test_trade_ea_owns_trade_management_only` to require:
 
-- [ ] **Step 2: Run the focused test and verify RED**
+```python
+self.assertIn("does not send chart/history data", ea)
+```
+
+- [x] **Step 2: Verify RED**
 
 Run:
 
 ```powershell
-python -m unittest test_webhook.WebhookTest.test_levels_chart_draws_recent_candlesticks -v
+python -m unittest test_sync_mq5.SyncMq5Test.test_market_ea_owns_snapshots_only test_sync_mq5.SyncMq5Test.test_trade_ea_owns_trade_management_only -v
 ```
 
-Expected: `FAIL` because `candle_pixels` is `0`, not greater than `40`.
+Expected: failures for the 80-bar default, reverse loop, `candle_time` key, and missing Webhook2 comment.
 
-- [ ] **Step 3: Apply the minimum render-order change**
+- [x] **Step 3: Apply the minimum MQL5 changes**
 
-In `MarketState.levels_chart`, remove this block from before the `colors`
-mapping:
+Set:
+
+```mql5
+input int ChartHistoryBars = 200;
+```
+
+Document Webhook ownership near each EA header. In `BuildCandlesJson`, iterate
+from `ChartHistoryBars` down to `1`, read `iTime/iOpen/iHigh/iLow/iClose`,
+skip invalid values, and emit:
+
+```mql5
+{"time":"...","open":...,"high":...,"low":...,"close":...}
+```
+
+Keep the existing top-level snapshot OHLC and `"source":"webhook1"`.
+
+- [x] **Step 4: Verify GREEN**
+
+Run the focused command from Step 2. Expected: both tests pass.
+
+### Task 2: Normalize supplied candle history without breaking old snapshots
+
+**Files:**
+- Modify: `test_webhook.py`
+- Modify: `market_state.py`
+
+- [x] **Step 1: Write failing history tests**
+
+Change the supplied-history fixture to chronological order and mix `time` with
+`candle_time`:
 
 ```python
-if candles:
-    self._draw_candles(draw, candles, plot_left, plot_right, y_for)
+payload["candles"] = [
+    {"time": "2026.06.28 10:00:00", "open": 2295.0, "high": 2305.0, "low": 2290.0, "close": 2300.0},
+    {"candle_time": "2026.06.28 10:01:00", "open": 2300.0, "high": 2310.0, "low": 2290.0, "close": 2305.0},
+]
 ```
 
-Insert the same block immediately after the `for item in chart_items` loop and
-before `labels.sort(...)`:
+Assert the normalized order is unchanged. Add an explicit snapshot-without-
+`source` test and a two-update fallback-history test with no `candles` key.
 
-```python
-if candles:
-    self._draw_candles(draw, candles, plot_left, plot_right, y_for)
-```
-
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 2: Verify RED**
 
 Run:
 
 ```powershell
-python -m unittest test_webhook.WebhookTest.test_levels_chart_draws_recent_candlesticks -v
+python -m unittest test_webhook.WebhookTest.test_market_state_uses_supplied_candle_history test_webhook.WebhookTest.test_market_state_accumulates_history_without_candles -v
 ```
 
-Expected: `OK` with one passing test.
+Expected: supplied history fails because `time` is rejected and input is
+reversed; fallback remains passing.
 
-- [ ] **Step 5: Run full verification**
+- [x] **Step 3: Implement normalization**
+
+Set `CHART_CANDLE_LOOKBACK = 200`. In `validate_snapshot`, only validate
+`candles` when the key exists, accept `time` or `candle_time`, and normalize to
+`candle_time`. In `MarketState.update`, use supplied chronological history
+directly; only append the top-level candle when `candles` is absent.
+
+- [x] **Step 4: Verify GREEN**
+
+Run the focused command from Step 2 plus the explicit source compatibility
+tests. Expected: all pass.
+
+### Task 3: Prefer M15 and render candle-first
+
+**Files:**
+- Modify: `test_webhook.py`
+- Modify: `market_state.py`
+
+- [x] **Step 1: Write failing chart tests**
+
+Add a selection test that supplies M30/H1/H4 history before M15 and asserts:
+
+```python
+history, timeframe = state._chart_candles(state.data["symbols"]["GOLD"])
+self.assertEqual(timeframe, "M15")
+self.assertEqual(len(history), 200)
+```
+
+Add a far-level chart test with candles around 2300 and FVG/point levels around
+4000. Record `ImageDraw.ImageDraw.text` calls and assert label strings contain
+`above chart`. Inspect candle-color pixels and assert their vertical span is
+greater than 200 pixels, proving distant levels did not alter the y-axis.
+
+- [x] **Step 2: Verify RED**
 
 Run:
+
+```powershell
+python -m unittest test_webhook.WebhookTest.test_levels_chart_prefers_m15_history test_webhook.WebhookTest.test_far_levels_are_labels_without_compressing_candles -v
+```
+
+Expected: selection returns the current first pattern timeframe/40 bars and
+the old chart compresses candles.
+
+- [x] **Step 3: Implement candle-first rendering**
+
+Use timeframe priority:
+
+```python
+("M15", "M30", "H1", "H4", "M1", "M5")
+```
+
+Derive `low/high` only from candle lows/highs, add 15% padding with the approved
+minimums, clip intersecting FVGs, suffix out-of-range labels, draw muted zones
+then in-range lines then candles, and add first/middle/latest x-axis labels.
+Use a one-pixel minimum candle half-width so 200 bodies do not overlap.
+
+- [x] **Step 4: Verify GREEN**
+
+Run the focused command from Step 2 and the existing two chart tests. Expected:
+all pass.
+
+### Task 4: Full verification and live MQL5 sync
+
+**Files:**
+- Verify all modified files
+- Synchronize the five canonical MQL5 sources to live targets
+
+- [x] **Step 1: Run the Python suite**
 
 ```powershell
 python -m unittest -v
 ```
 
-Expected: all tests pass.
+Expected: zero failures.
 
-- [ ] **Step 6: Inspect the final diff**
+- [x] **Step 2: Compile canonical EAs**
 
-Run:
+Run MetaEditor command-line compilation for:
+
+```text
+mq5/Webhook1.mq5
+mq5/Webhook2.mq5
+```
+
+Expected: both logs report zero errors.
+
+- [x] **Step 3: Sync and compile live EAs**
+
+```powershell
+python sync_mq5.py
+```
+
+Compile/reload root `Webhook1.mq5` and `Webhook2.mq5`. Expected: zero compile
+errors.
+
+- [x] **Step 4: Compare canonical and live files**
+
+Use `sync_mq5.RELATIVE_SOURCES` and resolved root EA targets to compare bytes
+for all five canonical/live pairs. Expected: every pair matches.
+
+- [x] **Step 5: Inspect the final diff**
 
 ```powershell
 git diff --check
-git diff -- market_state.py test_webhook.py docs/superpowers/specs/2026-07-02-levels-candlestick-visibility-design.md docs/superpowers/plans/2026-07-02-levels-candlestick-visibility.md
+git status --short
+git diff -- mq5 market_state.py test_webhook.py test_sync_mq5.py docs/superpowers
 ```
 
-Confirm that existing uncommitted candle-history work remains intact and that
-the implementation adds no dependency or unrelated refactor. Do not commit or
-push.
+Expected: only requested source, tests, and design/plan changes. Do not commit
+or push.

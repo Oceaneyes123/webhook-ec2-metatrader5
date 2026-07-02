@@ -1,6 +1,7 @@
 //+------------------------------------------------------------------+
 //| Webhook2 - trade management                                      |
 //+------------------------------------------------------------------+
+// Webhook2 does not send chart/history data.
 #property strict
 #property version "2.00"
 

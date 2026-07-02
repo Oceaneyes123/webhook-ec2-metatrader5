@@ -742,18 +742,18 @@ class WebhookTest(unittest.TestCase):
             )
             payload["candles"] = [
                 {
+                    "time": "2026.06.28 10:00:00",
+                    "open": 2295.0,
+                    "high": 2305.0,
+                    "low": 2290.0,
+                    "close": 2300.0,
+                },
+                {
                     "candle_time": "2026.06.28 10:01:00",
                     "open": 2300.0,
                     "high": 2310.0,
                     "low": 2290.0,
                     "close": 2305.0,
-                },
-                {
-                    "candle_time": "2026.06.28 10:00:00",
-                    "open": 2295.0,
-                    "high": 2305.0,
-                    "low": 2290.0,
-                    "close": 2300.0,
                 },
             ]
 
@@ -764,6 +764,48 @@ class WebhookTest(unittest.TestCase):
                 [candle["candle_time"] for candle in history],
                 ["2026.06.28 10:00:00", "2026.06.28 10:01:00"],
             )
+
+    def test_market_state_accumulates_history_without_candles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            for minute in (0, 1):
+                state.update(
+                    self.snapshot(
+                        "M1",
+                        f"2026.06.28 10:{minute:02d}:00",
+                        ema20=2306.0,
+                        ema50=2305.0,
+                    )
+                )
+
+            history = state.data["symbols"]["GOLD"]["M1"]["candle_history"]
+
+        self.assertEqual(
+            [candle["candle_time"] for candle in history],
+            ["2026.06.28 10:00:00", "2026.06.28 10:01:00"],
+        )
+
+    def test_market_state_accepts_optional_webhook1_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            without_source = self.snapshot(
+                "M15", "2026.06.28 10:00:00", patterns=[], levels={}
+            )
+            with_source = self.snapshot(
+                "M15",
+                "2026.06.28 10:15:00",
+                source="webhook1",
+                patterns=[],
+                levels={},
+            )
+
+            state.update(without_source)
+            state.update(with_source)
+
+        self.assertEqual(
+            state.data["symbols"]["GOLD"]["M15"]["candle_time"],
+            "2026.06.28 10:15:00",
+        )
 
     def test_market_state_stores_rsi_history_and_reports_extremes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1141,6 +1183,123 @@ class WebhookTest(unittest.TestCase):
             self.assertTrue(path.exists())
             self.assertGreater(path.stat().st_size, 1000)
             self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+
+    def test_levels_chart_prefers_m15_history_and_keeps_200_bars(self):
+        levels = {
+            "support": None,
+            "resistance": None,
+            "fib": None,
+            "bullish_fvg": None,
+            "bearish_fvg": None,
+            "previous_day_high": None,
+            "previous_day_low": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            for timeframe in ("M30", "H1", "H4", "M15"):
+                payload = self.snapshot(
+                    timeframe,
+                    f"2026.06.28 {timeframe}:00",
+                    patterns=[],
+                    levels=levels,
+                )
+                payload["candles"] = [
+                    {
+                        "time": f"{timeframe}-{index:03d}",
+                        "open": 2300.0,
+                        "high": 2310.0,
+                        "low": 2290.0,
+                        "close": 2305.0,
+                    }
+                    for index in range(200)
+                ]
+                state.update(payload)
+
+            history, timeframe = state._chart_candles(
+                state.data["symbols"]["GOLD"]
+            )
+
+        self.assertEqual(timeframe, "M15")
+        self.assertEqual(len(history), 200)
+
+    def test_levels_chart_uses_m1_history_only_as_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                self.snapshot(
+                    "M1",
+                    "2026.06.28 10:01:00",
+                    ema20=2306.0,
+                    ema50=2305.0,
+                )
+            )
+
+            history, timeframe = state._chart_candles(
+                state.data["symbols"]["GOLD"]
+            )
+
+        self.assertEqual(timeframe, "M1")
+        self.assertEqual(len(history), 1)
+
+    def test_far_levels_are_labels_without_compressing_candles(self):
+        levels = {
+            "support": 2000.0,
+            "resistance": 4000.0,
+            "fib": None,
+            "bullish_fvg": None,
+            "bearish_fvg": {"low": 4100.0, "high": 4200.0},
+            "previous_day_high": 4300.0,
+            "previous_day_low": 1900.0,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "levels.png"
+            state = market_state.MarketState(Path(directory) / "state.json")
+            payload = self.snapshot(
+                "M15",
+                "2026.06.28 13:30:00",
+                open=2308.0,
+                high=2320.0,
+                low=2302.0,
+                close=2301.0,
+                patterns=[],
+                levels=levels,
+            )
+            payload["candles"] = [
+                {
+                    "time": "2026.06.28 13:15:00",
+                    "open": 2300.0,
+                    "high": 2310.0,
+                    "low": 2290.0,
+                    "close": 2306.0,
+                },
+                {
+                    "time": "2026.06.28 13:30:00",
+                    "open": 2308.0,
+                    "high": 2320.0,
+                    "low": 2302.0,
+                    "close": 2301.0,
+                },
+            ]
+            state.update(payload)
+
+            with patch.object(
+                market_state.ImageDraw.ImageDraw, "text", autospec=True
+            ) as draw_text:
+                state.levels_chart("Gold", path)
+
+            labels = [call.args[2] for call in draw_text.call_args_list]
+            with market_state.Image.open(path) as image:
+                pixels = image.load()
+                candle_ys = [
+                    y
+                    for x in range(90, 820)
+                    for y in range(70, 690)
+                    if pixels[x, y] in ((20, 184, 166), (248, 113, 113))
+                ]
+
+        self.assertIn("M15 Bear FVG 4100.00-4200.00 above chart", labels)
+        self.assertIn("M15 Support 2000.00 below chart", labels)
+        self.assertGreater(max(candle_ys) - min(candle_ys), 200)
 
     def test_levels_chart_draws_recent_candlesticks(self):
         levels = {

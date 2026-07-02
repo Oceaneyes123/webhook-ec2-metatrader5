@@ -442,20 +442,29 @@ string BuildLevelsJson(const LevelResult &levels, int digits)
 string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits)
 {
    string candles = "";
-   for(int shift = 1; shift <= ChartHistoryBars; shift++)
+   for(int shift = ChartHistoryBars; shift >= 1; shift--)
    {
       datetime candleTime = iTime(_Symbol, timeframe, shift);
-      Candle candle = ReadCandle(timeframe, shift);
-      if(candleTime <= 0 || CandleRange(candle) <= 0)
-         break;
+      double open = iOpen(_Symbol, timeframe, shift);
+      double high = iHigh(_Symbol, timeframe, shift);
+      double low = iLow(_Symbol, timeframe, shift);
+      double close = iClose(_Symbol, timeframe, shift);
+      if(candleTime <= 0
+         || open <= 0
+         || high <= 0
+         || low <= 0
+         || close <= 0
+         || high < MathMax(open, close)
+         || low > MathMin(open, close))
+         continue;
       if(candles != "")
          candles += ",";
       candles +=
-         "{\"candle_time\":\"" + JsonEscape(DateTimeToText(candleTime)) + "\""
-         + ",\"open\":" + DoubleToString(candle.open, digits)
-         + ",\"high\":" + DoubleToString(candle.high, digits)
-         + ",\"low\":" + DoubleToString(candle.low, digits)
-         + ",\"close\":" + DoubleToString(candle.close, digits) + "}";
+         "{\"time\":\"" + JsonEscape(DateTimeToText(candleTime)) + "\""
+         + ",\"open\":" + DoubleToString(open, digits)
+         + ",\"high\":" + DoubleToString(high, digits)
+         + ",\"low\":" + DoubleToString(low, digits)
+         + ",\"close\":" + DoubleToString(close, digits) + "}";
    }
    return "[" + candles + "]";
 }

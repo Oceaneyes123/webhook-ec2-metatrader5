@@ -1,13 +1,14 @@
 //+------------------------------------------------------------------+
 //| Webhook1 - market snapshots and alerts                           |
 //+------------------------------------------------------------------+
+// Webhook1 sends chart/history data for Python rendering.
 #property strict
 #property version "2.00"
 
 input string WebhookUrl = "http://127.0.0.1:8000/webhook";
 input int WebRequestTimeoutMs = 5000;
 input bool PrintDebugLogs = true;
-input int ChartHistoryBars = 80;
+input int ChartHistoryBars = 200;
 input double MaxBodyPercent = 35.0;
 input double MinLongWickBodyRatio = 2.0;
 input double MaxSmallWickBodyRatio = 1.0;
