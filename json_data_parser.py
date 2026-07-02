@@ -25,13 +25,22 @@ PATTERN_BIAS = {
 
 
 def display_time(value):
+    value = "" if value is None else str(value).strip()
+    if not value:
+        return ""
+    for time_format in ("%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M"):
+        try:
+            parsed = datetime.strptime(value, time_format)
+            break
+        except ValueError:
+            parsed = None
+    if parsed is None:
+        return value
     try:
-        parsed = datetime.strptime(value, "%Y.%m.%d %H:%M:%S")
+        offset = float(os.getenv("TIMEZONE_OFFSET_HOURS", "5"))
     except ValueError:
-        parsed = datetime.strptime(value, "%Y.%m.%d %H:%M")
-    return (
-        parsed + timedelta(hours=float(os.getenv("TIMEZONE_OFFSET_HOURS", "5")))
-    ).strftime("%Y.%m.%d %I:%M %p")
+        offset = 5
+    return (parsed + timedelta(hours=offset)).strftime("%Y.%m.%d %I:%M %p")
 
 
 def is_supported_payload(payload):

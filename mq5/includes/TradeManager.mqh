@@ -41,12 +41,33 @@ string TradeResultText()
       + " " + trade.ResultRetcodeDescription();
 }
 
+string UrlEncode(string value)
+{
+   uchar bytes[];
+   StringToCharArray(value, bytes, 0, WHOLE_ARRAY, CP_UTF8);
+   string encoded = "";
+   for(int index = 0; index < ArraySize(bytes) - 1; index++)
+   {
+      int character = bytes[index];
+      if((character >= 'A' && character <= 'Z')
+         || (character >= 'a' && character <= 'z')
+         || (character >= '0' && character <= '9')
+         || character == '-' || character == '_'
+         || character == '.' || character == '~')
+         encoded += CharToString((uchar)character);
+      else
+         encoded += "%" + StringFormat("%02X", character);
+   }
+   return encoded;
+}
+
 string TradeConfigUrl()
 {
    int marker = StringFind(WebhookUrl, "/webhook");
    if(marker >= 0)
-      return StringSubstr(WebhookUrl, 0, marker) + "/trade-config";
-   return WebhookUrl + "/trade-config";
+      return StringSubstr(WebhookUrl, 0, marker)
+         + "/trade-config?symbol=" + UrlEncode(_Symbol);
+   return WebhookUrl + "/trade-config?symbol=" + UrlEncode(_Symbol);
 }
 
 bool HttpGet(string url, string &responseBody)

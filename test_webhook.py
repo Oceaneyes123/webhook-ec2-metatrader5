@@ -19,8 +19,25 @@ import webhook
 
 class WebhookTest(unittest.TestCase):
     def setUp(self):
+        self.trade_state_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.trade_state_directory.cleanup)
+        self.trade_state_environment = patch.dict(
+            os.environ,
+            {
+                "TRADE_STATE_FILE": str(
+                    Path(self.trade_state_directory.name) / "trade_state.json"
+                )
+            },
+        )
+        self.trade_state_environment.start()
+        self.addCleanup(self.trade_state_environment.stop)
         webhook.ALERTS_PAUSED = False
         webhook.TRADE_MODE = "NOTRADE"
+        webhook.TRADE_STATE = {
+            "default_mode": "NOTRADE",
+            "symbols": {},
+            "updated_at": "",
+        }
         webhook.RECENT_SIGNALS.clear()
 
     def test_load_dotenv(self):
@@ -296,6 +313,26 @@ class WebhookTest(unittest.TestCase):
             self.assertEqual(
                 json_data_parser.display_time("2026.06.26 01:30"),
                 "2026.06.25 11:30 PM",
+            )
+
+    def test_display_time_accepts_seconds(self):
+        self.assertEqual(
+            json_data_parser.display_time("2026.06.26 01:30:45"),
+            "2026.06.26 06:30 AM",
+        )
+
+    def test_display_time_returns_invalid_value_unchanged(self):
+        self.assertEqual(json_data_parser.display_time("not a date"), "not a date")
+
+    def test_display_time_returns_empty_for_none_or_blank(self):
+        self.assertEqual(json_data_parser.display_time(None), "")
+        self.assertEqual(json_data_parser.display_time("  "), "")
+
+    def test_display_time_uses_default_offset_when_environment_is_invalid(self):
+        with patch.dict(os.environ, {"TIMEZONE_OFFSET_HOURS": "invalid"}):
+            self.assertEqual(
+                json_data_parser.display_time("2026.06.26 01:30"),
+                "2026.06.26 06:30 AM",
             )
 
     def test_engulfing_candle_message_rejects_missing_fields(self):
@@ -625,6 +662,82 @@ class WebhookTest(unittest.TestCase):
             self.assertIn("Trading paused", webhook.command_reply("/notrade"))
             self.assertEqual(webhook.trade_config()["mode"], "NOTRADE")
 
+    def test_missing_trade_state_uses_defaults(self):
+        self.assertEqual(
+            webhook.load_trade_state(),
+            {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""},
+        )
+
+    def test_corrupt_trade_state_uses_defaults(self):
+        webhook.trade_state_path().write_text("{broken", encoding="utf-8")
+
+        self.assertEqual(
+            webhook.load_trade_state(),
+            {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""},
+        )
+
+    def test_buy_saves_default_trade_mode(self):
+        webhook.command_reply("/buy")
+
+        saved = json.loads(webhook.trade_state_path().read_text(encoding="utf-8"))
+        self.assertEqual(saved["default_mode"], "BUY")
+        self.assertTrue(saved["updated_at"].endswith("Z"))
+
+    def test_load_trade_state_restores_default_mode(self):
+        webhook.command_reply("/sell")
+
+        self.assertEqual(webhook.load_trade_state()["default_mode"], "SELL")
+
+    def test_save_trade_state_creates_parent_directories(self):
+        nested = (
+            Path(self.trade_state_directory.name)
+            / "missing"
+            / "directory"
+            / "state.json"
+        )
+        with patch.dict(os.environ, {"TRADE_STATE_FILE": str(nested)}):
+            webhook.save_trade_state(
+                {"default_mode": "BUY", "symbols": {}, "updated_at": ""}
+            )
+
+        self.assertEqual(
+            json.loads(nested.read_text(encoding="utf-8"))["default_mode"], "BUY"
+        )
+
+    def test_symbol_trade_commands_do_not_change_default_mode(self):
+        webhook.command_reply("/buy")
+
+        self.assertIn("for GOLD", webhook.command_reply("/sell Gold"))
+        self.assertEqual(webhook.get_trade_mode(), "BUY")
+        self.assertEqual(webhook.get_trade_mode("GOLD"), "SELL")
+        self.assertIn("for GOLD", webhook.command_reply("/notrade Gold"))
+        self.assertEqual(webhook.get_trade_mode(), "BUY")
+        self.assertEqual(webhook.get_trade_mode("GOLD"), "NOTRADE")
+
+    def test_symbol_overrides_are_saved_and_reloaded(self):
+        webhook.command_reply("/buy Gold")
+
+        saved = json.loads(webhook.trade_state_path().read_text(encoding="utf-8"))
+        reloaded = webhook.load_trade_state()
+
+        self.assertEqual(webhook.get_trade_mode(), "NOTRADE")
+        self.assertEqual(saved["symbols"], {"GOLD": "BUY"})
+        self.assertEqual(reloaded["symbols"], {"GOLD": "BUY"})
+
+    def test_status_reports_symbol_mode(self):
+        webhook.command_reply("/buy Gold")
+
+        self.assertIn("Trade mode for GOLD: BUY", webhook.command_reply("/status Gold"))
+
+    def test_status_reports_default_mode_and_symbol_overrides(self):
+        webhook.command_reply("/buy")
+        webhook.command_reply("/sell Gold")
+
+        status = webhook.command_reply("/status")
+
+        self.assertIn("Default trade mode: BUY", status)
+        self.assertIn("GOLD: SELL", status)
+
     def test_trade_config_endpoint_returns_json(self):
         webhook.command_reply("/buy")
         handler = self.make_handler("/trade-config?symbol=Gold", method="GET")
@@ -633,6 +746,21 @@ class WebhookTest(unittest.TestCase):
         self.assertIn(("code", 200), handler.responses)
         self.assertIn(("Content-Type", "application/json; charset=utf-8"), handler.responses)
         self.assertEqual(json.loads(handler.wfile.getvalue()), webhook.trade_config())
+
+    def test_trade_config_endpoint_uses_normalized_symbol_override(self):
+        webhook.command_reply("/buy")
+        webhook.command_reply("/sell Gold")
+
+        exact_gold = self.make_handler("/trade-config?symbol=GOLD", method="GET")
+        exact_gold.do_GET()
+        gold = self.make_handler("/trade-config?symbol=GOLDmicro", method="GET")
+        gold.do_GET()
+        eurusd = self.make_handler("/trade-config?symbol=EURUSD", method="GET")
+        eurusd.do_GET()
+
+        self.assertEqual(json.loads(exact_gold.wfile.getvalue())["mode"], "SELL")
+        self.assertEqual(json.loads(gold.wfile.getvalue())["mode"], "SELL")
+        self.assertEqual(json.loads(eurusd.wfile.getvalue())["mode"], "BUY")
 
     def test_ea_error_payload_is_sent_to_telegram(self):
         payload = {

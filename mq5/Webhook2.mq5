@@ -12,6 +12,7 @@ input int WebRequestTimeoutMs = 5000;
 input bool PrintDebugLogs = true;
 input long TradeMagicNumber = 260628;
 input int EaIssueRepeatSeconds = 60;
+input int TradeManageIntervalSeconds = 1;
 
 #define TRADE_TF_COUNT 3
 
@@ -33,6 +34,13 @@ datetime lastEaIssueTime = 0;
 
 int OnInit()
 {
+   if(TradeManageIntervalSeconds < 1)
+   {
+      Print("TradeManageIntervalSeconds must be at least 1");
+      SendEaIssue("Invalid TradeManageIntervalSeconds", "Must be at least 1");
+      return INIT_PARAMETERS_INCORRECT;
+   }
+
    for(int index = 0; index < TRADE_TF_COUNT; index++)
    {
       ema20Handles[index] = iMA(
@@ -54,12 +62,14 @@ int OnInit()
    }
 
    trade.SetExpertMagicNumber(TradeMagicNumber);
+   EventSetTimer(TradeManageIntervalSeconds);
    Print("Webhook2 trade EA started for ", _Symbol);
    return INIT_SUCCEEDED;
 }
 
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    for(int index = 0; index < TRADE_TF_COUNT; index++)
    {
       if(ema20Handles[index] != INVALID_HANDLE)
@@ -71,6 +81,10 @@ void OnDeinit(const int reason)
 }
 
 void OnTick()
+{
+}
+
+void OnTimer()
 {
    ManageTrading();
 }

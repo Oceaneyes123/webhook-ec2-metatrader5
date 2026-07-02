@@ -59,6 +59,7 @@ $env:HOST = "127.0.0.1"
 $env:PORT = "8000"
 $env:PUBLIC_URL = "http://127.0.0.1:8000/webhook"
 $env:STATE_FILE = "D:\Project\Python\webhook-ec2\market_state.json"
+$env:TRADE_STATE_FILE = "D:\Project\Python\webhook-ec2\trade_state.json"
 $env:TELEGRAM_POLL_SECONDS = "10"
 ```
 
@@ -79,12 +80,19 @@ Telegram: configured
 Alerts: running
 ```
 
-## Install and Configure the MQ5 EA
+## Two-EA MT5 Setup
 
-The repository tracks two EAs:
+`mq5/Webhook1.mq5` is the market-data EA. Attach it to the symbol chart to
+send snapshots, candle history, RSI/EMA values, patterns, and key levels. It
+powers `/summary`, `/levels`, and `/rsi`.
 
-- `mq5/Webhook1.mq5` sends market snapshots and alerts.
-- `mq5/Webhook2.mq5` manages trade mode and pending orders.
+`mq5/Webhook2.mq5` is the trade-management EA. Attach it to the same symbol
+chart only when trade management is desired. It fetches
+`/trade-config?symbol=<symbol>` and can create, modify, and delete pending
+orders.
+
+Both EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
+Telegram chat.
 
 Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
 `Webhook2.mq5` are symlinks to the live MetaTrader Experts files.
@@ -95,7 +103,7 @@ After every MQ5 edit:
 python sync_mq5.py
 ```
 
-This updates both live EAs and their three shared includes. Then compile or
+This updates both live EAs and their three shared includes. Then compile and
 reload both live EAs in MetaEditor.
 
 In MetaTrader 5:
@@ -108,7 +116,9 @@ In MetaTrader 5:
    http://127.0.0.1:8000
    ```
 
-4. Attach the EA to a chart and enable algorithmic trading.
+4. Attach `Webhook1` to the required symbol chart.
+5. Attach `Webhook2` to the same chart only if trade management is required,
+   then enable algorithmic trading.
 
 The EA's default URL is:
 
@@ -121,14 +131,24 @@ Other useful EA inputs:
 ```text
 WebRequestTimeoutMs = 5000
 PrintDebugLogs = true
+TradeManageIntervalSeconds = 1
+TradeMagicNumber = 260628
+EaIssueRepeatSeconds = 60
 LevelLookbackBars = 100
 SwingStrength = 2
 AtrPeriod = 14
 MinFvgAtrRatio = 0.25
 ```
 
+`TradeManageIntervalSeconds` controls how often `Webhook2` runs trade
+management through `OnTimer`.
+
 M1 and M5 snapshots use EMA20/EMA50 only. M15, M30, H1, and H4 snapshots
 include candle patterns and key levels.
+
+> **Risk:** `Webhook2` can place, modify, and delete pending orders. Test on a
+> demo account first, confirm the chart symbol, and check Telegram trade mode
+> with `/status Gold` before expecting trades.
 
 ## Telegram Commands
 
@@ -144,10 +164,19 @@ include candle patterns and key levels.
 /buy - Start trailing buy-limit mode
 /sell - Start trailing sell-limit mode
 /notrade - Stop trading activity
+/status Gold - Check status and trade mode for Gold
+/buy Gold - Start trailing buy-limit mode for Gold
+/sell Gold - Start trailing sell-limit mode for Gold
+/notrade Gold - Stop trading activity for Gold
 ```
 
 Paused mode still stores incoming snapshots, so `/summary` and `/levels` remain
 current.
+
+The default trade mode and symbol overrides persist in `trade_state.json`.
+Set `TRADE_STATE_FILE` to store that file elsewhere. The commands `/buy`,
+`/sell`, `/notrade`, and `/status` operate on the default mode; their symbol
+forms operate on one normalized symbol.
 
 ## Test the Webhook Manually
 

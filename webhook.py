@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import urllib.parse
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -34,7 +35,79 @@ load_dotenv()
 logger = get_logger()
 START_TIME = time.monotonic()
 ALERTS_PAUSED = False
-TRADE_MODE = "NOTRADE"
+
+
+def trade_state_path():
+    return Path(
+        os.environ.get(
+            "TRADE_STATE_FILE",
+            Path(__file__).with_name("trade_state.json"),
+        )
+    )
+
+
+def normalize_trade_mode(value):
+    mode = str(value or "").strip().upper()
+    return mode if mode in {"BUY", "SELL", "NOTRADE"} else "NOTRADE"
+
+
+def normalize_trade_symbol(value):
+    return display_symbol(value).upper()
+
+
+def default_trade_state():
+    return {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""}
+
+
+def load_trade_state():
+    try:
+        raw_state = json.loads(trade_state_path().read_text(encoding="utf-8"))
+        if not isinstance(raw_state, dict):
+            raise ValueError("trade state must be a JSON object")
+        symbols = raw_state.get("symbols", {})
+        if not isinstance(symbols, dict):
+            symbols = {}
+        return {
+            "default_mode": normalize_trade_mode(raw_state.get("default_mode")),
+            "symbols": {
+                normalize_trade_symbol(symbol): normalize_trade_mode(mode)
+                for symbol, mode in symbols.items()
+                if normalize_trade_symbol(symbol)
+            },
+            "updated_at": str(raw_state.get("updated_at", "")),
+        }
+    except FileNotFoundError:
+        return default_trade_state()
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+        logger.warning("Ignoring invalid trade state file %s: %s", trade_state_path(), error)
+        return default_trade_state()
+
+
+def save_trade_state(state):
+    target = trade_state_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    state["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            json.dump(state, temporary, indent=2)
+            temporary.write("\n")
+            temporary_path = Path(temporary.name)
+        os.replace(temporary_path, target)
+    finally:
+        if temporary_path and temporary_path.exists():
+            temporary_path.unlink()
+
+
+TRADE_STATE = load_trade_state()
+TRADE_MODE = TRADE_STATE["default_mode"]
 RECENT_SIGNALS = []
 MARKET_STATE = MarketState()
 
@@ -79,9 +152,30 @@ def server_config():
     return host, port, public_url
 
 
-def trade_config():
+def get_trade_mode(symbol=None):
+    symbol = normalize_trade_symbol(symbol)
+    if symbol and symbol in TRADE_STATE["symbols"]:
+        return TRADE_STATE["symbols"][symbol]
+    return normalize_trade_mode(TRADE_MODE)
+
+
+def set_trade_mode(mode, symbol=None):
+    global TRADE_MODE
+
+    mode = normalize_trade_mode(mode)
+    symbol = normalize_trade_symbol(symbol)
+    if symbol:
+        TRADE_STATE["symbols"][symbol] = mode
+    else:
+        TRADE_MODE = mode
+        TRADE_STATE["default_mode"] = mode
+    save_trade_state(TRADE_STATE)
+    return mode
+
+
+def trade_config(symbol=None):
     return {
-        "mode": TRADE_MODE,
+        "mode": get_trade_mode(symbol),
         "lot_size": float(os.environ.get("TRADE_LOT_SIZE", "0.2")),
         "trail_pips": float(os.environ.get("TRAIL_PIPS", "20")),
     }
@@ -130,17 +224,21 @@ def help_text():
             "/levels Gold - M15-H4 key levels",
             "/rsi Gold - RSI(14) 70/30 extremes",
             "/buy - Start trailing buy-limit mode",
+            "/buy Gold - Start buy-limit mode for one symbol",
             "/sell - Start trailing sell-limit mode",
+            "/sell Gold - Start sell-limit mode for one symbol",
             "/notrade - Stop trading activity",
+            "/notrade Gold - Stop trading for one symbol",
         ]
     )
 
 
 def command_reply(text):
-    global ALERTS_PAUSED, TRADE_MODE
+    global ALERTS_PAUSED
 
     parts = text.strip().split()
     command = parts[0].split("@", 1)[0].lower() if parts else ""
+    symbol = normalize_trade_symbol(parts[1]) if len(parts) > 1 else ""
     if command == "/pause":
         ALERTS_PAUSED = True
         return "⏸️ MT5 alerts paused"
@@ -148,39 +246,49 @@ def command_reply(text):
         ALERTS_PAUSED = False
         return "▶️ MT5 alerts resumed"
     if command == "/status":
-        return "\n".join(
-            [
-                "✅ Bot online",
-                f"Alerts: {'paused' if ALERTS_PAUSED else 'running'}",
-                f"Telegram: {'configured' if telegram_configured() else 'missing'}",
-                f"Recent signals: {len(RECENT_SIGNALS)}",
-            ]
-        )
+        lines = [
+            "✅ Bot online",
+            f"Alerts: {'paused' if ALERTS_PAUSED else 'running'}",
+            f"Telegram: {'configured' if telegram_configured() else 'missing'}",
+            f"Recent signals: {len(RECENT_SIGNALS)}",
+        ]
+        if symbol:
+            lines.append(f"Trade mode for {symbol}: {get_trade_mode(symbol)}")
+        else:
+            lines.append(f"Default trade mode: {get_trade_mode()}")
+            if TRADE_STATE["symbols"]:
+                lines.append("Symbol overrides:")
+                lines.extend(
+                    f"{name}: {mode}"
+                    for name, mode in sorted(TRADE_STATE["symbols"].items())
+                )
+        return "\n".join(lines)
     if command == "/help":
         return help_text()
     if command == "/buy":
-        TRADE_MODE = "BUY"
-        config = trade_config()
+        set_trade_mode("BUY", symbol)
+        config = trade_config(symbol)
         return (
-            "🟢 BUY limit mode enabled\n"
+            f"🟢 BUY limit mode enabled{' for ' + symbol if symbol else ''}\n"
             f"Lot: {config['lot_size']}\n"
             f"Trail: {config['trail_pips']} pips below EMA20\n"
             "Confluence: M5/M15 previous candle above EMA20 and M1 EMA20 > EMA50"
         )
     if command == "/sell":
-        TRADE_MODE = "SELL"
-        config = trade_config()
+        set_trade_mode("SELL", symbol)
+        config = trade_config(symbol)
         return (
-            "🔴 SELL limit mode enabled\n"
+            f"🔴 SELL limit mode enabled{' for ' + symbol if symbol else ''}\n"
             f"Lot: {config['lot_size']}\n"
             f"Trail: {config['trail_pips']} pips above EMA20\n"
             "Confluence: M5/M15 previous candle below EMA20 and M1 EMA50 > EMA20"
         )
     if command == "/notrade":
-        TRADE_MODE = "NOTRADE"
+        set_trade_mode("NOTRADE", symbol)
+        if symbol:
+            return f"⏹️ Trading paused for {symbol}"
         return "⏹️ Trading paused. No buy or sell limit orders will be trailed."
     if command == "/recent":
-        symbol = display_symbol(parts[1]).upper() if len(parts) > 1 else ""
         if not symbol:
             return "Usage: /recent Gold"
         signals = [item["message"] for item in RECENT_SIGNALS if item["symbol"].upper() == symbol][-5:]
@@ -191,7 +299,6 @@ def command_reply(text):
     if command in ("/summary", "/levels", "/rsi"):
         if len(parts) < 2:
             return f"Usage: {command} Gold"
-        symbol = display_symbol(parts[1]).upper()
         if command == "/summary":
             return MARKET_STATE.summary(symbol)
         if command == "/levels":
@@ -277,12 +384,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
         )
 
     def do_GET(self):
-        path = urllib.parse.urlparse(self.path).path
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
         if path == "/health":
             self.write_text(200, health_text())
             return
         if path == "/trade-config":
-            self.write_json(200, trade_config())
+            symbol = urllib.parse.parse_qs(parsed_url.query).get("symbol", [None])[0]
+            self.write_json(200, trade_config(symbol))
             return
         self.send_error(404)
 

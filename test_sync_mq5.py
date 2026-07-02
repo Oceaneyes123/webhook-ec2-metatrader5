@@ -99,6 +99,26 @@ class SyncMq5Test(unittest.TestCase):
         self.assertIn("FetchTradeConfig", manager)
         self.assertIn("TrailPendingOrder", manager)
 
+    def test_trade_ea_manages_trading_on_timer(self):
+        ea = (MQ5 / "Webhook2.mq5").read_text(encoding="utf-8")
+        on_tick = ea.split("void OnTick()", 1)[1].split("}", 1)[0]
+
+        self.assertIn("input int TradeManageIntervalSeconds = 1;", ea)
+        self.assertIn("TradeManageIntervalSeconds < 1", ea)
+        self.assertIn("return INIT_PARAMETERS_INCORRECT;", ea)
+        self.assertIn("EventSetTimer(TradeManageIntervalSeconds);", ea)
+        self.assertIn("void OnTimer()", ea)
+        self.assertIn("ManageTrading();", ea)
+        self.assertIn("EventKillTimer();", ea)
+        self.assertNotIn("ManageTrading();", on_tick)
+
+    def test_trade_config_url_includes_encoded_chart_symbol(self):
+        manager = (MQ5 / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+
+        self.assertIn("string UrlEncode(string value)", manager)
+        self.assertIn('"/trade-config?symbol="', manager)
+        self.assertIn("UrlEncode(_Symbol)", manager)
+
     def test_both_eas_use_the_local_webhook_default(self):
         expected = 'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
         for name in ("Webhook1.mq5", "Webhook2.mq5"):
@@ -108,6 +128,25 @@ class SyncMq5Test(unittest.TestCase):
 
     def test_legacy_canonical_ea_is_removed(self):
         self.assertFalse((MQ5 / "Webhook.mq5").exists())
+
+    def test_readme_documents_two_ea_setup(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("## Two-EA MT5 Setup", readme)
+        self.assertIn("trade_state.json", readme)
+        self.assertIn("TRADE_STATE_FILE", readme)
+        self.assertIn("TradeManageIntervalSeconds", readme)
+        for command in (
+            "/summary Gold",
+            "/levels Gold",
+            "/rsi Gold",
+            "/buy Gold",
+            "/sell Gold",
+            "/notrade Gold",
+            "/status Gold",
+        ):
+            with self.subTest(command=command):
+                self.assertIn(command, readme)
 
 
 if __name__ == "__main__":
