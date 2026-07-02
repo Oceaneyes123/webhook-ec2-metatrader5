@@ -2,24 +2,31 @@
 
 ## MQ5 Source Workflow
 
-`mq5/Webhook.mq5` is the canonical, tracked MQ5 source. Root `Webhook.mq5` is
-a symlink to the live MetaTrader Experts file and remains available for easy
-inspection.
+The canonical, tracked MQL5 sources are:
+
+- `mq5/Webhook1.mq5`
+- `mq5/Webhook2.mq5`
+- `mq5/includes/WebhookCommon.mqh`
+- `mq5/includes/MarketSnapshot.mqh`
+- `mq5/includes/TradeManager.mqh`
+
+Root `Webhook1.mq5` and `Webhook2.mq5` are symlinks to the live MetaTrader
+Experts files and remain available for easy inspection.
 
 For every MQ5 change:
 
-1. Edit `mq5/Webhook.mq5` first.
-2. Run relevant tests and compile the canonical file.
+1. Edit the canonical file under `mq5/` first.
+2. Run relevant tests and compile both canonical EAs.
 3. Run `python sync_mq5.py`.
-4. Compile or reload the live MetaTrader file.
-5. Verify the canonical and live files match when the change is complete.
+4. Compile or reload both live MetaTrader EAs.
+5. Verify all canonical and live MQL5 files match when the change is complete.
 
-Never edit root `Webhook.mq5` directly. Doing so changes the live MetaTrader
-file before the repository source. `sync_mq5.py` is intentionally one-way from
-the canonical file to the live file.
+Never edit the root EA links or live includes directly. Doing so changes the
+live MetaTrader files before the repository source. `sync_mq5.py` is
+intentionally one-way from the five canonical files to the live files.
 
-The script targets root `Webhook.mq5` by default. Set `MT5_MQ5_PATH` to use a
-different MetaTrader installation.
+The script targets the two root live links and copies shared includes into
+their live `includes` directory.
 
 ## CodeGraph
 

@@ -54,11 +54,14 @@ def notify_error(error):
 
 
 def ea_issue_message(payload):
+    source = str(payload.get("source", "")).strip()
     symbol = display_symbol(payload.get("symbol")).upper()
     timeframe = str(payload.get("timeframe", "")).upper()
     message = str(payload.get("message", "EA issue")).strip() or "EA issue"
     detail = str(payload.get("detail", "")).strip()
     lines = ["⚠️ EA Issue"]
+    if source:
+        lines.append(f"Source: <b>{html.escape(source)}</b>")
     if symbol:
         lines.append(f"Symbol: <b>{html.escape(symbol)}</b>")
     if timeframe:

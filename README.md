@@ -81,8 +81,13 @@ Alerts: running
 
 ## Install and Configure the MQ5 EA
 
-The tracked source is `mq5/Webhook.mq5`. Root `Webhook.mq5` is a symlink to the
-live MetaTrader Experts file.
+The repository tracks two EAs:
+
+- `mq5/Webhook1.mq5` sends market snapshots and alerts.
+- `mq5/Webhook2.mq5` manages trade mode and pending orders.
+
+Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
+`Webhook2.mq5` are symlinks to the live MetaTrader Experts files.
 
 After every MQ5 edit:
 
@@ -90,7 +95,8 @@ After every MQ5 edit:
 python sync_mq5.py
 ```
 
-Then compile the live `Webhook.mq5` in MetaEditor.
+This updates both live EAs and their three shared includes. Then compile or
+reload both live EAs in MetaEditor.
 
 In MetaTrader 5:
 

@@ -1,70 +1,108 @@
-import os
-import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+import sync_mq5
+
 
 ROOT = Path(__file__).parent
-CANONICAL = ROOT / "mq5" / "Webhook.mq5"
-SCRIPT = ROOT / "sync_mq5.py"
+MQ5 = ROOT / "mq5"
+RELATIVE_SOURCES = (
+    Path("Webhook1.mq5"),
+    Path("Webhook2.mq5"),
+    Path("includes/WebhookCommon.mqh"),
+    Path("includes/MarketSnapshot.mqh"),
+    Path("includes/TradeManager.mqh"),
+)
 
 
 class SyncMq5Test(unittest.TestCase):
-    def run_sync(self, target):
-        environment = os.environ.copy()
-        environment["MT5_MQ5_PATH"] = str(target)
-        return subprocess.run(
-            [sys.executable, str(SCRIPT)],
-            cwd=ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    def make_sources(self, source_dir):
+        for relative in RELATIVE_SOURCES:
+            source = source_dir / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(str(relative), encoding="utf-8")
 
-    def test_sync_copies_canonical_source_to_configured_target(self):
+    def test_sync_copies_both_eas_and_shared_includes(self):
         with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / "Webhook.mq5"
+            temporary = Path(directory)
+            source_dir = temporary / "mq5"
+            live_dir = temporary / "Experts"
+            self.make_sources(source_dir)
+            live_dir.mkdir()
 
-            result = self.run_sync(target)
+            copied = sync_mq5.sync_mq5(
+                source_dir=source_dir,
+                live_eas=(
+                    live_dir / "Webhook1.mq5",
+                    live_dir / "Webhook2.mq5",
+                ),
+            )
 
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(target.read_bytes(), CANONICAL.read_bytes())
+            self.assertEqual(len(copied), len(RELATIVE_SOURCES))
+            for relative in RELATIVE_SOURCES:
+                self.assertEqual(
+                    (live_dir / relative).read_bytes(),
+                    (source_dir / relative).read_bytes(),
+                )
 
-    def test_sync_rejects_canonical_file_as_target(self):
-        result = self.run_sync(CANONICAL)
+    def test_sync_rejects_canonical_files_as_live_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source_dir = Path(directory) / "mq5"
+            self.make_sources(source_dir)
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("same file", result.stderr.lower())
+            with self.assertRaisesRegex(ValueError, "same file"):
+                sync_mq5.sync_mq5(
+                    source_dir=source_dir,
+                    live_eas=(
+                        source_dir / "Webhook1.mq5",
+                        source_dir / "Webhook2.mq5",
+                    ),
+                )
 
-    def test_canonical_mq5_uses_one_local_webhook_url(self):
-        source = CANONICAL.read_text(encoding="utf-8")
+    def test_all_canonical_mql5_sources_exist(self):
+        for relative in RELATIVE_SOURCES:
+            with self.subTest(relative=relative):
+                self.assertTrue((MQ5 / relative).is_file())
 
-        self.assertIn(
-            'input string WebhookUrl = "http://127.0.0.1:8000/webhook";',
-            source,
-        )
-        self.assertNotIn("ENV_PRODUCTION", source)
-        self.assertNotIn("ProductionWebhookUrl", source)
-        self.assertNotIn("3.27.46.138", source)
-    def test_canonical_mq5_contains_rsi_and_trade_control_features(self):
-        source = CANONICAL.read_text(encoding="utf-8")
+    def test_market_ea_owns_snapshots_only(self):
+        ea = (MQ5 / "Webhook1.mq5").read_text(encoding="utf-8")
+        market = (MQ5 / "includes/MarketSnapshot.mqh").read_text(encoding="utf-8")
 
-        self.assertIn("iRSI(_Symbol, Timeframes[i], 14, PRICE_CLOSE)", source)
-        self.assertIn("/trade-config", source)
-        self.assertIn("TradeMagicNumber", source)
-        self.assertIn("BuyConfluence()", source)
-        self.assertIn("SellConfluence()", source)
-        self.assertIn("trade.BuyLimit", source)
-        self.assertIn("trade.SellLimit", source)
-        self.assertIn("HasOpenPositionForSymbol()", source)
-        self.assertIn("One open position per symbol", source)
-        self.assertIn("SendEaIssue", source)
-        self.assertIn("EA_ERROR", source)
-        self.assertIn("TradeResultText", source)
-        self.assertIn("ManageTrading();", source)
+        self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
+        self.assertIn('#include "includes/MarketSnapshot.mqh"', ea)
+        self.assertIn("input int ChartHistoryBars = 80;", ea)
+        self.assertIn("CheckAllTimeframes();", ea)
+        self.assertNotIn("ManageTrading", ea)
+        self.assertIn('\\"source\\":\\"webhook1\\"', market)
+        self.assertIn('\\"candles\\":', market)
+        self.assertIn("BuildCandlesJson", market)
+        self.assertIn("CalculateLevels", market)
+
+    def test_trade_ea_owns_trade_management_only(self):
+        ea = (MQ5 / "Webhook2.mq5").read_text(encoding="utf-8")
+        manager = (MQ5 / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+
+        self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
+        self.assertIn('#include "includes/TradeManager.mqh"', ea)
+        self.assertIn("ManageTrading();", ea)
+        self.assertNotIn("CheckAllTimeframes", ea)
+        self.assertNotIn("rsiHandles", ea)
+        self.assertNotIn("CalculateLevels", manager)
+        self.assertNotIn("TIMEFRAME_SNAPSHOT", manager)
+        self.assertIn('\\"source\\":\\"webhook2\\"', manager)
+        self.assertIn("FetchTradeConfig", manager)
+        self.assertIn("TrailPendingOrder", manager)
+
+    def test_both_eas_use_the_local_webhook_default(self):
+        expected = 'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
+        for name in ("Webhook1.mq5", "Webhook2.mq5"):
+            source = (MQ5 / name).read_text(encoding="utf-8")
+            with self.subTest(name=name):
+                self.assertIn(expected, source)
+
+    def test_legacy_canonical_ea_is_removed(self):
+        self.assertFalse((MQ5 / "Webhook.mq5").exists())
 
 
 if __name__ == "__main__":

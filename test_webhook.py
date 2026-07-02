@@ -655,6 +655,54 @@ class WebhookTest(unittest.TestCase):
         self.assertIn("BuyLimit failed", message)
         self.assertIn("retcode=10030", message)
 
+    def test_ea_issue_message_includes_source_when_present(self):
+        message = webhook.ea_issue_message(
+            {
+                "event_type": "EA_ERROR",
+                "source": "webhook2",
+                "message": "BuyLimit failed",
+            }
+        )
+
+        self.assertIn("Source: <b>webhook2</b>", message)
+
+    def test_ea_issue_message_omits_source_when_missing(self):
+        message = webhook.ea_issue_message(
+            {"event_type": "EA_ERROR", "message": "BuyLimit failed"}
+        )
+
+        self.assertNotIn("Source:", message)
+
+    def test_ea_error_accepts_both_sources(self):
+        for source in ("webhook1", "webhook2"):
+            with self.subTest(source=source), patch(
+                "webhook.send_telegram_message"
+            ) as send:
+                payload = {
+                    "event_type": "EA_ERROR",
+                    "source": source,
+                    "message": "EA failed",
+                }
+                handler = self.make_handler(
+                    "/webhook", json.dumps(payload).encode()
+                )
+
+                handler.do_POST()
+
+                self.assertEqual(handler.wfile.getvalue(), b"ok")
+                send.assert_called_once()
+
+    def test_webhook1_snapshot_updates_market_state(self):
+        payload = self.snapshot("M1", "2026.06.28 10:01:00")
+        payload["source"] = "webhook1"
+        with patch.object(webhook.MARKET_STATE, "update", return_value=[]) as update:
+            handler = self.make_handler("/webhook", json.dumps(payload).encode())
+
+            handler.do_POST()
+
+        self.assertEqual(handler.wfile.getvalue(), b"ok")
+        update.assert_called_once_with(payload)
+
     def test_market_state_module_is_available(self):
         self.assertIsNotNone(importlib.util.find_spec("market_state"))
 
@@ -682,6 +730,40 @@ class WebhookTest(unittest.TestCase):
         self.assertIn("Bullish", report)
         self.assertIn("<b>M5</b>", report)
         self.assertIn("Neutral", report)
+
+    def test_market_state_uses_supplied_candle_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            payload = self.snapshot(
+                "M1",
+                "2026.06.28 10:01:00",
+                ema20=2306.0,
+                ema50=2305.0,
+            )
+            payload["candles"] = [
+                {
+                    "candle_time": "2026.06.28 10:01:00",
+                    "open": 2300.0,
+                    "high": 2310.0,
+                    "low": 2290.0,
+                    "close": 2305.0,
+                },
+                {
+                    "candle_time": "2026.06.28 10:00:00",
+                    "open": 2295.0,
+                    "high": 2305.0,
+                    "low": 2290.0,
+                    "close": 2300.0,
+                },
+            ]
+
+            state.update(payload)
+
+            history = state.data["symbols"]["GOLD"]["M1"]["candle_history"]
+            self.assertEqual(
+                [candle["candle_time"] for candle in history],
+                ["2026.06.28 10:00:00", "2026.06.28 10:01:00"],
+            )
 
     def test_market_state_stores_rsi_history_and_reports_extremes(self):
         with tempfile.TemporaryDirectory() as directory:

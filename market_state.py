@@ -93,6 +93,22 @@ def validate_snapshot(payload):
             for key in ("open", "high", "low", "close")
         },
     }
+    candles = payload.get("candles", [])
+    if not isinstance(candles, list):
+        raise ValueError("candles must be a list")
+    snapshot["candles"] = []
+    for index, candle in enumerate(candles):
+        if not isinstance(candle, dict) or not str(candle.get("candle_time", "")).strip():
+            raise ValueError(f"candles[{index}] must contain candle_time")
+        snapshot["candles"].append(
+            {
+                "candle_time": str(candle["candle_time"]).strip(),
+                **{
+                    key: _number(candle.get(key), f"candles[{index}].{key}")
+                    for key in ("open", "high", "low", "close")
+                },
+            }
+        )
 
     if payload.get("rsi14") is not None:
         snapshot["rsi14"] = _number(payload.get("rsi14"), "rsi14")
@@ -192,7 +208,12 @@ class MarketState:
             elif previous.get("rsi_history"):
                 snapshot["rsi_history"] = previous["rsi_history"]
 
-            candle_history = list(previous.get("candle_history", []))
+            supplied_candles = snapshot.pop("candles", [])
+            candle_history = (
+                list(reversed(supplied_candles))
+                if supplied_candles
+                else list(previous.get("candle_history", []))
+            )
             current_candle = {
                 "candle_time": snapshot["candle_time"],
                 "open": snapshot["open"],
