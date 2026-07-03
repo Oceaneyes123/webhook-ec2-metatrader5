@@ -13,6 +13,7 @@ RELATIVE_SOURCES = (
     Path("includes/WebhookCommon.mqh"),
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),
+    Path("TPSL.mq5"),
 )
 
 
@@ -147,6 +148,46 @@ class SyncMq5Test(unittest.TestCase):
         ):
             with self.subTest(command=command):
                 self.assertIn(command, readme)
+
+    def test_webhook1_has_heartbeat_timer(self):
+        ea = (MQ5 / "Webhook1.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("input int HeartbeatSeconds = 30;", ea)
+        self.assertIn("EventSetTimer(HeartbeatSeconds);", ea)
+        self.assertIn("void OnTimer()", ea)
+        self.assertIn('SendEaHeartbeat("webhook1")', ea)
+        self.assertIn("EventKillTimer();", ea)
+        self.assertIn("HeartbeatSeconds < 10", ea)
+
+    def test_webhook2_has_heartbeat_and_config_cache(self):
+        ea = (MQ5 / "Webhook2.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("input int HeartbeatSeconds = 30;", ea)
+        self.assertIn("input int TradeConfigRefreshSeconds = 5;", ea)
+        self.assertIn("input int TradeConfigMaxStaleSeconds = 30;", ea)
+        self.assertIn("lastHeartbeatTime", ea)
+        self.assertIn("MaybeSendHeartbeat", ea)
+        self.assertIn('SendEaHeartbeat("webhook2")', ea)
+        self.assertIn("HeartbeatSeconds < 10", ea)
+        self.assertIn("TradeConfigRefreshSeconds < 1", ea)
+        self.assertIn("TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea)
+
+    def test_trade_manager_has_config_cache(self):
+        manager = (MQ5 / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+
+        self.assertIn("cachedTradeConfig", manager)
+        self.assertIn("hasCachedTradeConfig", manager)
+        self.assertIn("cachedTradeConfigTime", manager)
+        self.assertIn("TradeConfigRefreshSeconds", manager)
+        self.assertIn("TradeConfigMaxStaleSeconds", manager)
+        self.assertIn("Using cached trade config", manager)
+        self.assertIn("stale-but-allowed fallback", manager)
+
+    def test_webhook_common_has_send_ea_heartbeat(self):
+        common = (MQ5 / "includes/WebhookCommon.mqh").read_text(encoding="utf-8")
+
+        self.assertIn("SendEaHeartbeat", common)
+        self.assertIn("EA_HEARTBEAT", common)
 
 
 if __name__ == "__main__":

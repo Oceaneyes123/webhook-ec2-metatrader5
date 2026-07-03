@@ -13,6 +13,9 @@ input bool PrintDebugLogs = true;
 input long TradeMagicNumber = 260628;
 input int EaIssueRepeatSeconds = 60;
 input int TradeManageIntervalSeconds = 1;
+input int HeartbeatSeconds = 30;
+input int TradeConfigRefreshSeconds = 5;
+input int TradeConfigMaxStaleSeconds = 30;
 
 #define TRADE_TF_COUNT 3
 
@@ -28,16 +31,22 @@ int ema50Handles[TRADE_TF_COUNT];
 CTrade trade;
 string lastEaIssueKey = "";
 datetime lastEaIssueTime = 0;
+datetime lastHeartbeatTime = 0;
 
 #include "includes/WebhookCommon.mqh"
 #include "includes/TradeManager.mqh"
 
 int OnInit()
 {
-   if(TradeManageIntervalSeconds < 1)
+   if(TradeManageIntervalSeconds < 1
+      || HeartbeatSeconds < 10
+      || HeartbeatSeconds < TradeManageIntervalSeconds
+      || TradeConfigRefreshSeconds < 1
+      || TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds)
    {
-      Print("TradeManageIntervalSeconds must be at least 1");
-      SendEaIssue("Invalid TradeManageIntervalSeconds", "Must be at least 1");
+      Print("Invalid Webhook2 inputs.");
+      SendEaIssue("Invalid Webhook2 inputs",
+         "TradeManageIntervalSeconds/HeartbeatSeconds/TradeConfigRefreshSeconds/TradeConfigMaxStaleSeconds");
       return INIT_PARAMETERS_INCORRECT;
    }
 
@@ -87,4 +96,15 @@ void OnTick()
 void OnTimer()
 {
    ManageTrading();
+   MaybeSendHeartbeat();
+}
+
+void MaybeSendHeartbeat()
+{
+   datetime now = TimeCurrent();
+   if(now - lastHeartbeatTime >= HeartbeatSeconds)
+   {
+      SendEaHeartbeat("webhook2");
+      lastHeartbeatTime = now;
+   }
 }

@@ -1517,5 +1517,169 @@ class WebhookTest(unittest.TestCase):
             self.assertEqual(photo_path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
 
 
+
+class SymbolAliasTest(unittest.TestCase):
+
+    def test_gold_aliases_normalize_to_gold(self):
+        for alias in ("GOLD", "Gold", "Goldmicro", "Goldm#", "XAUUSD"):
+            with self.subTest(alias=alias):
+                self.assertEqual(json_data_parser.display_symbol(alias), "GOLD")
+
+    def test_xauusd_normalizes_to_gold(self):
+        self.assertEqual(json_data_parser.display_symbol("XAUUSD"), "GOLD")
+
+    def test_unknown_symbol_falls_back_safely(self):
+        self.assertEqual(json_data_parser.display_symbol("EURUSD"), "EURUSD")
+        self.assertEqual(json_data_parser.display_symbol("microEURUSDm#"), "EURUSD")
+
+    def test_empty_symbol_returns_empty(self):
+        self.assertEqual(json_data_parser.display_symbol(""), "")
+        self.assertEqual(json_data_parser.display_symbol(None), "")
+        self.assertEqual(json_data_parser.display_symbol("  "), "")
+
+    def test_buy_goldmicro_stores_gold(self):
+        handler = WebhookTest()
+        handler.setUp()
+        handler.tearDown = lambda: None
+        try:
+            webhook.command_reply("/buy Goldmicro")
+            self.assertEqual(webhook.get_trade_mode("Goldmicro"), "BUY")
+            self.assertIn("GOLD", webhook.TRADE_STATE["symbols"])
+            self.assertEqual(webhook.TRADE_STATE["symbols"]["GOLD"], "BUY")
+        finally:
+            handler.tearDown()
+
+
+class HeartbeatTest(unittest.TestCase):
+    def setUp(self):
+        webhook.EA_HEARTBEATS.clear()
+
+    def test_is_supported_payload_accepts_ea_heartbeat(self):
+        self.assertTrue(
+            json_data_parser.is_supported_payload({"event_type": "EA_HEARTBEAT"})
+        )
+
+    def test_record_ea_heartbeat_stores_source_symbol_and_status(self):
+        webhook.record_ea_heartbeat({
+            "event_type": "EA_HEARTBEAT",
+            "source": "webhook1",
+            "symbol": "GOLDmicro",
+            "status": "running",
+        })
+        self.assertIn("webhook1", webhook.EA_HEARTBEATS)
+        entry = webhook.EA_HEARTBEATS["webhook1"]
+        self.assertEqual(entry["source"], "webhook1")
+        self.assertEqual(entry["symbol"], "GOLD")
+        self.assertEqual(entry["status"], "running")
+        self.assertIn("last_seen", entry)
+
+    def test_record_ea_heartbeat_normalizes_symbol(self):
+        webhook.record_ea_heartbeat({
+            "event_type": "EA_HEARTBEAT",
+            "source": "webhook1",
+            "symbol": "XAUUSD",
+            "status": "running",
+        })
+        self.assertEqual(webhook.EA_HEARTBEATS["webhook1"]["symbol"], "GOLD")
+
+    def test_record_ea_heartbeat_normalizes_source_to_lowercase(self):
+        webhook.record_ea_heartbeat({
+            "event_type": "EA_HEARTBEAT",
+            "source": "Webhook1",
+            "symbol": "GOLDmicro",
+            "status": "running",
+        })
+        self.assertIn("webhook1", webhook.EA_HEARTBEATS)
+
+    def test_webhook_ea_heartbeat_returns_ok_no_telegram(self):
+        with patch("webhook.send_telegram_message") as send:
+            handler = webhook.WebhookHandler.__new__(webhook.WebhookHandler)
+            handler.path = "/webhook"
+            handler.request_version = "HTTP/1.1"
+            body = json.dumps({
+                "event_type": "EA_HEARTBEAT",
+                "source": "webhook1",
+                "symbol": "GOLDmicro",
+                "status": "running",
+            }).encode()
+            handler.headers = {"Content-Length": str(len(body))}
+            handler.rfile = BytesIO(body)
+            handler.wfile = BytesIO()
+            handler.send_response = lambda code: None
+            handler.end_headers = lambda: None
+            handler.do_POST()
+
+        self.assertEqual(handler.wfile.getvalue(), b"ok")
+        send.assert_not_called()
+
+    def test_webhook_ea_heartbeat_stores_heartbeat(self):
+        webhook.EA_HEARTBEATS.clear()
+        with patch("webhook.send_telegram_message") as send:
+            handler = webhook.WebhookHandler.__new__(webhook.WebhookHandler)
+            handler.path = "/webhook"
+            handler.request_version = "HTTP/1.1"
+            body = json.dumps({
+                "event_type": "EA_HEARTBEAT",
+                "source": "webhook2",
+                "symbol": "GOLDmicro",
+                "status": "running",
+            }).encode()
+            handler.headers = {"Content-Length": str(len(body))}
+            handler.rfile = BytesIO(body)
+            handler.wfile = BytesIO()
+            handler.send_response = lambda code: None
+            handler.end_headers = lambda: None
+            handler.do_POST()
+
+        self.assertIn("webhook2", webhook.EA_HEARTBEATS)
+        self.assertEqual(webhook.EA_HEARTBEATS["webhook2"]["symbol"], "GOLD")
+
+    def test_status_shows_missing_when_no_heartbeats(self):
+        webhook.EA_HEARTBEATS.clear()
+        status = webhook.command_reply("/status")
+        self.assertIn("EA status:", status)
+        self.assertIn("Webhook1: missing", status)
+        self.assertIn("Webhook2: missing", status)
+        self.assertIn("TPSL: missing", status)
+
+    def test_status_shows_running_with_fresh_heartbeat(self):
+        webhook.EA_HEARTBEATS.clear()
+        webhook.record_ea_heartbeat({
+            "event_type": "EA_HEARTBEAT",
+            "source": "webhook1",
+            "symbol": "GOLDmicro",
+            "status": "running",
+        })
+        status = webhook.command_reply("/status")
+        self.assertIn("Webhook1: running, GOLD", status)
+        self.assertIn("Webhook2: missing", status)
+
+    def test_status_shows_stale_when_heartbeat_old(self):
+        webhook.EA_HEARTBEATS.clear()
+        age = webhook.heartbeat_stale_seconds() + 10
+        webhook.EA_HEARTBEATS["webhook1"] = {
+            "source": "webhook1",
+            "symbol": "GOLD",
+            "status": "running",
+            "last_seen": time.monotonic() - age,
+        }
+        status = webhook.command_reply("/status")
+        self.assertIn("Webhook1: stale, GOLD", status)
+
+    def test_unknown_source_accepted_and_appears_after_known(self):
+        webhook.EA_HEARTBEATS.clear()
+        webhook.record_ea_heartbeat({
+            "event_type": "EA_HEARTBEAT",
+            "source": "myea",
+            "symbol": "EURUSD",
+            "status": "running",
+        })
+        lines = webhook.heartbeat_status_lines()
+        # known sources come first
+        self.assertEqual(lines[0], "Webhook1: missing")
+        # then unknown
+        self.assertTrue(any("Myea" in line for line in lines))
+
+
 if __name__ == "__main__":
     unittest.main()

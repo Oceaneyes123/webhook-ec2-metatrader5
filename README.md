@@ -143,6 +143,101 @@ MinFvgAtrRatio = 0.25
 `TradeManageIntervalSeconds` controls how often `Webhook2` runs trade
 management through `OnTimer`.
 
+### EA Heartbeat
+
+Both EAs send periodic heartbeats to the webhook server. The `/status` command
+shows whether EAs are running, stale, or missing:
+
+```text
+✅ Bot online
+Alerts: running
+Telegram: configured
+Recent signals: 3
+Default trade mode: NOTRADE
+
+EA status:
+Webhook1: running, GOLD, 12s ago
+Webhook2: running, GOLD, 5s ago
+TPSL: missing
+```
+
+EAs report heartbeat by default every 30 seconds. The server considers a
+heartbeat stale after 90 seconds (configurable via
+`EA_HEARTBEAT_STALE_SECONDS` environment variable).
+
+**New EA inputs:**
+
+| EA | Input | Default | Description |
+|---|---|---|---|
+| Webhook1 | `HeartbeatSeconds` | 30 | Timer interval for sending heartbeats (min 10) |
+| Webhook2 | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (>= TradeManageIntervalSeconds, >= 10) |
+
+The TPSL EA is external but can report heartbeats by sending:
+
+```json
+{
+  "event_type": "EA_HEARTBEAT",
+  "source": "tpsl",
+  "symbol": "GOLDmicro",
+  "status": "running"
+}
+```
+
+### Webhook2 Trade Config Cache
+
+`Webhook2` fetches `/trade-config?symbol=<symbol>` from the Python server to
+determine trade mode, lot size, and trail pips. To avoid HTTP requests on every
+timer tick, the config is cached locally.
+
+**New EA inputs:**
+
+| Input | Default | Description |
+|---|---|---|
+| `TradeConfigRefreshSeconds` | 5 | Max age of cached config before refreshing (min 1) |
+| `TradeConfigMaxStaleSeconds` | 30 | Max age of stale config usable as fallback when HTTP fails (>= RefreshSeconds) |
+
+Behavior:
+
+- If cached config is fresher than `TradeConfigRefreshSeconds`, return cached
+  config without an HTTP request.
+- On HTTP success, update the cache and return the new config.
+- On HTTP failure, use the cached config as fallback if its age is within
+  `TradeConfigMaxStaleSeconds`.
+- If no valid cache exists and HTTP fails, return false and skip trading.
+
+### Symbol Aliases
+
+Symbol normalization is controlled by a centralized alias map in
+`json_data_parser.py`:
+
+```python
+SYMBOL_ALIASES = {
+    "GOLD": ["GOLD", "Gold", "Goldmicro", "Goldm#", "XAUUSD"],
+}
+```
+
+To add another broker variant for Gold, update only the `GOLD` list:
+
+```python
+"GOLD": ["Goldmicro", "Goldm#", "XAUUSD", "XAUUSD.fx"],
+```
+
+The map can also be overridden at startup via the `SYMBOL_ALIASES_JSON`
+environment variable:
+
+```powershell
+$env:SYMBOL_ALIASES_JSON = '{"GOLD":["Goldmicro","Goldm#","XAUUSD"]}'
+```
+
+Alias matching is case-insensitive and whitespace-trimmed. Unknown symbols fall
+back to the legacy prefix/suffix cleanup (`micro`, `m#`).
+
+### TP/SL Ownership
+
+Webhook2 is entry-management only. It places and trails pending entries. TP/SL,
+breakeven, and exit protection are handled by the separate TPSL EA. Make sure
+the TPSL EA is attached, running, and configured to manage Webhook2 trades.
+
 M1 and M5 snapshots use EMA20/EMA50 only. M15, M30, H1, and H4 snapshots
 include candle patterns and key levels.
 

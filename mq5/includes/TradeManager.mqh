@@ -8,6 +8,10 @@ struct TradeConfig
    double trailPips;
 };
 
+TradeConfig cachedTradeConfig;
+datetime cachedTradeConfigTime = 0;
+bool hasCachedTradeConfig = false;
+
 bool SendEaIssue(
    string message,
    string detail = "",
@@ -144,21 +148,60 @@ double JsonDoubleValue(string json, string key, double fallback)
 
 bool FetchTradeConfig(TradeConfig &config)
 {
+   datetime now = TimeCurrent();
+
+   // Use cached config if fresh enough
+   if(hasCachedTradeConfig && now - cachedTradeConfigTime < TradeConfigRefreshSeconds)
+   {
+      if(PrintDebugLogs)
+         Print("Using cached trade config, age=", now - cachedTradeConfigTime, "s");
+      config = cachedTradeConfig;
+      return true;
+   }
+
+   // Try HTTP fetch
    string body;
-   if(!HttpGet(TradeConfigUrl(), body))
+   bool fetched = HttpGet(TradeConfigUrl(), body);
+   if(fetched)
    {
-      SendEaIssue("Trade config fetch failed", TradeConfigUrl());
-      return false;
+      config.mode = JsonStringValue(body, "mode", "NOTRADE");
+      config.lotSize = JsonDoubleValue(body, "lot_size", 0.2);
+      config.trailPips = JsonDoubleValue(body, "trail_pips", 20.0);
+      if(config.lotSize <= 0 || config.trailPips < 0)
+      {
+         SendEaIssue("Invalid trade config", body);
+         // Fall back to stale cache if available
+         if(hasCachedTradeConfig && now - cachedTradeConfigTime <= TradeConfigMaxStaleSeconds)
+         {
+            if(PrintDebugLogs)
+               Print("Using stale-but-allowed fallback config, age=", now - cachedTradeConfigTime, "s");
+            config = cachedTradeConfig;
+            return true;
+         }
+         return false;
+      }
+      // Update cache on success
+      cachedTradeConfig = config;
+      cachedTradeConfigTime = now;
+      hasCachedTradeConfig = true;
+      if(PrintDebugLogs)
+         Print("Refreshed trade config: mode=", config.mode, " lot=", config.lotSize, " trail=", config.trailPips);
+      return true;
    }
-   config.mode = JsonStringValue(body, "mode", "NOTRADE");
-   config.lotSize = JsonDoubleValue(body, "lot_size", 0.2);
-   config.trailPips = JsonDoubleValue(body, "trail_pips", 20.0);
-   if(config.lotSize <= 0 || config.trailPips < 0)
+
+   // HTTP fetch failed
+   SendEaIssue("Trade config fetch failed", TradeConfigUrl());
+   if(hasCachedTradeConfig && now - cachedTradeConfigTime <= TradeConfigMaxStaleSeconds)
    {
-      SendEaIssue("Invalid trade config", body);
-      return false;
+      if(PrintDebugLogs)
+         Print("Using stale-but-allowed fallback config, age=", now - cachedTradeConfigTime, "s");
+      config = cachedTradeConfig;
+      return true;
    }
-   return true;
+
+   if(PrintDebugLogs)
+      Print("Trade config unavailable. No valid cache.");
+   return false;
 }
 
 bool ReadTradeEmaValues(int index, double &ema20, double &ema50)

@@ -17,6 +17,7 @@ input int LevelLookbackBars = 100;
 input int SwingStrength = 2;
 input int AtrPeriod = 14;
 input double MinFvgAtrRatio = 0.25;
+input int HeartbeatSeconds = 30;
 
 #define TF_COUNT 6
 
@@ -45,12 +46,13 @@ int OnInit()
       || LevelLookbackBars < 10
       || SwingStrength < 1
       || AtrPeriod < 1
-      || MinFvgAtrRatio < 0)
+      || MinFvgAtrRatio < 0
+      || HeartbeatSeconds < 10)
    {
       Print("Invalid market EA inputs.");
       SendMarketEaIssue(
          "Invalid EA inputs",
-         "ChartHistoryBars/LevelLookbackBars/SwingStrength/AtrPeriod/MinFvgAtrRatio"
+         "ChartHistoryBars/LevelLookbackBars/SwingStrength/AtrPeriod/MinFvgAtrRatio/HeartbeatSeconds"
       );
       return INIT_PARAMETERS_INCORRECT;
    }
@@ -81,12 +83,15 @@ int OnInit()
    }
 
    Print("Webhook1 market EA started for ", _Symbol);
+   EventSetTimer(HeartbeatSeconds);
+   SendEaHeartbeat("webhook1");
    CheckAllTimeframes();
    return INIT_SUCCEEDED;
 }
 
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    for(int index = 0; index < TF_COUNT; index++)
    {
       if(ema20Handles[index] != INVALID_HANDLE)
@@ -102,4 +107,9 @@ void OnDeinit(const int reason)
 void OnTick()
 {
    CheckAllTimeframes();
+}
+
+void OnTimer()
+{
+   SendEaHeartbeat("webhook1");
 }

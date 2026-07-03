@@ -174,4 +174,14 @@ bool HasValidBody(const Candle &candle)
    return CandleRange(candle) > 0 && CandleBody(candle) > 0;
 }
 
+bool SendEaHeartbeat(string source)
+{
+   string payload =
+      "{\"event_type\":\"EA_HEARTBEAT\""
+      ",\"source\":\"" + JsonEscape(source) + "\""
+      ",\"symbol\":\"" + JsonEscape(_Symbol) + "\""
+      ",\"status\":\"running\"}";
+   return SendWebhook(payload);
+}
+
 #endif

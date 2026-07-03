@@ -1,4 +1,5 @@
 import html
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -13,6 +14,20 @@ SUPPORTED_EVENTS = {
     "EVENING_STAR": "Evening Star",
     "INSIDE_BAR_BREAKOUT": "Inside Bar Breakout",
 }
+
+SYMBOL_ALIASES = {
+    "GOLD": ["GOLD", "Gold", "Goldmicro", "Goldm#", "XAUUSD"],
+}
+
+# Load optional environment override for SYMBOL_ALIASES
+_env_aliases = os.environ.get("SYMBOL_ALIASES_JSON")
+if _env_aliases:
+    try:
+        _parsed = json.loads(_env_aliases)
+        if isinstance(_parsed, dict):
+            SYMBOL_ALIASES = _parsed
+    except (json.JSONDecodeError, TypeError):
+        pass
 
 PATTERN_BIAS = {
     "HAMMER_CANDLE": ("BUY", "Bullish / BUY"),
@@ -46,12 +61,25 @@ def display_time(value):
 def is_supported_payload(payload):
     return isinstance(payload, dict) and (
         payload.get("event_type") in SUPPORTED_EVENTS
-        or payload.get("event_type") in ("TIMEFRAME_SNAPSHOT", "EA_ERROR")
+        or payload.get("event_type") in ("TIMEFRAME_SNAPSHOT", "EA_ERROR", "EA_HEARTBEAT")
     )
 
 
 def display_symbol(value):
     symbol = str(value or "").strip()
+    if not symbol:
+        return ""
+    # Build case-insensitive lookup: canonical => uppercase key
+    alias_lookup = {}
+    for canonical, aliases in SYMBOL_ALIASES.items():
+        alias_lookup[canonical.lower()] = canonical
+        for alias in aliases:
+            alias_lookup[alias.lower()] = canonical
+    # Check alias map first
+    lower = symbol.lower()
+    if lower in alias_lookup:
+        return alias_lookup[lower]
+    # Fallback cleanup for broker prefix/suffix
     for suffix in ("micro", "m#"):
         if symbol.lower().endswith(suffix):
             symbol = symbol[: -len(suffix)]
