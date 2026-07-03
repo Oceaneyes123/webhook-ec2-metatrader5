@@ -12,6 +12,7 @@ RELATIVE_SOURCES = (
     Path("includes/WebhookCommon.mqh"),
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),
+    Path("TPSL.mq5"),
 )
 
 

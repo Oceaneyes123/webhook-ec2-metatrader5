@@ -170,6 +170,25 @@ include candle patterns and key levels.
 /notrade Gold - Stop trading activity for Gold
 ```
 
+For BotFather
+```text
+status - Check bot status
+pause - Suppress automatic pattern alerts
+resume - Resume automatic pattern alerts
+help - Show available commands
+recent - Show the last five alerts for a symbol
+summary - Show EMA and retained-pattern confluence
+levels - Show M15-H4 key levels
+rsi - Show RSI(14) status and 70/30 extreme lookback
+buy - Start trailing buy-limit mode
+sell - Start trailing sell-limit mode
+notrade - Stop trading activity
+status - Check status and trade mode for Gold
+buy - Start trailing buy-limit mode for Gold
+sell - Start trailing sell-limit mode for Gold
+notrade - Stop trading activity for Gold
+```
+
 Paused mode still stores incoming snapshots, so `/summary` and `/levels` remain
 current.
 
