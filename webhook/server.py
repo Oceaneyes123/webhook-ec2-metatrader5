@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from .app_logger import get_logger
 from .commands import is_telegram_update
-from .config import server_config
+from .config import load_dotenv, server_config
 from .events import EVENT_HANDLERS
 from .heartbeat import record_ea_heartbeat
 from .messages import health_text
@@ -123,6 +123,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    load_dotenv()
     host, port, public_url = server_config()
     logger.info("Starting webhook server host=%s port=%s public_url=%s", host, port, public_url)
     start_telegram_polling()

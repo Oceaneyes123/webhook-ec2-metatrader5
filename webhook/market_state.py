@@ -7,11 +7,10 @@ and market_chart.py respectively.
 
 import json
 import os
+import tempfile
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from tempfile import TemporaryDirectory
-
 from .app_logger import get_logger
 from .json_data_parser import SUPPORTED_EVENTS, display_symbol
 
@@ -104,11 +103,24 @@ class MarketState:
             self.data = {"symbols": {}}
 
     def _save(self):
-        with TemporaryDirectory() as tmpdir:
-            tmp = Path(tmpdir) / "market_state_tmp.json"
-            with open(tmp, "w") as f:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=self.path.parent,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as f:
                 json.dump(self.data, f)
+                f.write("\n")
+                tmp = Path(f.name)
             os.replace(str(tmp), str(self.path))
+        finally:
+            if tmp and tmp.exists():
+                tmp.unlink()
 
     # ------------------------------------------------------------------
     # Update
@@ -131,6 +143,7 @@ class MarketState:
             timeframes = self.data["symbols"][symbol]
             snapshot = timeframes.get(timeframe, {})
             prev_ema_bias = snapshot.get("ema_bias")
+            prev_rsi_history = snapshot.get("rsi_history", [])
 
             # Build snapshot from payload
             snapshot = {
@@ -162,13 +175,16 @@ class MarketState:
             rsi = payload.get("rsi14")
             if rsi is not None:
                 snapshot["rsi14"] = rsi
-                history = snapshot.get("rsi_history", [])
+                history = list(prev_rsi_history)
                 history.append(
                     {
                         "candle_time": payload.get("candle_time"),
                         "rsi14": rsi,
                     }
                 )
+                # Cap RSI history to the largest lookback needed
+                max_rsi = max(RSI_LOOKBACKS.values())
+                history = history[-max_rsi:]
                 snapshot["rsi_history"] = history
 
             # Candle history
@@ -191,6 +207,8 @@ class MarketState:
                     if not hist or hist[-1].get("candle_time") != candle_time:
                         hist = list(hist)
                         hist.append(candle_entry)
+                    # Cap auto-accumulated candle history
+                    hist = hist[-CHART_CANDLE_LOOKBACK:]
                     snapshot["candle_history"] = hist
 
             # Build notifications (pattern + EMA crossover)
