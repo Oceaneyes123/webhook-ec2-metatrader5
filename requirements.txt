@@ -1,0 +1,16 @@
+# webhook-ec2 — MT5 Telegram Webhook Trading Server
+#
+# Runtime dependencies
+#   Pillow        — key-level chart rendering (PIL)
+#
+# Python stdlib provides everything else:
+#   http.server, json, os, pathlib, threading, time, urllib.request, uuid, …
+#
+# Install:  pip install -r requirements.txt
+# Test:     python -m unittest
+
+Pillow>=10.0.0
+
+# ── Dev dependencies (optional) ──────────────────────────────────
+# pytest          pytest-cov       # test runner with coverage
+# mypy             ruff             # type checking & linting

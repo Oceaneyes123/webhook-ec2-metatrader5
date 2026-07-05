@@ -11,6 +11,7 @@ struct TradeConfig
 TradeConfig cachedTradeConfig;
 datetime cachedTradeConfigTime = 0;
 bool hasCachedTradeConfig = false;
+bool lastHadPosition = false;
 
 bool SendEaIssue(
    string message,
@@ -375,12 +376,44 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
 
 void ManageTrading()
 {
+   // Detect position close (runs every tick, even if config fetch fails below)
+   bool hasPosition = HasOpenPositionForSymbol();
+   if(lastHadPosition && !hasPosition)
+   {
+      double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+      string reason = "MANUAL_CLOSE";
+      double profit = 0;
+
+      // Look up the last closed deal for this symbol/magic
+      HistorySelect(TimeCurrent() - 7 * 86400, TimeCurrent());
+      int totalDeals = HistoryDealsTotal();
+      for(int i = totalDeals - 1; i >= 0; i--)
+      {
+         ulong dealTicket = HistoryDealGetTicket(i);
+         if(dealTicket <= 0) continue;
+         if(HistoryDealGetString(dealTicket, DEAL_SYMBOL) != _Symbol) continue;
+         if((long)HistoryDealGetInteger(dealTicket, DEAL_MAGIC) != TradeMagicNumber) continue;
+         if((long)HistoryDealGetInteger(dealTicket, DEAL_ENTRY) != DEAL_ENTRY_OUT) continue;
+
+         profit = HistoryDealGetDouble(dealTicket, DEAL_PROFIT);
+         long dealReason = HistoryDealGetInteger(dealTicket, DEAL_REASON);
+
+         if(dealReason == DEAL_REASON_TP) reason = "TP_HIT";
+         else if(dealReason == DEAL_REASON_SL) reason = "SL_HIT";
+         else reason = "MANUAL_CLOSE";
+         break;
+      }
+
+      SendTradeCloseNotification(reason, profit, balance);
+   }
+   lastHadPosition = hasPosition;
+
    TradeConfig config;
    if(!FetchTradeConfig(config))
       return;
 
    trade.SetExpertMagicNumber(TradeMagicNumber);
-   if(HasOpenPositionForSymbol())
+   if(hasPosition)
    {
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);

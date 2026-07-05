@@ -1,35 +1,25 @@
+"""Tests for sync_mq5 — file copying and source validation."""
+from __future__ import annotations
+
 import tempfile
 import unittest
 from pathlib import Path
 
-import sync_mq5
+from webhook import sync_mq5
+from tests.test_helpers import MQ5_RELATIVE_SOURCES, MQ5_SOURCE_DIR, make_mq5_sources
 
-
-ROOT = Path(__file__).parent
-MQ5 = ROOT / "mq5"
-RELATIVE_SOURCES = (
-    Path("Webhook1.mq5"),
-    Path("Webhook2.mq5"),
-    Path("includes/WebhookCommon.mqh"),
-    Path("includes/MarketSnapshot.mqh"),
-    Path("includes/TradeManager.mqh"),
-    Path("TPSL.mq5"),
-)
+ROOT = Path(__file__).resolve().parent.parent
 
 
 class SyncMq5Test(unittest.TestCase):
-    def make_sources(self, source_dir):
-        for relative in RELATIVE_SOURCES:
-            source = source_dir / relative
-            source.parent.mkdir(parents=True, exist_ok=True)
-            source.write_text(str(relative), encoding="utf-8")
+    """MQ5 source sync behaviour."""
 
     def test_sync_copies_both_eas_and_shared_includes(self):
         with tempfile.TemporaryDirectory() as directory:
             temporary = Path(directory)
             source_dir = temporary / "mq5"
             live_dir = temporary / "Experts"
-            self.make_sources(source_dir)
+            make_mq5_sources(source_dir)
             live_dir.mkdir()
 
             copied = sync_mq5.sync_mq5(
@@ -40,8 +30,8 @@ class SyncMq5Test(unittest.TestCase):
                 ),
             )
 
-            self.assertEqual(len(copied), len(RELATIVE_SOURCES))
-            for relative in RELATIVE_SOURCES:
+            self.assertEqual(len(copied), len(MQ5_RELATIVE_SOURCES))
+            for relative in MQ5_RELATIVE_SOURCES:
                 self.assertEqual(
                     (live_dir / relative).read_bytes(),
                     (source_dir / relative).read_bytes(),
@@ -50,7 +40,7 @@ class SyncMq5Test(unittest.TestCase):
     def test_sync_rejects_canonical_files_as_live_targets(self):
         with tempfile.TemporaryDirectory() as directory:
             source_dir = Path(directory) / "mq5"
-            self.make_sources(source_dir)
+            make_mq5_sources(source_dir)
 
             with self.assertRaisesRegex(ValueError, "same file"):
                 sync_mq5.sync_mq5(
@@ -61,14 +51,27 @@ class SyncMq5Test(unittest.TestCase):
                     ),
                 )
 
+
+class Mq5SourceExistenceTest(unittest.TestCase):
+    """All canonical MQL5 source files exist."""
+
     def test_all_canonical_mql5_sources_exist(self):
-        for relative in RELATIVE_SOURCES:
+        for relative in MQ5_RELATIVE_SOURCES:
             with self.subTest(relative=relative):
-                self.assertTrue((MQ5 / relative).is_file())
+                self.assertTrue((MQ5_SOURCE_DIR / relative).is_file())
+
+    def test_legacy_canonical_ea_is_removed(self):
+        self.assertFalse((MQ5_SOURCE_DIR / "Webhook.mq5").exists())
+
+
+class EaContentTest(unittest.TestCase):
+    """Structural assertions on MQ5 source contents."""
 
     def test_market_ea_owns_snapshots_only(self):
-        ea = (MQ5 / "Webhook1.mq5").read_text(encoding="utf-8")
-        market = (MQ5 / "includes/MarketSnapshot.mqh").read_text(encoding="utf-8")
+        ea = (MQ5_SOURCE_DIR / "Webhook1.mq5").read_text(encoding="utf-8")
+        market = (MQ5_SOURCE_DIR / "includes/MarketSnapshot.mqh").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn('#include "includes/MarketSnapshot.mqh"', ea)
@@ -79,14 +82,17 @@ class SyncMq5Test(unittest.TestCase):
         self.assertIn('\\"candles\\":', market)
         self.assertIn("BuildCandlesJson", market)
         self.assertIn(
-            "for(int shift = ChartHistoryBars; shift >= 1; shift--)", market
+            "for(int shift = ChartHistoryBars; shift >= 1; shift--)",
+            market,
         )
         self.assertIn('{\\"time\\":\\"', market)
         self.assertIn("CalculateLevels", market)
 
     def test_trade_ea_owns_trade_management_only(self):
-        ea = (MQ5 / "Webhook2.mq5").read_text(encoding="utf-8")
-        manager = (MQ5 / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn('#include "includes/TradeManager.mqh"', ea)
@@ -101,7 +107,7 @@ class SyncMq5Test(unittest.TestCase):
         self.assertIn("TrailPendingOrder", manager)
 
     def test_trade_ea_manages_trading_on_timer(self):
-        ea = (MQ5 / "Webhook2.mq5").read_text(encoding="utf-8")
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
         on_tick = ea.split("void OnTick()", 1)[1].split("}", 1)[0]
 
         self.assertIn("input int TradeManageIntervalSeconds = 1;", ea)
@@ -114,21 +120,22 @@ class SyncMq5Test(unittest.TestCase):
         self.assertNotIn("ManageTrading();", on_tick)
 
     def test_trade_config_url_includes_encoded_chart_symbol(self):
-        manager = (MQ5 / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("string UrlEncode(string value)", manager)
         self.assertIn('"/trade-config?symbol="', manager)
         self.assertIn("UrlEncode(_Symbol)", manager)
 
     def test_both_eas_use_the_local_webhook_default(self):
-        expected = 'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
+        expected = (
+            'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
+        )
         for name in ("Webhook1.mq5", "Webhook2.mq5"):
-            source = (MQ5 / name).read_text(encoding="utf-8")
+            source = (MQ5_SOURCE_DIR / name).read_text(encoding="utf-8")
             with self.subTest(name=name):
                 self.assertIn(expected, source)
-
-    def test_legacy_canonical_ea_is_removed(self):
-        self.assertFalse((MQ5 / "Webhook.mq5").exists())
 
     def test_readme_documents_two_ea_setup(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -150,7 +157,7 @@ class SyncMq5Test(unittest.TestCase):
                 self.assertIn(command, readme)
 
     def test_webhook1_has_heartbeat_timer(self):
-        ea = (MQ5 / "Webhook1.mq5").read_text(encoding="utf-8")
+        ea = (MQ5_SOURCE_DIR / "Webhook1.mq5").read_text(encoding="utf-8")
 
         self.assertIn("input int HeartbeatSeconds = 30;", ea)
         self.assertIn("EventSetTimer(HeartbeatSeconds);", ea)
@@ -160,7 +167,7 @@ class SyncMq5Test(unittest.TestCase):
         self.assertIn("HeartbeatSeconds < 10", ea)
 
     def test_webhook2_has_heartbeat_and_config_cache(self):
-        ea = (MQ5 / "Webhook2.mq5").read_text(encoding="utf-8")
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
 
         self.assertIn("input int HeartbeatSeconds = 30;", ea)
         self.assertIn("input int TradeConfigRefreshSeconds = 5;", ea)
@@ -170,10 +177,14 @@ class SyncMq5Test(unittest.TestCase):
         self.assertIn('SendEaHeartbeat("webhook2")', ea)
         self.assertIn("HeartbeatSeconds < 10", ea)
         self.assertIn("TradeConfigRefreshSeconds < 1", ea)
-        self.assertIn("TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea)
+        self.assertIn(
+            "TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea
+        )
 
     def test_trade_manager_has_config_cache(self):
-        manager = (MQ5 / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("cachedTradeConfig", manager)
         self.assertIn("hasCachedTradeConfig", manager)
@@ -184,10 +195,33 @@ class SyncMq5Test(unittest.TestCase):
         self.assertIn("stale-but-allowed fallback", manager)
 
     def test_webhook_common_has_send_ea_heartbeat(self):
-        common = (MQ5 / "includes/WebhookCommon.mqh").read_text(encoding="utf-8")
+        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("SendEaHeartbeat", common)
         self.assertIn("EA_HEARTBEAT", common)
+
+    def test_webhook_common_has_send_trade_close(self):
+        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("SendTradeCloseNotification", common)
+        self.assertIn("TRADE_CLOSE", common)
+
+    def test_trade_manager_has_position_close_detection(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("lastHadPosition", manager)
+        self.assertIn("SendTradeCloseNotification", manager)
+        self.assertIn("DEAL_REASON_TP", manager)
+        self.assertIn("HistorySelect", manager)
+        self.assertIn("TP_HIT", manager)
+        self.assertIn("SL_HIT", manager)
+        self.assertIn("MANUAL_CLOSE", manager)
 
 
 if __name__ == "__main__":

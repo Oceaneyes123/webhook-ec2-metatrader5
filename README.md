@@ -205,6 +205,54 @@ Behavior:
   `TradeConfigMaxStaleSeconds`.
 - If no valid cache exists and HTTP fails, return false and skip trading.
 
+### Trade Close Notifications
+
+When a trade closes, Webhook2 detects the position departure and sends a
+notification to Telegram. The message includes the close reason (TP Hit, SL
+Hit, or Manual Close), the P&L, and the current account balance:
+
+```
+🔴 Trade Closed
+Symbol: GOLD
+Reason: 🛑 SL Hit
+P&L: -30.50
+💰 Balance: 9950.50
+```
+
+```
+🟢 Trade Closed
+Symbol: GOLD
+Reason: 🎯 TP Hit
+P&L: +45.20
+💰 Balance: 10050.20
+```
+
+**Detection:** Webhook2 tracks position state on every timer tick. When a position
+disappears, it looks up the most recent closed deal in account history to
+determine the reason and P&L.
+
+**Reason mapping:**
+
+| MQL5 Constant | Telegram Reason |
+|---|---|
+| `DEAL_REASON_TP` (14) | 🎯 TP Hit |
+| `DEAL_REASON_SL` (15) | 🛑 SL Hit |
+| Manual close / other | 👋 Manual Close |
+
+**External EAs** (such as TPSL) can also send trade close notifications by
+POSTing to the webhook:
+
+```json
+{
+  "event_type": "TRADE_CLOSE",
+  "source": "tpsl",
+  "symbol": "GOLDmicro",
+  "reason": "TP_HIT",
+  "profit": 45.20,
+  "balance": 10050.20
+}
+```
+
 ### Symbol Aliases
 
 Symbol normalization is controlled by a centralized alias map in

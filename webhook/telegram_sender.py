@@ -7,7 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from app_logger import get_logger
+from .app_logger import get_logger
 
 
 logger = get_logger()

@@ -184,4 +184,14 @@ bool SendEaHeartbeat(string source)
    return SendWebhook(payload);
 }
 
+bool SendTradeCloseNotification(string reason, double profit, double balance)
+{
+   string payload = StringFormat(
+      "{\"event_type\":\"TRADE_CLOSE\",\"source\":\"webhook2\""
+      ",\"symbol\":\"%s\",\"reason\":\"%s\",\"profit\":%.2f,\"balance\":%.2f}",
+      _Symbol, reason, profit, balance
+   );
+   return SendWebhook(payload);
+}
+
 #endif

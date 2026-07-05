@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent
 CANONICAL_DIR = ROOT / "mq5"
 LIVE_EAS = (ROOT / "Webhook1.mq5", ROOT / "Webhook2.mq5")
 RELATIVE_SOURCES = (

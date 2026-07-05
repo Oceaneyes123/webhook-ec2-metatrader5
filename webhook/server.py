@@ -1,0 +1,134 @@
+"""HTTP server — WebhookHandler with GET and POST dispatch."""
+
+import json
+import urllib.parse
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from .app_logger import get_logger
+from .commands import is_telegram_update
+from .config import server_config
+from .events import EVENT_HANDLERS
+from .heartbeat import record_ea_heartbeat
+from .messages import health_text
+from .polling import reply_to_telegram_update, start_telegram_polling
+from .trade_state import trade_config
+
+logger = get_logger()
+
+
+class WebhookHandler(BaseHTTPRequestHandler):
+    def write_text(self, code, text, content_type="text/plain; charset=utf-8"):
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.end_headers()
+        self.wfile.write(text.encode())
+
+    def write_json(self, code, payload):
+        self.write_text(
+            code,
+            json.dumps(payload, separators=(",", ":")),
+            "application/json; charset=utf-8",
+        )
+
+    def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        if path == "/health":
+            self.write_text(200, health_text())
+            return
+        if path == "/trade-config":
+            symbol = urllib.parse.parse_qs(parsed_url.query).get("symbol", [None])[0]
+            self.write_json(200, trade_config(symbol))
+            return
+        self.send_error(404)
+
+    def do_POST(self):
+        if self.path == "/telegram":
+            self.handle_telegram()
+            return
+        if self.path != "/webhook":
+            logger.warning("Rejected request path=%s", self.path)
+            self.write_text(404, "404 Not Found")
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode("utf-8") if length else ""
+        try:
+            payload = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            payload = body
+            logger.warning("Webhook body is not JSON")
+
+        # Compact heartbeat log — skip the verbose body/payload dump on every tick
+        if isinstance(payload, dict) and payload.get("event_type") == "EA_HEARTBEAT":
+            logger.info(
+                "Received EA_HEARTBEAT from %s, %s, %s",
+                payload.get("source", "?"),
+                payload.get("symbol", "?"),
+                payload.get("status", "?"),
+            )
+            record_ea_heartbeat(payload)
+            self.write_text(200, "ok")
+            return
+
+        logger.info("Received webhook body=%s", body)
+        logger.info("Parsed webhook payload=%r", payload)
+
+        try:
+            if is_telegram_update(payload):
+                reply_to_telegram_update(payload)
+                self.write_text(200, "ok")
+                return
+
+            if isinstance(payload, dict):
+                event_type = payload.get("event_type")
+                handler = EVENT_HANDLERS.get(event_type)
+                if handler:
+                    handler(payload, self)
+                    return
+
+            logger.info(
+                "Ignored unsupported payload event_type=%s",
+                payload.get("event_type") if isinstance(payload, dict) else None,
+            )
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ignored")
+        except Exception as error:
+            logger.exception("Webhook handling failed")
+            self.notify_error(error)
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(str(error).encode())
+
+    def handle_telegram(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode("utf-8") if length else ""
+        try:
+            update = json.loads(body) if body else {}
+            reply_to_telegram_update(update)
+        except Exception as error:
+            logger.exception("Telegram command handling failed")
+            self.write_text(500, str(error))
+            return
+        self.write_text(200, "ok")
+
+    def notify_error(self, error):
+        try:
+            from .messages import error_message
+            from .telegram_sender import send_telegram_message
+            send_telegram_message(error_message(error), retries=1)
+        except Exception:
+            logger.exception("Failed to send Telegram error notification")
+
+
+def main():
+    host, port, public_url = server_config()
+    logger.info("Starting webhook server host=%s port=%s public_url=%s", host, port, public_url)
+    start_telegram_polling()
+    print(f"Listening on {public_url}")
+    HTTPServer((host, port), WebhookHandler).serve_forever()
+
+
+if __name__ == "__main__":
+    main()
