@@ -12,6 +12,7 @@ TradeConfig cachedTradeConfig;
 datetime cachedTradeConfigTime = 0;
 bool hasCachedTradeConfig = false;
 bool lastHadPosition = false;
+string lastManualPositionTickets = "";
 
 bool SendEaIssue(
    string message,
@@ -315,6 +316,19 @@ bool HasOpenPositionForSymbol()
    return false;
 }
 
+bool HasAnyPositionForSymbol()
+{
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol)
+         return true;
+   }
+   return false;
+}
+
 void DeletePendingOrders(ENUM_ORDER_TYPE type)
 {
    for(int index = OrdersTotal() - 1; index >= 0; index--)
@@ -407,6 +421,42 @@ void ManageTrading()
       SendTradeCloseNotification(reason, profit, balance);
    }
    lastHadPosition = hasPosition;
+
+   // Detect new manual position open — tracks individual position tickets
+   // Handles: second manual position, manual while EA position exists, and multiple
+   // positions opened between timer ticks (P2 fix).
+   string currentManualTickets = "";
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol)
+      {
+         long magic = (long)PositionGetInteger(POSITION_MAGIC);
+         if(magic != TradeMagicNumber)
+         {
+            string ticketStr = IntegerToString(ticket);
+            if(currentManualTickets != "")
+               currentManualTickets += ",";
+            currentManualTickets += ticketStr;
+
+            // New ticket not in the last known set → detect it
+            string needle = "," + ticketStr + ",";
+            string haystack = "," + lastManualPositionTickets + ",";
+            if(StringFind(haystack, needle) < 0)
+            {
+               double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
+               ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+               double volume = PositionGetDouble(POSITION_VOLUME);
+               double sl = PositionGetDouble(POSITION_SL);
+               double tp = PositionGetDouble(POSITION_TP);
+               SendTradeOpenNotification("manual", posType, openPrice, volume, sl, tp);
+            }
+         }
+      }
+   }
+   lastManualPositionTickets = currentManualTickets;
 
    TradeConfig config;
    if(!FetchTradeConfig(config))

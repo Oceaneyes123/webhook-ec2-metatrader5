@@ -194,4 +194,20 @@ bool SendTradeCloseNotification(string reason, double profit, double balance)
    return SendWebhook(payload);
 }
 
+bool SendTradeOpenNotification(string source, ENUM_POSITION_TYPE type, double price, double volume, double sl, double tp)
+{
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   string typeText = (type == POSITION_TYPE_BUY) ? "BUY" : "SELL";
+   string payload = StringFormat(
+      "{\"event_type\":\"TRADE_OPEN\",\"source\":\"%s\""
+      ",\"symbol\":\"%s\",\"type\":\"%s\",\"price\":%s,\"volume\":%.2f"
+      ",\"sl\":%s,\"tp\":%s}",
+      source, _Symbol, typeText,
+      DoubleToString(price, digits), volume,
+      sl > 0 ? DoubleToString(sl, digits) : "null",
+      tp > 0 ? DoubleToString(tp, digits) : "null"
+   );
+   return SendWebhook(payload);
+}
+
 #endif

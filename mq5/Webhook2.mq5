@@ -72,6 +72,27 @@ int OnInit()
 
    trade.SetExpertMagicNumber(TradeMagicNumber);
    EventSetTimer(TradeManageIntervalSeconds);
+
+   // Initialize position state to avoid phantom notifications on startup
+   lastHadPosition = HasOpenPositionForSymbol();
+   // Initialize manual position ticket tracker to avoid phantom notifications on startup
+   lastManualPositionTickets = "";
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) == _Symbol)
+      {
+         long magic = (long)PositionGetInteger(POSITION_MAGIC);
+         if(magic != TradeMagicNumber)
+         {
+            if(lastManualPositionTickets != "")
+               lastManualPositionTickets += ",";
+            lastManualPositionTickets += IntegerToString(ticket);
+         }
+      }
+   }
    Print("Webhook2 trade EA started for ", _Symbol);
    return INIT_SUCCEEDED;
 }

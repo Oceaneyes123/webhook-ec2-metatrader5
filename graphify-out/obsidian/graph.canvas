@@ -1,0 +1,5648 @@
+{
+  "nodes": [
+    {
+      "id": "g0",
+      "type": "group",
+      "label": "Server and Commands",
+      "x": 0,
+      "y": 0,
+      "width": 1980,
+      "height": 2720,
+      "color": "1"
+    },
+    {
+      "id": "n_webhook_server_webhookhandler_do_get",
+      "type": "file",
+      "file": ".do_GET().md",
+      "x": 20,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_webhookhandler_do_post",
+      "type": "file",
+      "file": ".do_POST().md",
+      "x": 220,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_app_logger_cleanfilehandler_emit",
+      "type": "file",
+      "file": ".emit().md",
+      "x": 420,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_webhookhandler_handle_telegram",
+      "type": "file",
+      "file": ".handle_telegram().md",
+      "x": 20,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_webhookhandler_notify_error",
+      "type": "file",
+      "file": ".notify_error().md",
+      "x": 220,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_webhookhandler_write_json",
+      "type": "file",
+      "file": ".write_json().md",
+      "x": 420,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_webhookhandler_write_text",
+      "type": "file",
+      "file": ".write_text().md",
+      "x": 20,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_basehttprequesthandler",
+      "type": "file",
+      "file": "BaseHTTPRequestHandler.md",
+      "x": 220,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_app_logger_cleanfilehandler",
+      "type": "file",
+      "file": "CleanFileHandler.md",
+      "x": 420,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_rationale_33",
+      "type": "file",
+      "file": "Decorator register a function for one or more Telegram commands..md",
+      "x": 20,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_heartbeat_rationale_1",
+      "type": "file",
+      "file": "EA heartbeat tracking \u2014 records, ages, and reports heartbeat status..md",
+      "x": 220,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_rationale_1",
+      "type": "file",
+      "file": "Environment config loading and utility helpers..md",
+      "x": 420,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_rationale_1",
+      "type": "file",
+      "file": "HTTP server \u2014 WebhookHandler with GET and POST dispatch..md",
+      "x": 20,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_run_rationale_1",
+      "type": "file",
+      "file": "Run the webhook-ec2 trading server.  Thin entry-point import the server module.md",
+      "x": 220,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_rationale_1",
+      "type": "file",
+      "file": "Telegram command registry \u2014 maps command strings to handler functions..md",
+      "x": 420,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling_rationale_1",
+      "type": "file",
+      "file": "Telegram long-polling \u2014 fetches updates and dispatches commands..md",
+      "x": 20,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_rationale_1",
+      "type": "file",
+      "file": "Telegram message formatting \u2014 pure presentation helpers with no side effects..md",
+      "x": 220,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_rationale_1",
+      "type": "file",
+      "file": "Trade mode persistence and symbol override management..md",
+      "x": 420,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_webhookhandler",
+      "type": "file",
+      "file": "WebhookHandler.md",
+      "x": 20,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_init",
+      "type": "file",
+      "file": "__init__.py_1.md",
+      "x": 220,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_app_logger_clean_old_log",
+      "type": "file",
+      "file": "_clean_old_log().md",
+      "x": 420,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_buy",
+      "type": "file",
+      "file": "_cmd_buy().md",
+      "x": 20,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_help",
+      "type": "file",
+      "file": "_cmd_help().md",
+      "x": 220,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_market_command",
+      "type": "file",
+      "file": "_cmd_market_command().md",
+      "x": 420,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_notrade",
+      "type": "file",
+      "file": "_cmd_notrade().md",
+      "x": 20,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_pause",
+      "type": "file",
+      "file": "_cmd_pause().md",
+      "x": 220,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_recent",
+      "type": "file",
+      "file": "_cmd_recent().md",
+      "x": 420,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_resume",
+      "type": "file",
+      "file": "_cmd_resume().md",
+      "x": 20,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_sell",
+      "type": "file",
+      "file": "_cmd_sell().md",
+      "x": 220,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_cmd_status",
+      "type": "file",
+      "file": "_cmd_status().md",
+      "x": 420,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_heartbeat_format_age",
+      "type": "file",
+      "file": "_format_age().md",
+      "x": 20,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_telegram_sender_post_telegram_request",
+      "type": "file",
+      "file": "_post_telegram_request().md",
+      "x": 220,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_app_logger",
+      "type": "file",
+      "file": "app_logger.py.md",
+      "x": 420,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_command_reply",
+      "type": "file",
+      "file": "command_reply().md",
+      "x": 20,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands",
+      "type": "file",
+      "file": "commands.py.md",
+      "x": 220,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config",
+      "type": "file",
+      "file": "config.py.md",
+      "x": 420,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_default_trade_state",
+      "type": "file",
+      "file": "default_trade_state().md",
+      "x": 20,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_error_message",
+      "type": "file",
+      "file": "error_message().md",
+      "x": 220,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_app_logger_get_logger",
+      "type": "file",
+      "file": "get_logger().md",
+      "x": 420,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_telegram_sender_get_telegram_updates",
+      "type": "file",
+      "file": "get_telegram_updates().md",
+      "x": 20,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_get_trade_mode",
+      "type": "file",
+      "file": "get_trade_mode().md",
+      "x": 220,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_health_text",
+      "type": "file",
+      "file": "health_text().md",
+      "x": 420,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_heartbeat",
+      "type": "file",
+      "file": "heartbeat.py.md",
+      "x": 20,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_heartbeat_heartbeat_age_seconds",
+      "type": "file",
+      "file": "heartbeat_age_seconds().md",
+      "x": 220,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_heartbeat_stale_seconds",
+      "type": "file",
+      "file": "heartbeat_stale_seconds().md",
+      "x": 420,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_heartbeat_heartbeat_status_lines",
+      "type": "file",
+      "file": "heartbeat_status_lines().md",
+      "x": 20,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_help_text",
+      "type": "file",
+      "file": "help_text().md",
+      "x": 220,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_is_telegram_update",
+      "type": "file",
+      "file": "is_telegram_update().md",
+      "x": 420,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_load_dotenv",
+      "type": "file",
+      "file": "load_dotenv().md",
+      "x": 20,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_load_trade_state",
+      "type": "file",
+      "file": "load_trade_state().md",
+      "x": 220,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server_main",
+      "type": "file",
+      "file": "main().md",
+      "x": 420,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling_maybe_send_levels_chart",
+      "type": "file",
+      "file": "maybe_send_levels_chart().md",
+      "x": 20,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages",
+      "type": "file",
+      "file": "messages.py.md",
+      "x": 220,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_normalize_trade_mode",
+      "type": "file",
+      "file": "normalize_trade_mode().md",
+      "x": 420,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_normalize_trade_symbol",
+      "type": "file",
+      "file": "normalize_trade_symbol().md",
+      "x": 20,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling_poll_telegram_forever",
+      "type": "file",
+      "file": "poll_telegram_forever().md",
+      "x": 220,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling_poll_telegram_once",
+      "type": "file",
+      "file": "poll_telegram_once().md",
+      "x": 420,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling",
+      "type": "file",
+      "file": "polling.py.md",
+      "x": 20,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_polling_interval",
+      "type": "file",
+      "file": "polling_interval().md",
+      "x": 220,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_heartbeat_record_ea_heartbeat",
+      "type": "file",
+      "file": "record_ea_heartbeat().md",
+      "x": 420,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_commands_register_command",
+      "type": "file",
+      "file": "register_command().md",
+      "x": 20,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling_reply_to_telegram_update",
+      "type": "file",
+      "file": "reply_to_telegram_update().md",
+      "x": 220,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_run",
+      "type": "file",
+      "file": "run.py.md",
+      "x": 420,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_save_trade_state",
+      "type": "file",
+      "file": "save_trade_state().md",
+      "x": 20,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_telegram_sender_send_telegram_message",
+      "type": "file",
+      "file": "send_telegram_message().md",
+      "x": 220,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_telegram_sender_send_telegram_photo",
+      "type": "file",
+      "file": "send_telegram_photo().md",
+      "x": 420,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_server",
+      "type": "file",
+      "file": "server.py.md",
+      "x": 20,
+      "y": 1840,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_server_config",
+      "type": "file",
+      "file": "server_config().md",
+      "x": 220,
+      "y": 1840,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_set_trade_mode",
+      "type": "file",
+      "file": "set_trade_mode().md",
+      "x": 420,
+      "y": 1840,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_polling_start_telegram_polling",
+      "type": "file",
+      "file": "start_telegram_polling().md",
+      "x": 20,
+      "y": 1920,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_telegram_configured",
+      "type": "file",
+      "file": "telegram_configured().md",
+      "x": 220,
+      "y": 1920,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_telegram_sender",
+      "type": "file",
+      "file": "telegram_sender.py.md",
+      "x": 420,
+      "y": 1920,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_trade_config",
+      "type": "file",
+      "file": "trade_config().md",
+      "x": 20,
+      "y": 2000,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state",
+      "type": "file",
+      "file": "trade_state.py.md",
+      "x": 220,
+      "y": 2000,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_trade_state_trade_state_path",
+      "type": "file",
+      "file": "trade_state_path().md",
+      "x": 420,
+      "y": 2000,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_config_uptime_text",
+      "type": "file",
+      "file": "uptime_text().md",
+      "x": 20,
+      "y": 2080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_init_rationale_1",
+      "type": "file",
+      "file": "webhook-ec2 \u2014 MT5 Telegram Webhook Trading Server..md",
+      "x": 220,
+      "y": 2080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g1",
+      "type": "group",
+      "label": "Market Analysis Tests",
+      "x": 2060,
+      "y": 0,
+      "width": 1760,
+      "height": 1920,
+      "color": "2"
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_init",
+      "type": "file",
+      "file": ".__init__()_1.md",
+      "x": 2080,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_marketchart_init",
+      "type": "file",
+      "file": ".__init__()_2.md",
+      "x": 2280,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_marketchart_chart_candles",
+      "type": "file",
+      "file": "._chart_candles().md",
+      "x": 2480,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_marketchart_chart_items",
+      "type": "file",
+      "file": "._chart_items().md",
+      "x": 2080,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_marketchart_draw_candles",
+      "type": "file",
+      "file": "._draw_candles().md",
+      "x": 2280,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_format_zone",
+      "type": "file",
+      "file": "._format_zone().md",
+      "x": 2480,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_level",
+      "type": "file",
+      "file": "._level().md",
+      "x": 2080,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_suggestion",
+      "type": "file",
+      "file": "._suggestion().md",
+      "x": 2280,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_levels",
+      "type": "file",
+      "file": ".levels().md",
+      "x": 2480,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_marketchart_levels_chart",
+      "type": "file",
+      "file": ".levels_chart().md",
+      "x": 2080,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_rsi_summary",
+      "type": "file",
+      "file": ".rsi_summary().md",
+      "x": 2280,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer_summary",
+      "type": "file",
+      "file": ".summary().md",
+      "x": 2480,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_rationale_1",
+      "type": "file",
+      "file": "Chart rendering for key-level visualisations.  Extracted from MarketState to dec.md",
+      "x": 2080,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_34",
+      "type": "file",
+      "file": "Convert MT5 datetime value to human-readable string..md",
+      "x": 2280,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_rationale_25",
+      "type": "file",
+      "file": "Decorator register a function for one or more event types..md",
+      "x": 2480,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_rationale_1",
+      "type": "file",
+      "file": "EA webhook event dispatcher \u2014 strongly-typed handlers by event_type..md",
+      "x": 2080,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_51",
+      "type": "file",
+      "file": "Format a price to the snapshot's decimal digits..md",
+      "x": 2280,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_rationale_1",
+      "type": "file",
+      "file": "Market analysis logic \u2014 summary, levels, RSI reports.  Extracted from MarketStat.md",
+      "x": 2480,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_marketanalyzer",
+      "type": "file",
+      "file": "MarketAnalyzer.md",
+      "x": 2080,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_marketchart",
+      "type": "file",
+      "file": "MarketChart.md",
+      "x": 2280,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_1",
+      "type": "file",
+      "file": "Persistent latest-state storage for market snapshots.  Keeps candle-history, EMA.md",
+      "x": 2480,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_56",
+      "type": "file",
+      "file": "Raise ValueError if payload is not a valid TIMEFRAME_SNAPSHOT..md",
+      "x": 2080,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer_rationale_20",
+      "type": "file",
+      "file": "Read-only analysis over a MarketState's persisted data..md",
+      "x": 2280,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart_rationale_19",
+      "type": "file",
+      "file": "Renders key-level PNG charts from MarketState data..md",
+      "x": 2480,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_state_rationale_1",
+      "type": "file",
+      "file": "Shared global state used across webhook modules.  Cross-cutting state that doesn.md",
+      "x": 2080,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_rationale_1",
+      "type": "file",
+      "file": "Tests for market_analyzer \u2014 summary, levels, RSI reports..md",
+      "x": 2280,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_chart_rationale_1",
+      "type": "file",
+      "file": "Tests for market_chart \u2014 levels chart PNG generation..md",
+      "x": 2480,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_handle_candle_pattern",
+      "type": "file",
+      "file": "_handle_candle_pattern().md",
+      "x": 2080,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_handle_ea_error",
+      "type": "file",
+      "file": "_handle_ea_error().md",
+      "x": 2280,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_handle_tf_snapshot",
+      "type": "file",
+      "file": "_handle_tf_snapshot().md",
+      "x": 2480,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_handle_trade_close",
+      "type": "file",
+      "file": "_handle_trade_close().md",
+      "x": 2080,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_handle_trade_open",
+      "type": "file",
+      "file": "_handle_trade_open().md",
+      "x": 2280,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_price",
+      "type": "file",
+      "file": "_price().md",
+      "x": 2480,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_json_data_parser_candle_alert_message",
+      "type": "file",
+      "file": "candle_alert_message().md",
+      "x": 2080,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_json_data_parser_display_symbol",
+      "type": "file",
+      "file": "display_symbol().md",
+      "x": 2280,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_json_data_parser_display_time",
+      "type": "file",
+      "file": "display_time().md",
+      "x": 2480,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_display_time",
+      "type": "file",
+      "file": "display_time()_1.md",
+      "x": 2080,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_ea_issue_message",
+      "type": "file",
+      "file": "ea_issue_message().md",
+      "x": 2280,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events",
+      "type": "file",
+      "file": "events.py.md",
+      "x": 2480,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_json_data_parser_is_supported_payload",
+      "type": "file",
+      "file": "is_supported_payload().md",
+      "x": 2080,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_json_data_parser",
+      "type": "file",
+      "file": "json_data_parser.py.md",
+      "x": 2280,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_analyzer",
+      "type": "file",
+      "file": "market_analyzer.py.md",
+      "x": 2480,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_chart",
+      "type": "file",
+      "file": "market_chart.py.md",
+      "x": 2080,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state",
+      "type": "file",
+      "file": "market_state.py.md",
+      "x": 2280,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_notify_error",
+      "type": "file",
+      "file": "notify_error().md",
+      "x": 2480,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_events_register_handler",
+      "type": "file",
+      "file": "register_handler().md",
+      "x": 2080,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_json_data_parser_signal_and_bias",
+      "type": "file",
+      "file": "signal_and_bias().md",
+      "x": 2280,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_state",
+      "type": "file",
+      "file": "state.py.md",
+      "x": 2480,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer",
+      "type": "file",
+      "file": "test_market_analyzer.py.md",
+      "x": 2080,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_chart",
+      "type": "file",
+      "file": "test_market_chart.py.md",
+      "x": 2280,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_trade_close_message",
+      "type": "file",
+      "file": "trade_close_message().md",
+      "x": 2480,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_messages_trade_open_message",
+      "type": "file",
+      "file": "trade_open_message().md",
+      "x": 2080,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_validate_snapshot",
+      "type": "file",
+      "file": "validate_snapshot().md",
+      "x": 2280,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g2",
+      "type": "group",
+      "label": "Webhook Dispatch Tests",
+      "x": 3900,
+      "y": 0,
+      "width": 1540,
+      "height": 1620,
+      "color": "3"
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_setup",
+      "type": "file",
+      "file": ".setUp()_1.md",
+      "x": 3920,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_buy_saves_default_trade_mode",
+      "type": "file",
+      "file": ".test_buy_saves_default_trade_mode().md",
+      "x": 4120,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_corrupt_trade_state_uses_defaults",
+      "type": "file",
+      "file": ".test_corrupt_trade_state_uses_defaults().md",
+      "x": 4320,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_eaerrortest_test_ea_error_accepts_both_sources",
+      "type": "file",
+      "file": ".test_ea_error_accepts_both_sources().md",
+      "x": 3920,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_eaerrortest_test_ea_error_payload_is_sent_to_telegram",
+      "type": "file",
+      "file": ".test_ea_error_payload_is_sent_to_telegram().md",
+      "x": 4120,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_eaerrortest_test_ea_issue_message_includes_source_when_present",
+      "type": "file",
+      "file": ".test_ea_issue_message_includes_source_when_present().md",
+      "x": 4320,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_eaerrortest_test_ea_issue_message_omits_source_when_missing",
+      "type": "file",
+      "file": ".test_ea_issue_message_omits_source_when_missing().md",
+      "x": 3920,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_help_lists_summary_levels_rsi_and_trade_commands",
+      "type": "file",
+      "file": ".test_help_lists_summary_levels_rsi_and_trade_commands().md",
+      "x": 4120,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_telegramenvtest_test_load_dotenv_skips_comments_and_empty",
+      "type": "file",
+      "file": ".test_load_dotenv_skips_comments_and_empty().md",
+      "x": 4320,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_load_trade_state_restores_default_mode",
+      "type": "file",
+      "file": ".test_load_trade_state_restores_default_mode().md",
+      "x": 3920,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_missing_trade_state_uses_defaults",
+      "type": "file",
+      "file": ".test_missing_trade_state_uses_defaults().md",
+      "x": 4120,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_poll_telegram_once_replies_and_returns_next_offset",
+      "type": "file",
+      "file": ".test_poll_telegram_once_replies_and_returns_next_offset().md",
+      "x": 4320,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_save_trade_state_creates_parent_directories",
+      "type": "file",
+      "file": ".test_save_trade_state_creates_parent_directories().md",
+      "x": 3920,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_status_reports_default_mode_and_symbol_overrides",
+      "type": "file",
+      "file": ".test_status_reports_default_mode_and_symbol_overrides().md",
+      "x": 4120,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_status_reports_symbol_mode",
+      "type": "file",
+      "file": ".test_status_reports_symbol_mode().md",
+      "x": 4320,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_summary_levels_and_rsi_commands_require_a_symbol",
+      "type": "file",
+      "file": ".test_summary_levels_and_rsi_commands_require_a_symbol().md",
+      "x": 3920,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_symbol_overrides_are_saved_and_reloaded",
+      "type": "file",
+      "file": ".test_symbol_overrides_are_saved_and_reloaded().md",
+      "x": 4120,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_symbol_trade_commands_do_not_change_default_mode",
+      "type": "file",
+      "file": ".test_symbol_trade_commands_do_not_change_default_mode().md",
+      "x": 4320,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_telegram_command_can_arrive_on_webhook_path",
+      "type": "file",
+      "file": ".test_telegram_command_can_arrive_on_webhook_path().md",
+      "x": 3920,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_telegramenvtest_test_telegram_configured_returns_false_when_chat_id_missing",
+      "type": "file",
+      "file": ".test_telegram_configured_returns_false_when_chat_id_missing().md",
+      "x": 4120,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_telegramenvtest_test_telegram_configured_returns_false_when_token_missing",
+      "type": "file",
+      "file": ".test_telegram_configured_returns_false_when_token_missing().md",
+      "x": 4320,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_telegramenvtest_test_telegram_configured_returns_true_when_env_set",
+      "type": "file",
+      "file": ".test_telegram_configured_returns_true_when_env_set().md",
+      "x": 3920,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_telegram_pause_and_resume_commands_control_alerts",
+      "type": "file",
+      "file": ".test_telegram_pause_and_resume_commands_control_alerts().md",
+      "x": 4120,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_telegram_status_help_and_recent_commands",
+      "type": "file",
+      "file": ".test_telegram_status_help_and_recent_commands().md",
+      "x": 4320,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_trade_config_endpoint_returns_json",
+      "type": "file",
+      "file": ".test_trade_config_endpoint_returns_json().md",
+      "x": 3920,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_trade_config_endpoint_uses_normalized_symbol_override",
+      "type": "file",
+      "file": ".test_trade_config_endpoint_uses_normalized_symbol_override().md",
+      "x": 4120,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest_test_trade_mode_commands_update_trade_config",
+      "type": "file",
+      "file": ".test_trade_mode_commands_update_trade_config().md",
+      "x": 4320,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_eaerrortest_test_webhook1_snapshot_updates_market_state",
+      "type": "file",
+      "file": ".test_webhook1_snapshot_updates_market_state().md",
+      "x": 3920,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_accepts_non_json_body",
+      "type": "file",
+      "file": ".test_webhook_accepts_non_json_body().md",
+      "x": 4120,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_accepts_valid_payload",
+      "type": "file",
+      "file": ".test_webhook_accepts_valid_payload().md",
+      "x": 4320,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_engulfing_candle_sends_telegram_notification",
+      "type": "file",
+      "file": ".test_webhook_engulfing_candle_sends_telegram_notification().md",
+      "x": 3920,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_rejects_invalid_path",
+      "type": "file",
+      "file": ".test_webhook_rejects_invalid_path().md",
+      "x": 4120,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_rationale_208",
+      "type": "file",
+      "file": "EA error payload handling..md",
+      "x": 4320,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_eaerrortest",
+      "type": "file",
+      "file": "EaErrorTest.md",
+      "x": 3920,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_22",
+      "type": "file",
+      "file": "Return a bare ``WebhookHandler`` wired with dummy IO.      The handler's ``resp.md",
+      "x": 4120,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_rationale_17",
+      "type": "file",
+      "file": "Telegram initialisation and env detection..md",
+      "x": 4320,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_telegramenvtest",
+      "type": "file",
+      "file": "TelegramEnvTest.md",
+      "x": 3920,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_rationale_1",
+      "type": "file",
+      "file": "Tests for webhook handler dispatch, Telegram commands, EA lifecycle, and trade s.md",
+      "x": 4120,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_rationale_286",
+      "type": "file",
+      "file": "Trade mode persistence and symbol overrides..md",
+      "x": 4320,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_tradestatetest",
+      "type": "file",
+      "file": "TradeStateTest.md",
+      "x": 3920,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_rationale_46",
+      "type": "file",
+      "file": "Webhook POST dispatch via WebhookHandler..md",
+      "x": 4120,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler_webhookhandlertest",
+      "type": "file",
+      "file": "WebhookHandlerTest.md",
+      "x": 4320,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_make_handler",
+      "type": "file",
+      "file": "make_handler().md",
+      "x": 3920,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_webhook_handler",
+      "type": "file",
+      "file": "test_webhook_handler.py.md",
+      "x": 4120,
+      "y": 1200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g3",
+      "type": "group",
+      "label": "Shared Test Fixtures",
+      "x": 5520,
+      "y": 0,
+      "width": 1540,
+      "height": 1520,
+      "color": "4"
+    },
+    {
+      "id": "n_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "type": "file",
+      "file": ".test_far_levels_are_labels_without_compressing_candles().md",
+      "x": 5540,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "type": "file",
+      "file": ".test_higher_opposing_pattern_invalidates_older_lower_pattern().md",
+      "x": 5740,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "type": "file",
+      "file": ".test_initial_snapshot_stores_patterns_and_returns_notifications().md",
+      "x": 5940,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "type": "file",
+      "file": ".test_initial_snapshot_stores_patterns_without_notification().md",
+      "x": 5540,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "type": "file",
+      "file": ".test_levels_chart_draws_recent_candlesticks().md",
+      "x": 5740,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "type": "file",
+      "file": ".test_levels_chart_writes_png_with_key_levels().md",
+      "x": 5940,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "type": "file",
+      "file": ".test_levels_report_formats_all_higher_timeframes_and_missing_data().md",
+      "x": 5540,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_app_logger_loggercleantest_test_logger_cleans_log_after_five_hours",
+      "type": "file",
+      "file": ".test_logger_cleans_log_after_five_hours().md",
+      "x": 5740,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "type": "file",
+      "file": ".test_market_state_accepts_optional_webhook1_source().md",
+      "x": 5940,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "type": "file",
+      "file": ".test_market_state_accumulates_history_without_candles().md",
+      "x": 5540,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatemoduletest_test_market_state_module_is_available",
+      "type": "file",
+      "file": ".test_market_state_module_is_available().md",
+      "x": 5740,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "type": "file",
+      "file": ".test_market_state_persists_ema_snapshot_and_neutral_equality().md",
+      "x": 5940,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "type": "file",
+      "file": ".test_market_state_rejects_snapshot_for_unknown_timeframe().md",
+      "x": 5540,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "type": "file",
+      "file": ".test_market_state_returns_each_pattern_notification_once().md",
+      "x": 5740,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "type": "file",
+      "file": ".test_market_state_stores_rsi_history_and_reports_extremes().md",
+      "x": 5940,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "type": "file",
+      "file": ".test_market_state_uses_supplied_candle_history().md",
+      "x": 5540,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "type": "file",
+      "file": ".test_summary_confluence_returns_buy_sell_or_wait().md",
+      "x": 5740,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "type": "file",
+      "file": ".test_summary_escapes_dynamic_symbol().md",
+      "x": 5940,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_40",
+      "type": "file",
+      "file": "Build a ``TIMEFRAME_SNAPSHOT`` payload with sensible defaults..md",
+      "x": 5540,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_rationale_100",
+      "type": "file",
+      "file": "HTML escaping in reports..md",
+      "x": 5740,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_chart_rationale_14",
+      "type": "file",
+      "file": "Levels chart image output..md",
+      "x": 5940,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_rationale_61",
+      "type": "file",
+      "file": "Levels report formatting..md",
+      "x": 5540,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_app_logger_rationale_15",
+      "type": "file",
+      "file": "Log rotation  cleanup..md",
+      "x": 5740,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_app_logger_loggercleantest",
+      "type": "file",
+      "file": "LoggerCleanTest.md",
+      "x": 5940,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest",
+      "type": "file",
+      "file": "MarketAnalyzerHtmlEscapeTest.md",
+      "x": 5540,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_marketanalyzerlevelstest",
+      "type": "file",
+      "file": "MarketAnalyzerLevelsTest.md",
+      "x": 5740,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_marketanalyzersummarytest",
+      "type": "file",
+      "file": "MarketAnalyzerSummaryTest.md",
+      "x": 5940,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_chart_marketchartlevelstest",
+      "type": "file",
+      "file": "MarketChartLevelsTest.md",
+      "x": 5540,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_rationale_14",
+      "type": "file",
+      "file": "MarketState module availability..md",
+      "x": 5740,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatemoduletest",
+      "type": "file",
+      "file": "MarketStateModuleTest.md",
+      "x": 5940,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatepatternstest",
+      "type": "file",
+      "file": "MarketStatePatternsTest.md",
+      "x": 5540,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_marketstatesnapshottest",
+      "type": "file",
+      "file": "MarketStateSnapshotTest.md",
+      "x": 5740,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_path",
+      "type": "file",
+      "file": "Path.md",
+      "x": 5940,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_rationale_162",
+      "type": "file",
+      "file": "Pattern tracking, invalidation, and notification dedup..md",
+      "x": 5540,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_rationale_21",
+      "type": "file",
+      "file": "Snapshot ingestion and data persistence..md",
+      "x": 5740,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_analyzer_rationale_13",
+      "type": "file",
+      "file": "Summary confluence (buy  sell  wait)..md",
+      "x": 5940,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_app_logger_rationale_1",
+      "type": "file",
+      "file": "Tests for app_logger \u2014 log cleanup..md",
+      "x": 5540,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state_rationale_1",
+      "type": "file",
+      "file": "Tests for market_state \u2014 snapshot ingestion, pattern notifications, candle histo.md",
+      "x": 5740,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_snapshot",
+      "type": "file",
+      "file": "snapshot().md",
+      "x": 5940,
+      "y": 1040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_app_logger",
+      "type": "file",
+      "file": "test_app_logger.py.md",
+      "x": 5540,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_market_state",
+      "type": "file",
+      "file": "test_market_state.py.md",
+      "x": 5740,
+      "y": 1120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g4",
+      "type": "group",
+      "label": "Candlestick Chart Design",
+      "x": 7140,
+      "y": 0,
+      "width": 1320,
+      "height": 1320,
+      "color": "5"
+    },
+    {
+      "id": "n_levels_candlestick_visibility_build_candles_json",
+      "type": "file",
+      "file": "BuildCandlesJson.md",
+      "x": 7160,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_candle_derived_axis",
+      "type": "file",
+      "file": "Candle-Derived Y-Axis.md",
+      "x": 7360,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_render_order",
+      "type": "file",
+      "file": "Candle-First Render Order.md",
+      "x": 7560,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_verification",
+      "type": "file",
+      "file": "Candlestick Visibility Verification.md",
+      "x": 7160,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_canonical_source",
+      "type": "file",
+      "file": "Canonical MQ5 Source.md",
+      "x": 7360,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_timeframe_priority",
+      "type": "file",
+      "file": "Chart Timeframe Priority.md",
+      "x": 7560,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_closed_candle_history",
+      "type": "file",
+      "file": "Closed Candle History.md",
+      "x": 7160,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_event_routing",
+      "type": "file",
+      "file": "Existing Event Routing.md",
+      "x": 7360,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_fvg_clipping",
+      "type": "file",
+      "file": "FVG Zone Clipping.md",
+      "x": 7560,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_requirements_chart_rendering",
+      "type": "file",
+      "file": "Key-Level Chart Rendering.md",
+      "x": 7160,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_sync_validation",
+      "type": "file",
+      "file": "MQ5 Sync Safety Validation.md",
+      "x": 7360,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_mt5_override",
+      "type": "file",
+      "file": "MT5_MQ5_PATH Override.md",
+      "x": 7560,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_market_snapshot",
+      "type": "file",
+      "file": "MarketSnapshot.mqh.md",
+      "x": 7160,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_chart_selection",
+      "type": "file",
+      "file": "MarketState._chart_candles.md",
+      "x": 7360,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_levels_chart",
+      "type": "file",
+      "file": "MarketState.levels_chart.md",
+      "x": 7560,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_candle_history",
+      "type": "file",
+      "file": "Normalized candle_history.md",
+      "x": 7160,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_requirements_optional_dev_tools",
+      "type": "file",
+      "file": "Optional Development Tools.md",
+      "x": 7360,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_source_compatibility",
+      "type": "file",
+      "file": "Optional EA Source Compatibility.md",
+      "x": 7560,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_label_rail",
+      "type": "file",
+      "file": "Out-of-Range Level Label Rail.md",
+      "x": 7160,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_requirements_pillow",
+      "type": "file",
+      "file": "Pillow = 10.0.0.md",
+      "x": 7360,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_requirements_stdlib_runtime",
+      "type": "file",
+      "file": "Python Standard Library Runtime.md",
+      "x": 7560,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_telegram_sender",
+      "type": "file",
+      "file": "Python Telegram PNG Sender.md",
+      "x": 7160,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_root_symlink",
+      "type": "file",
+      "file": "Root Webhook.mq5 Symlink.md",
+      "x": 7360,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_python_server",
+      "type": "file",
+      "file": "Shared Python Webhook Server.md",
+      "x": 7560,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_standard_workflow",
+      "type": "file",
+      "file": "Standard MQ5 Change Workflow.md",
+      "x": 7160,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_trade_manager",
+      "type": "file",
+      "file": "TradeManager.mqh.md",
+      "x": 7360,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_sync_layout",
+      "type": "file",
+      "file": "Two-EA Canonical and Live Sync Layout.md",
+      "x": 7560,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_test_first_verification",
+      "type": "file",
+      "file": "Two-EA Test-First Verification.md",
+      "x": 7160,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_market_data_ownership",
+      "type": "file",
+      "file": "Webhook1 Market Data Ownership.md",
+      "x": 7360,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_webhook1",
+      "type": "file",
+      "file": "Webhook1 Market EA.md",
+      "x": 7560,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_webhook2",
+      "type": "file",
+      "file": "Webhook2 Trade EA.md",
+      "x": 7160,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_shared_common",
+      "type": "file",
+      "file": "WebhookCommon.mqh.md",
+      "x": 7360,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_copy2",
+      "type": "file",
+      "file": "shutil.copy2.md",
+      "x": 7560,
+      "y": 880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_design_sync_script",
+      "type": "file",
+      "file": "sync_mq5.py One-Way Sync.md",
+      "x": 7160,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_candlestick_visibility_validate_snapshot",
+      "type": "file",
+      "file": "validate_snapshot.md",
+      "x": 7360,
+      "y": 960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g5",
+      "type": "group",
+      "label": "Market State and Levels",
+      "x": 0,
+      "y": 2800,
+      "width": 1320,
+      "height": 1220,
+      "color": "6"
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_init",
+      "type": "file",
+      "file": ".__init__()_3.md",
+      "x": 20,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_ema_bias",
+      "type": "file",
+      "file": "._ema_bias().md",
+      "x": 220,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_invalidate_patterns",
+      "type": "file",
+      "file": "._invalidate_patterns().md",
+      "x": 420,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_load",
+      "type": "file",
+      "file": "._load().md",
+      "x": 20,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_pattern_key",
+      "type": "file",
+      "file": "._pattern_key().md",
+      "x": 220,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_process_patterns",
+      "type": "file",
+      "file": "._process_patterns().md",
+      "x": 420,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_save",
+      "type": "file",
+      "file": "._save().md",
+      "x": 20,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_mark_notified",
+      "type": "file",
+      "file": ".mark_notified().md",
+      "x": 220,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate_update",
+      "type": "file",
+      "file": ".update().md",
+      "x": 420,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_visibility_plan_candle_first_axis",
+      "type": "file",
+      "file": "Candle-Defined Chart Axis.md",
+      "x": 20,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_chart_levels_chart",
+      "type": "file",
+      "file": "Candle-First Key Levels Chart.md",
+      "x": 220,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_chart_chart_item_selection",
+      "type": "file",
+      "file": "Chart Level and Candle Selection.md",
+      "x": 420,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_visibility_plan_history_normalization",
+      "type": "file",
+      "file": "Chronological Candle History Normalization.md",
+      "x": 20,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_design_confluence",
+      "type": "file",
+      "file": "Deterministic BUY SELL WAIT Confluence.md",
+      "x": 220,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_design_timeframe_roles",
+      "type": "file",
+      "file": "EMA and Pattern Timeframe Roles.md",
+      "x": 420,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_130",
+      "type": "file",
+      "file": "Ingest a TIMEFRAME_SNAPSHOT payload.          Returns a list of notification dic.md",
+      "x": 20,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_levels_visibility_plan",
+      "type": "file",
+      "file": "Levels Candle-First Chart Plan.md",
+      "x": 220,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_polling_levels_chart_delivery",
+      "type": "file",
+      "file": "Levels Chart Delivery Flow.md",
+      "x": 420,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_302",
+      "type": "file",
+      "file": "Mark a notification as having been sent, so it won't fire again..md",
+      "x": 20,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_322",
+      "type": "file",
+      "file": "Mark retained patterns from other timeframes as invalidated..md",
+      "x": 220,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_state_market_singletons",
+      "type": "file",
+      "file": "Market State Analyzer and Chart Singletons.md",
+      "x": 420,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_design",
+      "type": "file",
+      "file": "Market Summary and Levels Design.md",
+      "x": 20,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_plan",
+      "type": "file",
+      "file": "Market Summary and Levels Plan.md",
+      "x": 220,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_marketstate",
+      "type": "file",
+      "file": "MarketState.md",
+      "x": 420,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_state_notification_pipeline",
+      "type": "file",
+      "file": "Pattern and EMA Notification Pipeline.md",
+      "x": 20,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_design_pause_semantics",
+      "type": "file",
+      "file": "Pause Suppresses Alerts but Preserves State.md",
+      "x": 220,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_state_pattern_invalidation",
+      "type": "file",
+      "file": "Retained Pattern Invalidation.md",
+      "x": 420,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_state_shared_runtime_state",
+      "type": "file",
+      "file": "Shared Runtime State.md",
+      "x": 20,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_design_key_levels",
+      "type": "file",
+      "file": "Support, Resistance, Fibonacci, PDHPDL, and FVG Levels.md",
+      "x": 220,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_84",
+      "type": "file",
+      "file": "Thread-safe persistence manager for symboltimeframe market snapshots..md",
+      "x": 420,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_state_snapshot_validation",
+      "type": "file",
+      "file": "Timeframe Snapshot Validation.md",
+      "x": 20,
+      "y": 3680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_summary_levels_plan_snapshot_pipeline",
+      "type": "file",
+      "file": "Unified Timeframe Snapshot Pipeline.md",
+      "x": 220,
+      "y": 3680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_market_state_rationale_318",
+      "type": "file",
+      "file": "Unique key for a pattern within a symboltimeframe..md",
+      "x": 420,
+      "y": 3680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g6",
+      "type": "group",
+      "label": "Payload Formatting Tests",
+      "x": 2060,
+      "y": 2800,
+      "width": 1320,
+      "height": 1220,
+      "color": "1"
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_adds_five_hours_and_rolls_date",
+      "type": "file",
+      "file": ".test_candle_message_adds_five_hours_and_rolls_date().md",
+      "x": 2080,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_escapes_dynamic_html",
+      "type": "file",
+      "file": ".test_candle_message_escapes_dynamic_html().md",
+      "x": 2280,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_includes_ohlc_when_high_and_low_are_available",
+      "type": "file",
+      "file": ".test_candle_message_includes_ohlc_when_high_and_low_are_available().md",
+      "x": 2480,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_removes_broker_prefix_and_suffix_from_symbol",
+      "type": "file",
+      "file": ".test_candle_message_removes_broker_prefix_and_suffix_from_symbol().md",
+      "x": 2080,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_uses_timezone_offset_from_environment",
+      "type": "file",
+      "file": ".test_candle_message_uses_timezone_offset_from_environment().md",
+      "x": 2280,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_displaytimetest_test_display_time_accepts_seconds",
+      "type": "file",
+      "file": ".test_display_time_accepts_seconds().md",
+      "x": 2480,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_displaytimetest_test_display_time_returns_empty_for_none_or_blank",
+      "type": "file",
+      "file": ".test_display_time_returns_empty_for_none_or_blank().md",
+      "x": 2080,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_displaytimetest_test_display_time_returns_invalid_value_unchanged",
+      "type": "file",
+      "file": ".test_display_time_returns_invalid_value_unchanged().md",
+      "x": 2280,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_displaytimetest_test_display_time_uses_default_offset_when_environment_is_invalid",
+      "type": "file",
+      "file": ".test_display_time_uses_default_offset_when_environment_is_invalid().md",
+      "x": 2480,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_symbolaliastest_test_empty_symbol_returns_empty",
+      "type": "file",
+      "file": ".test_empty_symbol_returns_empty().md",
+      "x": 2080,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_rejects_missing_fields",
+      "type": "file",
+      "file": ".test_engulfing_candle_message_rejects_missing_fields().md",
+      "x": 2280,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_uses_buy_format",
+      "type": "file",
+      "file": ".test_engulfing_candle_message_uses_buy_format().md",
+      "x": 2480,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_uses_sell_format",
+      "type": "file",
+      "file": ".test_engulfing_candle_message_uses_sell_format().md",
+      "x": 2080,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_fixed_bias_patterns_infer_signal_and_bias",
+      "type": "file",
+      "file": ".test_fixed_bias_patterns_infer_signal_and_bias().md",
+      "x": 2280,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_symbolaliastest_test_gold_aliases_normalize_to_gold",
+      "type": "file",
+      "file": ".test_gold_aliases_normalize_to_gold().md",
+      "x": 2480,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_hammer_message_uses_hammer_title",
+      "type": "file",
+      "file": ".test_hammer_message_uses_hammer_title().md",
+      "x": 2080,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_supportedpayloadtest_test_heartbeat_is_supported",
+      "type": "file",
+      "file": ".test_heartbeat_is_supported().md",
+      "x": 2280,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest_test_inside_bar_breakout_uses_payload_signal",
+      "type": "file",
+      "file": ".test_inside_bar_breakout_uses_payload_signal().md",
+      "x": 2480,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_supportedpayloadtest_test_is_supported_payload_accepts_alert_events",
+      "type": "file",
+      "file": ".test_is_supported_payload_accepts_alert_events().md",
+      "x": 2080,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_supportedpayloadtest_test_trade_close_is_supported",
+      "type": "file",
+      "file": ".test_trade_close_is_supported().md",
+      "x": 2280,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_symbolaliastest_test_unknown_symbol_falls_back_safely",
+      "type": "file",
+      "file": ".test_unknown_symbol_falls_back_safely().md",
+      "x": 2480,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_symbolaliastest_test_xauusd_normalizes_to_gold",
+      "type": "file",
+      "file": ".test_xauusd_normalizes_to_gold().md",
+      "x": 2080,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "type": "file",
+      "file": "CandleAlertMessageTest.md",
+      "x": 2280,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_displaytimetest",
+      "type": "file",
+      "file": "DisplayTimeTest.md",
+      "x": 2480,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_rationale_12",
+      "type": "file",
+      "file": "Message formatting for candlepattern alerts..md",
+      "x": 2080,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_rationale_213",
+      "type": "file",
+      "file": "Payload event-type filtering..md",
+      "x": 2280,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_supportedpayloadtest",
+      "type": "file",
+      "file": "SupportedPayloadTest.md",
+      "x": 2480,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_rationale_255",
+      "type": "file",
+      "file": "Symbol normalisation..md",
+      "x": 2080,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_symbolaliastest",
+      "type": "file",
+      "file": "SymbolAliasTest.md",
+      "x": 2280,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_rationale_1",
+      "type": "file",
+      "file": "Tests for json_data_parser \u2014 candle messages, symbol aliases, display time..md",
+      "x": 2480,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser_rationale_189",
+      "type": "file",
+      "file": "Timezone offset display formatting..md",
+      "x": 2080,
+      "y": 3680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_json_data_parser",
+      "type": "file",
+      "file": "test_json_data_parser.py.md",
+      "x": 2280,
+      "y": 3680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g7",
+      "type": "group",
+      "label": "Alerts and Heartbeats",
+      "x": 3900,
+      "y": 2800,
+      "width": 1320,
+      "height": 1120,
+      "color": "2"
+    },
+    {
+      "id": "n_commands_alert_control",
+      "type": "file",
+      "file": "Alert Pause and Resume Control.md",
+      "x": 3920,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_json_data_parser_symbol_normalization",
+      "type": "file",
+      "file": "Broker Symbol Normalization.md",
+      "x": 4120,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_sync_mq5_workflow",
+      "type": "file",
+      "file": "Canonical-to-Live MQ5 Sync Tests.md",
+      "x": 4320,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_events_event_registry",
+      "type": "file",
+      "file": "EA Event Handler Registry.md",
+      "x": 3920,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_heartbeat_ea_registry",
+      "type": "file",
+      "file": "EA Heartbeat Registry.md",
+      "x": 4120,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_config_environment_configuration",
+      "type": "file",
+      "file": "Environment-Based Configuration.md",
+      "x": 4320,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_json_data_parser_alert_formatting",
+      "type": "file",
+      "file": "HTML-Safe Candle Alert Formatting.md",
+      "x": 3920,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_heartbeat_status_reporting",
+      "type": "file",
+      "file": "Heartbeat Freshness Reporting.md",
+      "x": 4120,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_heartbeat_lifecycle",
+      "type": "file",
+      "file": "Heartbeat Lifecycle Tests.md",
+      "x": 4320,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_analyzer_key_levels",
+      "type": "file",
+      "file": "Key Levels Report.md",
+      "x": 3920,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_market_analyzer_reports",
+      "type": "file",
+      "file": "Market Analyzer Report Tests.md",
+      "x": 4120,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_market_chart_rendering",
+      "type": "file",
+      "file": "Market Chart Rendering Tests.md",
+      "x": 4320,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_commands_market_reports",
+      "type": "file",
+      "file": "Market Report Commands.md",
+      "x": 3920,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_helpers_snapshot_fixture",
+      "type": "file",
+      "file": "Market Snapshot Test Fixture.md",
+      "x": 4120,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_market_state_snapshots",
+      "type": "file",
+      "file": "Market State Snapshot and Pattern Tests.md",
+      "x": 4320,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_analyzer_confluence",
+      "type": "file",
+      "file": "Multi-Timeframe Trade Confluence.md",
+      "x": 3920,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_json_data_parser_contracts",
+      "type": "file",
+      "file": "Payload Parsing and Formatting Tests.md",
+      "x": 4120,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_trade_state_persisted_modes",
+      "type": "file",
+      "file": "Persisted Trade Modes.md",
+      "x": 4320,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_analyzer_rsi_report",
+      "type": "file",
+      "file": "RSI Extreme Report.md",
+      "x": 3920,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_analyzer_read_only_analysis",
+      "type": "file",
+      "file": "Read-Only Market State Analysis.md",
+      "x": 4120,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_commands_command_registry",
+      "type": "file",
+      "file": "Telegram Command Registry.md",
+      "x": 4320,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_telegram_sender_transport",
+      "type": "file",
+      "file": "Telegram HTTP Transport Tests.md",
+      "x": 3920,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_events_snapshot_pipeline",
+      "type": "file",
+      "file": "Timeframe Snapshot Notification Pipeline.md",
+      "x": 4120,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_commands_trade_mode_commands",
+      "type": "file",
+      "file": "Trade Mode Commands.md",
+      "x": 4320,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_events_trade_notifications",
+      "type": "file",
+      "file": "Trade and EA Issue Notifications.md",
+      "x": 3920,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_sync_mq5_two_ea_separation",
+      "type": "file",
+      "file": "Two-EA Responsibility Separation.md",
+      "x": 4120,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_webhook_handler_dispatch",
+      "type": "file",
+      "file": "Webhook HTTP Dispatch Tests.md",
+      "x": 4320,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_json_data_parser_payload_contract",
+      "type": "file",
+      "file": "Webhook Payload Contract.md",
+      "x": 3920,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_webhook_handler_trade_state",
+      "type": "file",
+      "file": "Webhook Trade State Integration Tests.md",
+      "x": 4120,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g8",
+      "type": "group",
+      "label": "MQL5 Integration Tests",
+      "x": 5520,
+      "y": 2800,
+      "width": 1320,
+      "height": 1120,
+      "color": "3"
+    },
+    {
+      "id": "n_tests_test_sync_mq5_mq5sourceexistencetest_test_all_canonical_mql5_sources_exist",
+      "type": "file",
+      "file": ".test_all_canonical_mql5_sources_exist().md",
+      "x": 5540,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_both_eas_use_the_local_webhook_default",
+      "type": "file",
+      "file": ".test_both_eas_use_the_local_webhook_default().md",
+      "x": 5740,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_mq5sourceexistencetest_test_legacy_canonical_ea_is_removed",
+      "type": "file",
+      "file": ".test_legacy_canonical_ea_is_removed().md",
+      "x": 5940,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_market_ea_owns_snapshots_only",
+      "type": "file",
+      "file": ".test_market_ea_owns_snapshots_only().md",
+      "x": 5540,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_readme_documents_two_ea_setup",
+      "type": "file",
+      "file": ".test_readme_documents_two_ea_setup().md",
+      "x": 5740,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_syncmq5test_test_sync_copies_both_eas_and_shared_includes",
+      "type": "file",
+      "file": ".test_sync_copies_both_eas_and_shared_includes().md",
+      "x": 5940,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_syncmq5test_test_sync_rejects_canonical_files_as_live_targets",
+      "type": "file",
+      "file": ".test_sync_rejects_canonical_files_as_live_targets().md",
+      "x": 5540,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_trade_config_url_includes_encoded_chart_symbol",
+      "type": "file",
+      "file": ".test_trade_config_url_includes_encoded_chart_symbol().md",
+      "x": 5740,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_trade_ea_manages_trading_on_timer",
+      "type": "file",
+      "file": ".test_trade_ea_manages_trading_on_timer().md",
+      "x": 5940,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_trade_ea_owns_trade_management_only",
+      "type": "file",
+      "file": ".test_trade_ea_owns_trade_management_only().md",
+      "x": 5540,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_trade_manager_has_config_cache",
+      "type": "file",
+      "file": ".test_trade_manager_has_config_cache().md",
+      "x": 5740,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_trade_manager_has_position_close_detection",
+      "type": "file",
+      "file": ".test_trade_manager_has_position_close_detection().md",
+      "x": 5940,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_webhook1_has_heartbeat_timer",
+      "type": "file",
+      "file": ".test_webhook1_has_heartbeat_timer().md",
+      "x": 5540,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_webhook2_has_heartbeat_and_config_cache",
+      "type": "file",
+      "file": ".test_webhook2_has_heartbeat_and_config_cache().md",
+      "x": 5740,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_webhook_common_has_send_ea_heartbeat",
+      "type": "file",
+      "file": ".test_webhook_common_has_send_ea_heartbeat().md",
+      "x": 5940,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest_test_webhook_common_has_send_trade_close",
+      "type": "file",
+      "file": ".test_webhook_common_has_send_trade_close().md",
+      "x": 5540,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_rationale_56",
+      "type": "file",
+      "file": "All canonical MQL5 source files exist..md",
+      "x": 5740,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_eacontenttest",
+      "type": "file",
+      "file": "EaContentTest.md",
+      "x": 5940,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_rationale_15",
+      "type": "file",
+      "file": "MQ5 source sync behaviour..md",
+      "x": 5540,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_mq5sourceexistencetest",
+      "type": "file",
+      "file": "Mq5SourceExistenceTest.md",
+      "x": 5740,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_rationale_68",
+      "type": "file",
+      "file": "Structural assertions on MQ5 source contents..md",
+      "x": 5940,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_syncmq5test",
+      "type": "file",
+      "file": "SyncMq5Test.md",
+      "x": 5540,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5_rationale_1",
+      "type": "file",
+      "file": "Tests for sync_mq5 \u2014 file copying and source validation..md",
+      "x": 5740,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_130",
+      "type": "file",
+      "file": "Write placeholder MQ5 source files under source_dir..md",
+      "x": 5940,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_make_mq5_sources",
+      "type": "file",
+      "file": "make_mq5_sources().md",
+      "x": 5540,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_sync_mq5_sync_mq5",
+      "type": "file",
+      "file": "sync_mq5().md",
+      "x": 5740,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_webhook_sync_mq5",
+      "type": "file",
+      "file": "sync_mq5.py.md",
+      "x": 5940,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_sync_mq5",
+      "type": "file",
+      "file": "test_sync_mq5.py.md",
+      "x": 5540,
+      "y": 3600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g9",
+      "type": "group",
+      "label": "Telegram Test Utilities",
+      "x": 7140,
+      "y": 2800,
+      "width": 1320,
+      "height": 1020,
+      "color": "4"
+    },
+    {
+      "id": "n_tests_test_helpers_telegramresponse_enter",
+      "type": "file",
+      "file": ".__enter__().md",
+      "x": 7160,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_telegramresponse_exit",
+      "type": "file",
+      "file": ".__exit__().md",
+      "x": 7360,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_telegramresponse_init",
+      "type": "file",
+      "file": ".__init__().md",
+      "x": 7560,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_telegramresponse_read",
+      "type": "file",
+      "file": ".read().md",
+      "x": 7160,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_gettelegramupdatestest_test_get_telegram_updates_uses_offset_and_timeout",
+      "type": "file",
+      "file": ".test_get_telegram_updates_uses_offset_and_timeout().md",
+      "x": 7360,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_can_disable_html",
+      "type": "file",
+      "file": ".test_send_telegram_message_can_disable_html().md",
+      "x": 7560,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_can_override_chat_id",
+      "type": "file",
+      "file": ".test_send_telegram_message_can_override_chat_id().md",
+      "x": 7160,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_includes_telegram_error_body",
+      "type": "file",
+      "file": ".test_send_telegram_message_includes_telegram_error_body().md",
+      "x": 7360,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_posts_to_send_message_api",
+      "type": "file",
+      "file": ".test_send_telegram_message_posts_to_send_message_api().md",
+      "x": 7560,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_retries_connection_errors",
+      "type": "file",
+      "file": ".test_send_telegram_message_retries_connection_errors().md",
+      "x": 7160,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_any",
+      "type": "file",
+      "file": "Any.md",
+      "x": 7360,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_61",
+      "type": "file",
+      "file": "File-like object that returns data when read..md",
+      "x": 7560,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_gettelegramupdatestest",
+      "type": "file",
+      "file": "GetTelegramUpdatesTest.md",
+      "x": 7160,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_rationale_109",
+      "type": "file",
+      "file": "Polling for incoming updates..md",
+      "x": 7360,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_77",
+      "type": "file",
+      "file": "Return a ``urlopen`` callable that always returns ``{ok True}``..md",
+      "x": 7560,
+      "y": 3200,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_83",
+      "type": "file",
+      "file": "Return a ``urlopen`` callable that records ``(request, timeout)`` calls.      Th.md",
+      "x": 7160,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_99",
+      "type": "file",
+      "file": "Return a ``urlopen`` that fails once, then succeeds on retry..md",
+      "x": 7360,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_sendtelegrammessagetest",
+      "type": "file",
+      "file": "SendTelegramMessageTest.md",
+      "x": 7560,
+      "y": 3280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_rationale_1",
+      "type": "file",
+      "file": "Shared test utilities for webhook-ec2 tests.  Provides helpers used across multi.md",
+      "x": 7160,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_rationale_18",
+      "type": "file",
+      "file": "Telegram message sending behaviour..md",
+      "x": 7360,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender_rationale_1",
+      "type": "file",
+      "file": "Tests for telegram_sender \u2014 send_message, get_updates, retries..md",
+      "x": 7560,
+      "y": 3360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_telegramresponse",
+      "type": "file",
+      "file": "_TelegramResponse.md",
+      "x": 7160,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_collect_requests",
+      "type": "file",
+      "file": "collect_requests().md",
+      "x": 7360,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_fake_urlopen_ok",
+      "type": "file",
+      "file": "fake_urlopen_ok().md",
+      "x": 7560,
+      "y": 3440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers",
+      "type": "file",
+      "file": "test_helpers.py.md",
+      "x": 7160,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_telegram_sender",
+      "type": "file",
+      "file": "test_telegram_sender.py.md",
+      "x": 7360,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_helpers_urlopen_first_error_then_ok",
+      "type": "file",
+      "file": "urlopen_first_error_then_ok().md",
+      "x": 7560,
+      "y": 3520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g10",
+      "type": "group",
+      "label": "Local Server Runtime",
+      "x": 0,
+      "y": 4100,
+      "width": 1100,
+      "height": 820,
+      "color": "5"
+    },
+    {
+      "id": "n_local_default_plan_localhost_default",
+      "type": "file",
+      "file": "127.0.0.18000 Default.md",
+      "x": 20,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_market_state_atomic_persistence",
+      "type": "file",
+      "file": "Atomic Market-State Persistence.md",
+      "x": 220,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_trade_state_atomic_persistence",
+      "type": "file",
+      "file": "Atomic Trade-State Persistence.md",
+      "x": 420,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_server_heartbeat_endpoint",
+      "type": "file",
+      "file": "EA Heartbeat Ingestion.md",
+      "x": 20,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_readme_heartbeat_monitoring",
+      "type": "file",
+      "file": "EA Heartbeat Monitoring.md",
+      "x": 220,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_readme_local_webhook_architecture",
+      "type": "file",
+      "file": "Local MT5 Webhook-to-Telegram Architecture.md",
+      "x": 420,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_local_default_design",
+      "type": "file",
+      "file": "Local-Default Setup Design.md",
+      "x": 20,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_local_default_plan",
+      "type": "file",
+      "file": "Local-Default Setup Plan.md",
+      "x": 220,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_local_default_design_optional_linux",
+      "type": "file",
+      "file": "Optional Future Linux Deployment.md",
+      "x": 420,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_trade_state_trade_state",
+      "type": "file",
+      "file": "Persistent Trade Mode State.md",
+      "x": 20,
+      "y": 4420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_trade_state_symbol_overrides",
+      "type": "file",
+      "file": "Symbol-Specific Trade Mode Overrides.md",
+      "x": 220,
+      "y": 4420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_readme_telegram_commands",
+      "type": "file",
+      "file": "Telegram Command Surface.md",
+      "x": 420,
+      "y": 4420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_telegram_sender_telegram_transport",
+      "type": "file",
+      "file": "Telegram HTTP Transport.md",
+      "x": 20,
+      "y": 4500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_polling_telegram_polling",
+      "type": "file",
+      "file": "Telegram Long Polling.md",
+      "x": 220,
+      "y": 4500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_telegram_sender_photo_upload",
+      "type": "file",
+      "file": "Telegram Multipart Photo Upload.md",
+      "x": 420,
+      "y": 4500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_telegram_sender_retry_policy",
+      "type": "file",
+      "file": "Telegram Request Retry Policy.md",
+      "x": 20,
+      "y": 4580,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_server_trade_config_endpoint",
+      "type": "file",
+      "file": "Trade Configuration Endpoint.md",
+      "x": 220,
+      "y": 4580,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_trade_state_trade_config",
+      "type": "file",
+      "file": "Trade Configuration Projection.md",
+      "x": 420,
+      "y": 4580,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_server_event_dispatch",
+      "type": "file",
+      "file": "Webhook Event Dispatch.md",
+      "x": 20,
+      "y": 4660,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_server_webhook_server",
+      "type": "file",
+      "file": "Webhook HTTP Server.md",
+      "x": 220,
+      "y": 4660,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_readme_trade_config_cache",
+      "type": "file",
+      "file": "Webhook2 Trade Config Cache.md",
+      "x": 420,
+      "y": 4660,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g11",
+      "type": "group",
+      "label": "Heartbeat Tests",
+      "x": 2060,
+      "y": 4100,
+      "width": 880,
+      "height": 620,
+      "color": "6"
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_setup",
+      "type": "file",
+      "file": ".setUp().md",
+      "x": 2080,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_normalizes_source_to_lowercase",
+      "type": "file",
+      "file": ".test_record_ea_heartbeat_normalizes_source_to_lowercase().md",
+      "x": 2280,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_normalizes_symbol",
+      "type": "file",
+      "file": ".test_record_ea_heartbeat_normalizes_symbol().md",
+      "x": 2480,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_stores_source_symbol_and_status",
+      "type": "file",
+      "file": ".test_record_ea_heartbeat_stores_source_symbol_and_status().md",
+      "x": 2080,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_status_shows_missing_when_no_heartbeats",
+      "type": "file",
+      "file": ".test_status_shows_missing_when_no_heartbeats().md",
+      "x": 2280,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_status_shows_running_with_fresh_heartbeat",
+      "type": "file",
+      "file": ".test_status_shows_running_with_fresh_heartbeat().md",
+      "x": 2480,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_status_shows_stale_when_heartbeat_old",
+      "type": "file",
+      "file": ".test_status_shows_stale_when_heartbeat_old().md",
+      "x": 2080,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_unknown_source_accepted_and_appears_after_known",
+      "type": "file",
+      "file": ".test_unknown_source_accepted_and_appears_after_known().md",
+      "x": 2280,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_webhook_ea_heartbeat_returns_ok_no_telegram",
+      "type": "file",
+      "file": ".test_webhook_ea_heartbeat_returns_ok_no_telegram().md",
+      "x": 2480,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest_test_webhook_ea_heartbeat_stores_heartbeat",
+      "type": "file",
+      "file": ".test_webhook_ea_heartbeat_stores_heartbeat().md",
+      "x": 2080,
+      "y": 4420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_rationale_15",
+      "type": "file",
+      "file": "EA heartbeat recording and status reporting..md",
+      "x": 2280,
+      "y": 4420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_heartbeattest",
+      "type": "file",
+      "file": "HeartbeatTest.md",
+      "x": 2480,
+      "y": 4420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat_rationale_1",
+      "type": "file",
+      "file": "Tests for EA heartbeat management..md",
+      "x": 2080,
+      "y": 4500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_test_heartbeat",
+      "type": "file",
+      "file": "test_heartbeat.py.md",
+      "x": 2280,
+      "y": 4500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g12",
+      "type": "group",
+      "label": "MQL5 Source Workflow",
+      "x": 3900,
+      "y": 4100,
+      "width": 660,
+      "height": 420,
+      "color": "1"
+    },
+    {
+      "id": "n_agents_mq5_source_workflow",
+      "type": "file",
+      "file": "Canonical-First MQL5 Source Workflow.md",
+      "x": 3920,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_sync_mq5_canonical_sync",
+      "type": "file",
+      "file": "Canonical-to-Live MQL5 Sync.md",
+      "x": 4120,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_plan",
+      "type": "file",
+      "file": "MQL5 Source Sync Plan.md",
+      "x": 4320,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_plan_separation",
+      "type": "file",
+      "file": "Market and Trade EA Separation.md",
+      "x": 3920,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mq5_source_sync_plan_one_way_copy",
+      "type": "file",
+      "file": "One-Way Canonical Source Copy.md",
+      "x": 4120,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_sync_mq5_mql5_source_manifest",
+      "type": "file",
+      "file": "Tracked MQL5 Source Manifest.md",
+      "x": 4320,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_readme_two_ea_setup",
+      "type": "file",
+      "file": "Two-EA MT5 Setup.md",
+      "x": 3920,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_plan",
+      "type": "file",
+      "file": "Two-EA Refactor Plan.md",
+      "x": 4120,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_two_ea_refactor_plan_multi_file_sync",
+      "type": "file",
+      "file": "Two-Target Multi-File Sync.md",
+      "x": 4320,
+      "y": 4340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g13",
+      "type": "group",
+      "label": "Candlestick Patterns",
+      "x": 5520,
+      "y": 4100,
+      "width": 660,
+      "height": 400,
+      "color": "2"
+    },
+    {
+      "id": "n_candlestick_patterns_design",
+      "type": "file",
+      "file": "Candlestick Pattern Support Design.md",
+      "x": 5540,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_candlestick_patterns_plan",
+      "type": "file",
+      "file": "Candlestick Pattern Support Plan.md",
+      "x": 5740,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_candlestick_patterns_plan_bias_reporting",
+      "type": "file",
+      "file": "Directional Bias and OHLC Reporting.md",
+      "x": 5940,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_candlestick_patterns_plan_multi_pattern_detection",
+      "type": "file",
+      "file": "Independent Multi-Pattern Detection.md",
+      "x": 5540,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_candlestick_patterns_design_compatibility",
+      "type": "file",
+      "file": "Legacy Pattern Payload Compatibility.md",
+      "x": 5740,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_candlestick_patterns_design_pattern_rules",
+      "type": "file",
+      "file": "Shooting Star, Inverted Hammer, Star, and Inside Bar Rules.md",
+      "x": 5940,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g14",
+      "type": "group",
+      "label": "Environment Loading",
+      "x": 7140,
+      "y": 4100,
+      "width": 600,
+      "height": 400,
+      "color": "3"
+    },
+    {
+      "id": "n_dotenv_loading_design",
+      "type": "file",
+      "file": "Automatic Dotenv Loading Design.md",
+      "x": 7160,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_dotenv_loading_plan",
+      "type": "file",
+      "file": "Automatic Dotenv Loading Plan.md",
+      "x": 7360,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_dotenv_loading_plan_environment_precedence",
+      "type": "file",
+      "file": "Process Environment Precedence.md",
+      "x": 7560,
+      "y": 4180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_dotenv_loading_design_stdlib_loader",
+      "type": "file",
+      "file": "Standard-Library Dotenv Loader.md",
+      "x": 7160,
+      "y": 4260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g15",
+      "type": "group",
+      "label": "Telegram Messages",
+      "x": 0,
+      "y": 5000,
+      "width": 600,
+      "height": 400,
+      "color": "4"
+    },
+    {
+      "id": "n_messages_ea_issue_message",
+      "type": "file",
+      "file": "Escaped EA Issue Message.md",
+      "x": 20,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_messages_telegram_messages",
+      "type": "file",
+      "file": "Telegram Message Formatting.md",
+      "x": 220,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_readme_trade_close_notifications",
+      "type": "file",
+      "file": "Trade Close Notifications.md",
+      "x": 420,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_messages_trade_notifications",
+      "type": "file",
+      "file": "Trade Open and Close Notifications.md",
+      "x": 20,
+      "y": 5160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g16",
+      "type": "group",
+      "label": "Logging Lifecycle",
+      "x": 2060,
+      "y": 5000,
+      "width": 600,
+      "height": 400,
+      "color": "5"
+    },
+    {
+      "id": "n_app_logger_log_lifecycle",
+      "type": "file",
+      "file": "Five-Hour Log Lifecycle.md",
+      "x": 2080,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test_app_logger_log_cleanup",
+      "type": "file",
+      "file": "Log Cleanup Contract Tests.md",
+      "x": 2280,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g17",
+      "type": "group",
+      "label": "Package Entrypoints",
+      "x": 3900,
+      "y": 5000,
+      "width": 600,
+      "height": 400,
+      "color": "6"
+    },
+    {
+      "id": "n_init_public_facade",
+      "type": "file",
+      "file": "Webhook Public API Facade.md",
+      "x": 3920,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_run_server_entrypoint",
+      "type": "file",
+      "file": "Webhook Server Entrypoint.md",
+      "x": 4120,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g18",
+      "type": "group",
+      "label": "Pytest Configuration",
+      "x": 5520,
+      "y": 5000,
+      "width": 600,
+      "height": 400,
+      "color": "1"
+    },
+    {
+      "id": "n_tests_conftest",
+      "type": "file",
+      "file": "conftest.py.md",
+      "x": 5540,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_conftest_rationale_1",
+      "type": "file",
+      "file": "pytest configuration \u2014 ensures the project root is on sys.path..md",
+      "x": 5740,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g19",
+      "type": "group",
+      "label": "Test Package Setup",
+      "x": 7140,
+      "y": 5000,
+      "width": 600,
+      "height": 400,
+      "color": "2"
+    },
+    {
+      "id": "n_tests_init",
+      "type": "file",
+      "file": "__init__.py.md",
+      "x": 7160,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_tests_init_rationale_1",
+      "type": "file",
+      "file": "webhook-ec2 test suite.  Automatically adds the project root to ``sys.path`` so.md",
+      "x": 7360,
+      "y": 5080,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g20",
+      "type": "group",
+      "label": "CodeGraph Policy",
+      "x": 0,
+      "y": 5480,
+      "width": 600,
+      "height": 400,
+      "color": "3"
+    },
+    {
+      "id": "n_agents_codegraph_policy",
+      "type": "file",
+      "file": "CodeGraph Structural Search Policy.md",
+      "x": 20,
+      "y": 5560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g21",
+      "type": "group",
+      "label": "Git Safety Policy",
+      "x": 2060,
+      "y": 5480,
+      "width": 600,
+      "height": 400,
+      "color": "4"
+    },
+    {
+      "id": "n_agents_git_policy",
+      "type": "file",
+      "file": "No Unrequested Commit or Push Policy.md",
+      "x": 2080,
+      "y": 5560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g22",
+      "type": "group",
+      "label": "Symbol Aliases",
+      "x": 3900,
+      "y": 5480,
+      "width": 600,
+      "height": 400,
+      "color": "5"
+    },
+    {
+      "id": "n_readme_symbol_aliases",
+      "type": "file",
+      "file": "Centralized Symbol Aliases.md",
+      "x": 3920,
+      "y": 5560,
+      "width": 180,
+      "height": 60
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_run_webhook_server",
+      "fromNode": "n_run",
+      "toNode": "n_webhook_server",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_run_webhook_server_main",
+      "fromNode": "n_run",
+      "toNode": "n_webhook_server_main",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_run_run_rationale_1",
+      "fromNode": "n_run",
+      "toNode": "n_run_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_init_tests_init_rationale_1",
+      "fromNode": "n_tests_init",
+      "toNode": "n_tests_init_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_conftest_tests_conftest_rationale_1",
+      "fromNode": "n_tests_conftest",
+      "toNode": "n_tests_conftest_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_app_logger_tests_test_app_logger_loggercleantest",
+      "fromNode": "n_tests_test_app_logger",
+      "toNode": "n_tests_test_app_logger_loggercleantest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_app_logger_webhook_app_logger",
+      "fromNode": "n_tests_test_app_logger",
+      "toNode": "n_webhook_app_logger",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_app_logger_tests_test_app_logger_rationale_1",
+      "fromNode": "n_tests_test_app_logger",
+      "toNode": "n_tests_test_app_logger_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_app_logger_loggercleantest_tests_test_app_logger_loggercleantest_test_logger_cleans_log_after_five_hours",
+      "fromNode": "n_tests_test_app_logger_loggercleantest",
+      "toNode": "n_tests_test_app_logger_loggercleantest_test_logger_cleans_log_after_five_hours",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_app_logger_loggercleantest_tests_test_app_logger_rationale_15",
+      "fromNode": "n_tests_test_app_logger_loggercleantest",
+      "toNode": "n_tests_test_app_logger_rationale_15",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_app_logger_loggercleantest_test_logger_cleans_log_after_five_hours_path",
+      "fromNode": "n_tests_test_app_logger_loggercleantest_test_logger_cleans_log_after_five_hours",
+      "toNode": "n_path",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_tests_test_heartbeat_heartbeattest",
+      "fromNode": "n_tests_test_heartbeat",
+      "toNode": "n_tests_test_heartbeat_heartbeattest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_tests_test_helpers",
+      "fromNode": "n_tests_test_heartbeat",
+      "toNode": "n_tests_test_helpers",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_tests_test_helpers_make_handler",
+      "fromNode": "n_tests_test_heartbeat",
+      "toNode": "n_tests_test_helpers_make_handler",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_tests_test_heartbeat_rationale_1",
+      "fromNode": "n_tests_test_heartbeat",
+      "toNode": "n_tests_test_heartbeat_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_setup",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_setup",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_normalizes_source_to_lowercase",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_normalizes_source_to_lowercase",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_normalizes_symbol",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_normalizes_symbol",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_stores_source_symbol_and_status",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_record_ea_heartbeat_stores_source_symbol_and_status",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_status_shows_missing_when_no_heartbeats",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_status_shows_missing_when_no_heartbeats",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_status_shows_running_with_fresh_heartbeat",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_status_shows_running_with_fresh_heartbeat",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_status_shows_stale_when_heartbeat_old",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_status_shows_stale_when_heartbeat_old",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_unknown_source_accepted_and_appears_after_known",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_unknown_source_accepted_and_appears_after_known",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_webhook_ea_heartbeat_returns_ok_no_telegram",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_webhook_ea_heartbeat_returns_ok_no_telegram",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_heartbeattest_test_webhook_ea_heartbeat_stores_heartbeat",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_heartbeattest_test_webhook_ea_heartbeat_stores_heartbeat",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_heartbeat_heartbeattest_tests_test_heartbeat_rationale_15",
+      "fromNode": "n_tests_test_heartbeat_heartbeattest",
+      "toNode": "n_tests_test_heartbeat_rationale_15",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_collect_requests",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_collect_requests",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_fake_urlopen_ok",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_fake_urlopen_ok",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_make_handler",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_make_handler",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_make_mq5_sources",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_make_mq5_sources",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_snapshot",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_snapshot",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_telegramresponse",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_telegramresponse",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_urlopen_first_error_then_ok",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_urlopen_first_error_then_ok",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_helpers_rationale_1",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_helpers_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_market_analyzer",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_market_analyzer",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_market_chart",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_market_chart",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_market_state",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_market_state",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_sync_mq5",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_sync_mq5",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_telegram_sender",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_telegram_sender",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_tests_test_webhook_handler",
+      "fromNode": "n_tests_test_helpers",
+      "toNode": "n_tests_test_webhook_handler",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_any",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_any",
+      "label": "references [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_helpers_rationale_22",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_helpers_rationale_22",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_eaerrortest_test_ea_error_accepts_both_sources",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_eaerrortest_test_ea_error_accepts_both_sources",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_eaerrortest_test_ea_error_payload_is_sent_to_telegram",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_eaerrortest_test_ea_error_payload_is_sent_to_telegram",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_eaerrortest_test_webhook1_snapshot_updates_market_state",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_eaerrortest_test_webhook1_snapshot_updates_market_state",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_tradestatetest_test_trade_config_endpoint_returns_json",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_tradestatetest_test_trade_config_endpoint_returns_json",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_tradestatetest_test_trade_config_endpoint_uses_normalized_symbol_override",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_tradestatetest_test_trade_config_endpoint_uses_normalized_symbol_override",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_telegram_command_can_arrive_on_webhook_path",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_telegram_command_can_arrive_on_webhook_path",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_telegram_pause_and_resume_commands_control_alerts",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_telegram_pause_and_resume_commands_control_alerts",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_telegram_status_help_and_recent_commands",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_telegram_status_help_and_recent_commands",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_webhook_accepts_non_json_body",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_accepts_non_json_body",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_webhook_accepts_valid_payload",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_accepts_valid_payload",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_webhook_engulfing_candle_sends_telegram_notification",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_engulfing_candle_sends_telegram_notification",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_handler_tests_test_webhook_handler_webhookhandlertest_test_webhook_rejects_invalid_path",
+      "fromNode": "n_tests_test_helpers_make_handler",
+      "toNode": "n_tests_test_webhook_handler_webhookhandlertest_test_webhook_rejects_invalid_path",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_any_tests_test_helpers_fake_urlopen_ok",
+      "fromNode": "n_any",
+      "toNode": "n_tests_test_helpers_fake_urlopen_ok",
+      "label": "references [EXTRACTED]"
+    },
+    {
+      "id": "e_any_tests_test_helpers_snapshot",
+      "fromNode": "n_any",
+      "toNode": "n_tests_test_helpers_snapshot",
+      "label": "references [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_helpers_rationale_40",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_helpers_rationale_40",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_analyzer",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_analyzer",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_chart",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_chart",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_webhook_handler",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_webhook_handler",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_snapshot_tests_test_webhook_handler_eaerrortest_test_webhook1_snapshot_updates_market_state",
+      "fromNode": "n_tests_test_helpers_snapshot",
+      "toNode": "n_tests_test_webhook_handler_eaerrortest_test_webhook1_snapshot_updates_market_state",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_telegramresponse_tests_test_helpers_fake_urlopen_ok",
+      "fromNode": "n_tests_test_helpers_telegramresponse",
+      "toNode": "n_tests_test_helpers_fake_urlopen_ok",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_telegramresponse_tests_test_helpers_rationale_61",
+      "fromNode": "n_tests_test_helpers_telegramresponse",
+      "toNode": "n_tests_test_helpers_rationale_61",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_telegramresponse_tests_test_helpers_telegramresponse_enter",
+      "fromNode": "n_tests_test_helpers_telegramresponse",
+      "toNode": "n_tests_test_helpers_telegramresponse_enter",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_telegramresponse_tests_test_helpers_telegramresponse_exit",
+      "fromNode": "n_tests_test_helpers_telegramresponse",
+      "toNode": "n_tests_test_helpers_telegramresponse_exit",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_telegramresponse_tests_test_helpers_telegramresponse_init",
+      "fromNode": "n_tests_test_helpers_telegramresponse",
+      "toNode": "n_tests_test_helpers_telegramresponse_init",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_telegramresponse_tests_test_helpers_telegramresponse_read",
+      "fromNode": "n_tests_test_helpers_telegramresponse",
+      "toNode": "n_tests_test_helpers_telegramresponse_read",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_fake_urlopen_ok_tests_test_helpers_rationale_77",
+      "fromNode": "n_tests_test_helpers_fake_urlopen_ok",
+      "toNode": "n_tests_test_helpers_rationale_77",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_fake_urlopen_ok_tests_test_telegram_sender",
+      "fromNode": "n_tests_test_helpers_fake_urlopen_ok",
+      "toNode": "n_tests_test_telegram_sender",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_collect_requests_tests_test_helpers_rationale_83",
+      "fromNode": "n_tests_test_helpers_collect_requests",
+      "toNode": "n_tests_test_helpers_rationale_83",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_collect_requests_tests_test_telegram_sender",
+      "fromNode": "n_tests_test_helpers_collect_requests",
+      "toNode": "n_tests_test_telegram_sender",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_collect_requests_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_can_disable_html",
+      "fromNode": "n_tests_test_helpers_collect_requests",
+      "toNode": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_can_disable_html",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_collect_requests_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_can_override_chat_id",
+      "fromNode": "n_tests_test_helpers_collect_requests",
+      "toNode": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_can_override_chat_id",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_collect_requests_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_posts_to_send_message_api",
+      "fromNode": "n_tests_test_helpers_collect_requests",
+      "toNode": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_posts_to_send_message_api",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_urlopen_first_error_then_ok_tests_test_helpers_rationale_99",
+      "fromNode": "n_tests_test_helpers_urlopen_first_error_then_ok",
+      "toNode": "n_tests_test_helpers_rationale_99",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_urlopen_first_error_then_ok_tests_test_telegram_sender",
+      "fromNode": "n_tests_test_helpers_urlopen_first_error_then_ok",
+      "toNode": "n_tests_test_telegram_sender",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_urlopen_first_error_then_ok_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_retries_connection_errors",
+      "fromNode": "n_tests_test_helpers_urlopen_first_error_then_ok",
+      "toNode": "n_tests_test_telegram_sender_sendtelegrammessagetest_test_send_telegram_message_retries_connection_errors",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_mq5_sources_path",
+      "fromNode": "n_tests_test_helpers_make_mq5_sources",
+      "toNode": "n_path",
+      "label": "references [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_mq5_sources_tests_test_helpers_rationale_130",
+      "fromNode": "n_tests_test_helpers_make_mq5_sources",
+      "toNode": "n_tests_test_helpers_rationale_130",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_mq5_sources_tests_test_sync_mq5",
+      "fromNode": "n_tests_test_helpers_make_mq5_sources",
+      "toNode": "n_tests_test_sync_mq5",
+      "label": "imports [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_mq5_sources_tests_test_sync_mq5_syncmq5test_test_sync_copies_both_eas_and_shared_includes",
+      "fromNode": "n_tests_test_helpers_make_mq5_sources",
+      "toNode": "n_tests_test_sync_mq5_syncmq5test_test_sync_copies_both_eas_and_shared_includes",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_helpers_make_mq5_sources_tests_test_sync_mq5_syncmq5test_test_sync_rejects_canonical_files_as_live_targets",
+      "fromNode": "n_tests_test_helpers_make_mq5_sources",
+      "toNode": "n_tests_test_sync_mq5_syncmq5test_test_sync_rejects_canonical_files_as_live_targets",
+      "label": "calls [EXTRACTED]"
+    },
+    {
+      "id": "e_path_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_sync_mq5_syncmq5test_test_sync_copies_both_eas_and_shared_includes",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_sync_mq5_syncmq5test_test_sync_copies_both_eas_and_shared_includes",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_sync_mq5_syncmq5test_test_sync_rejects_canonical_files_as_live_targets",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_sync_mq5_syncmq5test_test_sync_rejects_canonical_files_as_live_targets",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_webhook_handler_tradestatetest_setup",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_webhook_handler_tradestatetest_setup",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_tests_test_webhook_handler_tradestatetest_test_save_trade_state_creates_parent_directories",
+      "fromNode": "n_path",
+      "toNode": "n_tests_test_webhook_handler_tradestatetest_test_save_trade_state_creates_parent_directories",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_config_load_dotenv",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_config_load_dotenv",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_market_chart_marketchart_levels_chart",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_market_chart_marketchart_levels_chart",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_market_state_marketstate_init",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_market_state_marketstate_init",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_market_state_marketstate_save",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_market_state_marketstate_save",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_polling_maybe_send_levels_chart",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_polling_maybe_send_levels_chart",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_sync_mq5_sync_mq5",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_sync_mq5_sync_mq5",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_trade_state_save_trade_state",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_trade_state_save_trade_state",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_path_webhook_trade_state_trade_state_path",
+      "fromNode": "n_path",
+      "toNode": "n_webhook_trade_state_trade_state_path",
+      "label": "calls [INFERRED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_tests_test_json_data_parser_candlealertmessagetest",
+      "fromNode": "n_tests_test_json_data_parser",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_tests_test_json_data_parser_displaytimetest",
+      "fromNode": "n_tests_test_json_data_parser",
+      "toNode": "n_tests_test_json_data_parser_displaytimetest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_tests_test_json_data_parser_supportedpayloadtest",
+      "fromNode": "n_tests_test_json_data_parser",
+      "toNode": "n_tests_test_json_data_parser_supportedpayloadtest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_tests_test_json_data_parser_symbolaliastest",
+      "fromNode": "n_tests_test_json_data_parser",
+      "toNode": "n_tests_test_json_data_parser_symbolaliastest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_webhook_json_data_parser",
+      "fromNode": "n_tests_test_json_data_parser",
+      "toNode": "n_webhook_json_data_parser",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_tests_test_json_data_parser_rationale_1",
+      "fromNode": "n_tests_test_json_data_parser",
+      "toNode": "n_tests_test_json_data_parser_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_adds_five_hours_and_rolls_date",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_adds_five_hours_and_rolls_date",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_escapes_dynamic_html",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_escapes_dynamic_html",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_includes_ohlc_when_high_and_low_are_available",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_includes_ohlc_when_high_and_low_are_available",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_removes_broker_prefix_and_suffix_from_symbol",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_removes_broker_prefix_and_suffix_from_symbol",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_uses_timezone_offset_from_environment",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_candle_message_uses_timezone_offset_from_environment",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_rejects_missing_fields",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_rejects_missing_fields",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_uses_buy_format",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_uses_buy_format",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_uses_sell_format",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_engulfing_candle_message_uses_sell_format",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_fixed_bias_patterns_infer_signal_and_bias",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_fixed_bias_patterns_infer_signal_and_bias",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_hammer_message_uses_hammer_title",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_hammer_message_uses_hammer_title",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_candlealertmessagetest_test_inside_bar_breakout_uses_payload_signal",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_candlealertmessagetest_test_inside_bar_breakout_uses_payload_signal",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_candlealertmessagetest_tests_test_json_data_parser_rationale_12",
+      "fromNode": "n_tests_test_json_data_parser_candlealertmessagetest",
+      "toNode": "n_tests_test_json_data_parser_rationale_12",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_displaytimetest_tests_test_json_data_parser_displaytimetest_test_display_time_accepts_seconds",
+      "fromNode": "n_tests_test_json_data_parser_displaytimetest",
+      "toNode": "n_tests_test_json_data_parser_displaytimetest_test_display_time_accepts_seconds",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_displaytimetest_tests_test_json_data_parser_displaytimetest_test_display_time_returns_empty_for_none_or_blank",
+      "fromNode": "n_tests_test_json_data_parser_displaytimetest",
+      "toNode": "n_tests_test_json_data_parser_displaytimetest_test_display_time_returns_empty_for_none_or_blank",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_displaytimetest_tests_test_json_data_parser_displaytimetest_test_display_time_returns_invalid_value_unchanged",
+      "fromNode": "n_tests_test_json_data_parser_displaytimetest",
+      "toNode": "n_tests_test_json_data_parser_displaytimetest_test_display_time_returns_invalid_value_unchanged",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_displaytimetest_tests_test_json_data_parser_displaytimetest_test_display_time_uses_default_offset_when_environment_is_invalid",
+      "fromNode": "n_tests_test_json_data_parser_displaytimetest",
+      "toNode": "n_tests_test_json_data_parser_displaytimetest_test_display_time_uses_default_offset_when_environment_is_invalid",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_displaytimetest_tests_test_json_data_parser_rationale_189",
+      "fromNode": "n_tests_test_json_data_parser_displaytimetest",
+      "toNode": "n_tests_test_json_data_parser_rationale_189",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_supportedpayloadtest_tests_test_json_data_parser_rationale_213",
+      "fromNode": "n_tests_test_json_data_parser_supportedpayloadtest",
+      "toNode": "n_tests_test_json_data_parser_rationale_213",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_supportedpayloadtest_tests_test_json_data_parser_supportedpayloadtest_test_heartbeat_is_supported",
+      "fromNode": "n_tests_test_json_data_parser_supportedpayloadtest",
+      "toNode": "n_tests_test_json_data_parser_supportedpayloadtest_test_heartbeat_is_supported",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_supportedpayloadtest_tests_test_json_data_parser_supportedpayloadtest_test_is_supported_payload_accepts_alert_events",
+      "fromNode": "n_tests_test_json_data_parser_supportedpayloadtest",
+      "toNode": "n_tests_test_json_data_parser_supportedpayloadtest_test_is_supported_payload_accepts_alert_events",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_supportedpayloadtest_tests_test_json_data_parser_supportedpayloadtest_test_trade_close_is_supported",
+      "fromNode": "n_tests_test_json_data_parser_supportedpayloadtest",
+      "toNode": "n_tests_test_json_data_parser_supportedpayloadtest_test_trade_close_is_supported",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_symbolaliastest_tests_test_json_data_parser_rationale_255",
+      "fromNode": "n_tests_test_json_data_parser_symbolaliastest",
+      "toNode": "n_tests_test_json_data_parser_rationale_255",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_symbolaliastest_tests_test_json_data_parser_symbolaliastest_test_empty_symbol_returns_empty",
+      "fromNode": "n_tests_test_json_data_parser_symbolaliastest",
+      "toNode": "n_tests_test_json_data_parser_symbolaliastest_test_empty_symbol_returns_empty",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_symbolaliastest_tests_test_json_data_parser_symbolaliastest_test_gold_aliases_normalize_to_gold",
+      "fromNode": "n_tests_test_json_data_parser_symbolaliastest",
+      "toNode": "n_tests_test_json_data_parser_symbolaliastest_test_gold_aliases_normalize_to_gold",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_symbolaliastest_tests_test_json_data_parser_symbolaliastest_test_unknown_symbol_falls_back_safely",
+      "fromNode": "n_tests_test_json_data_parser_symbolaliastest",
+      "toNode": "n_tests_test_json_data_parser_symbolaliastest_test_unknown_symbol_falls_back_safely",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_json_data_parser_symbolaliastest_tests_test_json_data_parser_symbolaliastest_test_xauusd_normalizes_to_gold",
+      "fromNode": "n_tests_test_json_data_parser_symbolaliastest",
+      "toNode": "n_tests_test_json_data_parser_symbolaliastest_test_xauusd_normalizes_to_gold",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_tests_test_market_analyzer_marketanalyzerhtmlescapetest",
+      "fromNode": "n_tests_test_market_analyzer",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_tests_test_market_analyzer_marketanalyzerlevelstest",
+      "fromNode": "n_tests_test_market_analyzer",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerlevelstest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_tests_test_market_analyzer_marketanalyzersummarytest",
+      "fromNode": "n_tests_test_market_analyzer",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzersummarytest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_webhook_market_analyzer",
+      "fromNode": "n_tests_test_market_analyzer",
+      "toNode": "n_webhook_market_analyzer",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_webhook_market_state",
+      "fromNode": "n_tests_test_market_analyzer",
+      "toNode": "n_webhook_market_state",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_tests_test_market_analyzer_rationale_1",
+      "fromNode": "n_tests_test_market_analyzer",
+      "toNode": "n_tests_test_market_analyzer_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_marketanalyzersummarytest_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "fromNode": "n_tests_test_market_analyzer_marketanalyzersummarytest",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzersummarytest_test_summary_confluence_returns_buy_sell_or_wait",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_marketanalyzersummarytest_tests_test_market_analyzer_rationale_13",
+      "fromNode": "n_tests_test_market_analyzer_marketanalyzersummarytest",
+      "toNode": "n_tests_test_market_analyzer_rationale_13",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_marketanalyzerlevelstest_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "fromNode": "n_tests_test_market_analyzer_marketanalyzerlevelstest",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerlevelstest_test_levels_report_formats_all_higher_timeframes_and_missing_data",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_marketanalyzerlevelstest_tests_test_market_analyzer_rationale_61",
+      "fromNode": "n_tests_test_market_analyzer_marketanalyzerlevelstest",
+      "toNode": "n_tests_test_market_analyzer_rationale_61",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_marketanalyzerhtmlescapetest_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "fromNode": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest",
+      "toNode": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest_test_summary_escapes_dynamic_symbol",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_analyzer_marketanalyzerhtmlescapetest_tests_test_market_analyzer_rationale_100",
+      "fromNode": "n_tests_test_market_analyzer_marketanalyzerhtmlescapetest",
+      "toNode": "n_tests_test_market_analyzer_rationale_100",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_tests_test_market_chart_marketchartlevelstest",
+      "fromNode": "n_tests_test_market_chart",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_webhook_market_analyzer",
+      "fromNode": "n_tests_test_market_chart",
+      "toNode": "n_webhook_market_analyzer",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_webhook_market_chart",
+      "fromNode": "n_tests_test_market_chart",
+      "toNode": "n_webhook_market_chart",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_webhook_market_state",
+      "fromNode": "n_tests_test_market_chart",
+      "toNode": "n_webhook_market_state",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_tests_test_market_chart_rationale_1",
+      "fromNode": "n_tests_test_market_chart",
+      "toNode": "n_tests_test_market_chart_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_marketchartlevelstest_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "fromNode": "n_tests_test_market_chart_marketchartlevelstest",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_far_levels_are_labels_without_compressing_candles",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_marketchartlevelstest_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "fromNode": "n_tests_test_market_chart_marketchartlevelstest",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_draws_recent_candlesticks",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_marketchartlevelstest_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "fromNode": "n_tests_test_market_chart_marketchartlevelstest",
+      "toNode": "n_tests_test_market_chart_marketchartlevelstest_test_levels_chart_writes_png_with_key_levels",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_chart_marketchartlevelstest_tests_test_market_chart_rationale_14",
+      "fromNode": "n_tests_test_market_chart_marketchartlevelstest",
+      "toNode": "n_tests_test_market_chart_rationale_14",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_tests_test_market_state_marketstatemoduletest",
+      "fromNode": "n_tests_test_market_state",
+      "toNode": "n_tests_test_market_state_marketstatemoduletest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_tests_test_market_state_marketstatepatternstest",
+      "fromNode": "n_tests_test_market_state",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_tests_test_market_state_marketstatesnapshottest",
+      "fromNode": "n_tests_test_market_state",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_webhook_market_analyzer",
+      "fromNode": "n_tests_test_market_state",
+      "toNode": "n_webhook_market_analyzer",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_webhook_market_state",
+      "fromNode": "n_tests_test_market_state",
+      "toNode": "n_webhook_market_state",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_tests_test_market_state_rationale_1",
+      "fromNode": "n_tests_test_market_state",
+      "toNode": "n_tests_test_market_state_rationale_1",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatemoduletest_tests_test_market_state_marketstatemoduletest_test_market_state_module_is_available",
+      "fromNode": "n_tests_test_market_state_marketstatemoduletest",
+      "toNode": "n_tests_test_market_state_marketstatemoduletest_test_market_state_module_is_available",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatemoduletest_tests_test_market_state_rationale_14",
+      "fromNode": "n_tests_test_market_state_marketstatemoduletest",
+      "toNode": "n_tests_test_market_state_rationale_14",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accepts_optional_webhook1_source",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_accumulates_history_without_candles",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_persists_ema_snapshot_and_neutral_equality",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_rejects_snapshot_for_unknown_timeframe",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_stores_rsi_history_and_reports_extremes",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_marketstatesnapshottest_test_market_state_uses_supplied_candle_history",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatesnapshottest_tests_test_market_state_rationale_21",
+      "fromNode": "n_tests_test_market_state_marketstatesnapshottest",
+      "toNode": "n_tests_test_market_state_rationale_21",
+      "label": "rationale_for [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatepatternstest_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "fromNode": "n_tests_test_market_state_marketstatepatternstest",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_higher_opposing_pattern_invalidates_older_lower_pattern",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatepatternstest_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "fromNode": "n_tests_test_market_state_marketstatepatternstest",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_and_returns_notifications",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatepatternstest_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "fromNode": "n_tests_test_market_state_marketstatepatternstest",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_initial_snapshot_stores_patterns_without_notification",
+      "label": "method [EXTRACTED]"
+    },
+    {
+      "id": "e_tests_test_market_state_marketstatepatternstest_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "fromNode": "n_tests_test_market_state_marketstatepatternstest",
+      "toNode": "n_tests_test_market_state_marketstatepatternstest_test_market_state_returns_each_pattern_notification_once",
+      "label": "method [EXTRACTED]"
+    }
+  ]
+}

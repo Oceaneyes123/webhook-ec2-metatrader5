@@ -223,6 +223,35 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("SL_HIT", manager)
         self.assertIn("MANUAL_CLOSE", manager)
 
+    def test_webhook_common_has_send_trade_open(self):
+        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("SendTradeOpenNotification", common)
+        self.assertIn("TRADE_OPEN", common)
+
+    def test_trade_manager_has_manual_position_open_detection(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+
+        # P2 fix: tracks individual tickets, not a bool
+        self.assertIn("lastManualPositionTickets", manager)
+        self.assertIn("SendTradeOpenNotification", manager)
+        # Detects new tickets regardless of EA position presence
+        self.assertIn("TradeMagicNumber", manager)
+        self.assertIn("StringFind", manager)
+        # Iterates all positions (not just first), handles multiple opens per tick
+        self.assertIn("for(int index = PositionsTotal() - 1; index >= 0; index--)", manager)
+
+    def test_trade_ea_initializes_manual_position_tracker(self):
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("lastManualPositionTickets", ea)
+        # Initializes from existing positions at startup to avoid phantom TRADE_OPEN
+        self.assertIn("HasOpenPositionForSymbol", ea)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -57,6 +57,32 @@ def trade_close_message(payload):
     )
 
 
+def trade_open_message(payload):
+    symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
+    trade_type = str(payload.get("type", "")).upper()
+    price = payload.get("price")
+    volume = float(payload.get("volume", 0))
+    sl = payload.get("sl")
+    tp = payload.get("tp")
+
+    emoji = "📈" if trade_type == "BUY" else "📉"
+    lines = [
+        f"{emoji} <b>Manual Trade Opened</b>",
+        f"Symbol: {symbol}",
+        f"Type: {'🟢 BUY' if trade_type == 'BUY' else '🔴 SELL'}",
+    ]
+    if price is not None:
+        lines.append(f"Price: {html.escape(str(price))}")
+    if volume > 0:
+        lines.append(f"Volume: {volume:.2f}")
+    if sl is not None and float(sl) > 0:
+        lines.append(f"SL: {html.escape(str(sl))}")
+    if tp is not None and float(tp) > 0:
+        lines.append(f"TP: {html.escape(str(tp))}")
+
+    return "\n".join(lines)
+
+
 def help_text():
     return "\n".join(
         [

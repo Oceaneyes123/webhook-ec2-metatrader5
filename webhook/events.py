@@ -2,7 +2,7 @@
 
 from .app_logger import get_logger
 from .json_data_parser import candle_alert_message, display_symbol
-from .messages import ea_issue_message, error_message, trade_close_message
+from .messages import ea_issue_message, error_message, trade_close_message, trade_open_message
 from . import state as _state
 from . import telegram_sender as _tg
 
@@ -51,6 +51,18 @@ def _handle_trade_close(payload, server):
         payload.get("symbol", "?"),
     )
     _tg.send_telegram_message(trade_close_message(payload))
+    server.write_text(200, "ok")
+
+
+@register_handler("TRADE_OPEN")
+def _handle_trade_open(payload, server):
+    logger.info(
+        "Received TRADE_OPEN from %s, %s, %s",
+        payload.get("source", "?"),
+        payload.get("symbol", "?"),
+        payload.get("type", "?"),
+    )
+    _tg.send_telegram_message(trade_open_message(payload))
     server.write_text(200, "ok")
 
 

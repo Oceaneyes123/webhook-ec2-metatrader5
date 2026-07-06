@@ -1,0 +1,242 @@
+{
+  "D:\\Project\\Python\\webhook-ec2\\run.py": {
+    "mtime": 1783264461.087498,
+    "ast_hash": "68033238b0bec9efa8689f07b323ad59",
+    "semantic_hash": "68033238b0bec9efa8689f07b323ad59"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\__init__.py": {
+    "mtime": 1783252563.1873722,
+    "ast_hash": "38985cb33c6c64576b58120bc9de71c8",
+    "semantic_hash": "38985cb33c6c64576b58120bc9de71c8"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\conftest.py": {
+    "mtime": 1783178729.6608033,
+    "ast_hash": "7888c5466242366db952ccecb8997595",
+    "semantic_hash": "7888c5466242366db952ccecb8997595"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_app_logger.py": {
+    "mtime": 1783264493.3370576,
+    "ast_hash": "32ec241be2b76b6b6a6f715258aed93b",
+    "semantic_hash": "32ec241be2b76b6b6a6f715258aed93b"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_heartbeat.py": {
+    "mtime": 1783264550.3431783,
+    "ast_hash": "4f5699810579b7d65bb08c87df7a4fa5",
+    "semantic_hash": "4f5699810579b7d65bb08c87df7a4fa5"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_helpers.py": {
+    "mtime": 1783178729.6935368,
+    "ast_hash": "6149f49d833512a97318c80e9a457e4a",
+    "semantic_hash": "6149f49d833512a97318c80e9a457e4a"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_json_data_parser.py": {
+    "mtime": 1783264493.3370576,
+    "ast_hash": "27e224d976a24d04a8b572ca594f450b",
+    "semantic_hash": "27e224d976a24d04a8b572ca594f450b"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_market_analyzer.py": {
+    "mtime": 1783264576.2642164,
+    "ast_hash": "54505f6555ca38e7ee70e69751db6cde",
+    "semantic_hash": "54505f6555ca38e7ee70e69751db6cde"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_market_chart.py": {
+    "mtime": 1783264576.249898,
+    "ast_hash": "f53acd8cc8865f6a21db1bcf665ce022",
+    "semantic_hash": "f53acd8cc8865f6a21db1bcf665ce022"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_market_state.py": {
+    "mtime": 1783264615.6680734,
+    "ast_hash": "1706dac473431bf25c0532c3cb35a0b4",
+    "semantic_hash": "1706dac473431bf25c0532c3cb35a0b4"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_sync_mq5.py": {
+    "mtime": 1783264576.273254,
+    "ast_hash": "25186b5a8c008e3aada1b4602300dbe0",
+    "semantic_hash": "25186b5a8c008e3aada1b4602300dbe0"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_telegram_sender.py": {
+    "mtime": 1783264877.2354434,
+    "ast_hash": "5e34124719613840c52a666ebde71125",
+    "semantic_hash": "5e34124719613840c52a666ebde71125"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\tests\\test_webhook_handler.py": {
+    "mtime": 1783266160.3984704,
+    "ast_hash": "fffaf5e34618a7e660e3c4c7ca79dac1",
+    "semantic_hash": "fffaf5e34618a7e660e3c4c7ca79dac1"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\trade_state.json": {
+    "mtime": 1783296165.2157552,
+    "ast_hash": "5db96802aa9b682c9ad6feec96c721a9",
+    "semantic_hash": "5db96802aa9b682c9ad6feec96c721a9"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\__init__.py": {
+    "mtime": 1783294821.120828,
+    "ast_hash": "969a9fe3280a7f3c8f0924cb8f44f780",
+    "semantic_hash": "969a9fe3280a7f3c8f0924cb8f44f780"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\app_logger.py": {
+    "mtime": 1783264328.163339,
+    "ast_hash": "e9f93d9f72a430da6c4698b124a80f1f",
+    "semantic_hash": "e9f93d9f72a430da6c4698b124a80f1f"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\commands.py": {
+    "mtime": 1783266219.9644663,
+    "ast_hash": "e209454c7062ced32f3803f5f2616048",
+    "semantic_hash": "e209454c7062ced32f3803f5f2616048"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\config.py": {
+    "mtime": 1783264140.7348495,
+    "ast_hash": "a4e4eff91f62b11303d16581182d69f3",
+    "semantic_hash": "a4e4eff91f62b11303d16581182d69f3"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\events.py": {
+    "mtime": 1783294789.1980624,
+    "ast_hash": "b40a30ca4e7bb0213e37254bd9035d3a",
+    "semantic_hash": "b40a30ca4e7bb0213e37254bd9035d3a"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\heartbeat.py": {
+    "mtime": 1783264140.7123199,
+    "ast_hash": "e1b73227ad0a02f995ad1317dc86239a",
+    "semantic_hash": "e1b73227ad0a02f995ad1317dc86239a"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\json_data_parser.py": {
+    "mtime": 1783294804.9540863,
+    "ast_hash": "2c84d76d297d32b7e3b96f82361c1fca",
+    "semantic_hash": "2c84d76d297d32b7e3b96f82361c1fca"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\market_analyzer.py": {
+    "mtime": 1783264383.1859426,
+    "ast_hash": "cb7032407b95f5fb387c6bb0ea26ced0",
+    "semantic_hash": "cb7032407b95f5fb387c6bb0ea26ced0"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\market_chart.py": {
+    "mtime": 1783264383.1859426,
+    "ast_hash": "092b0f4e5fef6228e827958fd8f45265",
+    "semantic_hash": "092b0f4e5fef6228e827958fd8f45265"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\market_state.py": {
+    "mtime": 1783293180.9582646,
+    "ast_hash": "4d6d27ffed034b81a4d2fe2a1edb9399",
+    "semantic_hash": "4d6d27ffed034b81a4d2fe2a1edb9399"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\messages.py": {
+    "mtime": 1783294757.0014224,
+    "ast_hash": "5b7cef997bdad3ad3f341f6c655ea835",
+    "semantic_hash": "5b7cef997bdad3ad3f341f6c655ea835"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\polling.py": {
+    "mtime": 1783265120.6534832,
+    "ast_hash": "ac4b89e59642f5ebfa74056149367069",
+    "semantic_hash": "ac4b89e59642f5ebfa74056149367069"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\server.py": {
+    "mtime": 1783293375.849878,
+    "ast_hash": "7dd244ab52cf0f4f6b61555d7e8a5b30",
+    "semantic_hash": "7dd244ab52cf0f4f6b61555d7e8a5b30"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\state.py": {
+    "mtime": 1783264140.7373636,
+    "ast_hash": "1d7987568fe222477c52b215ab1ea924",
+    "semantic_hash": "1d7987568fe222477c52b215ab1ea924"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\sync_mq5.py": {
+    "mtime": 1783264383.1859426,
+    "ast_hash": "c16a84b59568301c5abe73abba768acc",
+    "semantic_hash": "c16a84b59568301c5abe73abba768acc"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\telegram_sender.py": {
+    "mtime": 1783264328.1593382,
+    "ast_hash": "3cc9de05a4678552119bea5589804b15",
+    "semantic_hash": "3cc9de05a4678552119bea5589804b15"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\webhook\\trade_state.py": {
+    "mtime": 1783264443.4271076,
+    "ast_hash": "4fd264fb662f0f40f0072f714dceaf54",
+    "semantic_hash": "4fd264fb662f0f40f0072f714dceaf54"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\AGENTS.md": {
+    "mtime": 1782955543.3172486,
+    "ast_hash": "7020a7c13f140c50554cf18d94d936d2",
+    "semantic_hash": "7020a7c13f140c50554cf18d94d936d2"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\README.md": {
+    "mtime": 1783176631.067463,
+    "ast_hash": "bdd54bdb9d0981a191ef7d84ebfb1fd2",
+    "semantic_hash": "bdd54bdb9d0981a191ef7d84ebfb1fd2"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-06-27-candlestick-patterns.md": {
+    "mtime": 1782576071.7808259,
+    "ast_hash": "a54ffd92ca98b0f268a2f78a8118f885",
+    "semantic_hash": "a54ffd92ca98b0f268a2f78a8118f885"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-06-28-dotenv-loading.md": {
+    "mtime": 1782658358.3964074,
+    "ast_hash": "a922e8b4889ad979d6790a2a54d83d62",
+    "semantic_hash": "a922e8b4889ad979d6790a2a54d83d62"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-06-28-local-default.md": {
+    "mtime": 1782657188.7408245,
+    "ast_hash": "d26f291b7327fdf5bbc83e40ddc0c515",
+    "semantic_hash": "d26f291b7327fdf5bbc83e40ddc0c515"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-06-28-market-summary-levels.md": {
+    "mtime": 1782650138.7134013,
+    "ast_hash": "3dd47b15cf5c0bc352627d4930688d04",
+    "semantic_hash": "3dd47b15cf5c0bc352627d4930688d04"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-06-28-mq5-source-sync.md": {
+    "mtime": 1782651406.4401636,
+    "ast_hash": "fd8d50621558f1ffc61d11914fb2ab30",
+    "semantic_hash": "fd8d50621558f1ffc61d11914fb2ab30"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-07-02-levels-candlestick-visibility.md": {
+    "mtime": 1782960748.7860584,
+    "ast_hash": "1497e443b81d045a49963c7e1ce90c7e",
+    "semantic_hash": "1497e443b81d045a49963c7e1ce90c7e"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\plans\\2026-07-02-two-ea-refactor.md": {
+    "mtime": 1782955088.9541538,
+    "ast_hash": "8a62617a334178d3af24d527510043df",
+    "semantic_hash": "8a62617a334178d3af24d527510043df"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-06-27-candlestick-patterns-design.md": {
+    "mtime": 1782575863.7285216,
+    "ast_hash": "83854632d03e8cae61e3f9cc93255346",
+    "semantic_hash": "83854632d03e8cae61e3f9cc93255346"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-06-28-dotenv-loading-design.md": {
+    "mtime": 1782658286.1108313,
+    "ast_hash": "99c81d12a5d17863c9f304995b9ec172",
+    "semantic_hash": "99c81d12a5d17863c9f304995b9ec172"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-06-28-local-default-design.md": {
+    "mtime": 1782657188.739816,
+    "ast_hash": "0bc3a7533a4c10bf0713ff41913e53dd",
+    "semantic_hash": "0bc3a7533a4c10bf0713ff41913e53dd"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-06-28-market-summary-levels-design.md": {
+    "mtime": 1782649936.4638877,
+    "ast_hash": "e45311b3d16cbd32cae9e9fa8da3639f",
+    "semantic_hash": "e45311b3d16cbd32cae9e9fa8da3639f"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-06-28-mq5-source-sync-design.md": {
+    "mtime": 1782651265.4487848,
+    "ast_hash": "745cd972f6975dcd514d5d0d145eefcd",
+    "semantic_hash": "745cd972f6975dcd514d5d0d145eefcd"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-07-02-levels-candlestick-visibility-design.md": {
+    "mtime": 1782959982.7460928,
+    "ast_hash": "69ecba0ffb4e91e076b2b422407259d1",
+    "semantic_hash": "69ecba0ffb4e91e076b2b422407259d1"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\docs\\superpowers\\specs\\2026-07-02-two-ea-refactor-design.md": {
+    "mtime": 1782954950.169634,
+    "ast_hash": "cb1a36f0cc76c9e9a378b894ab016932",
+    "semantic_hash": "cb1a36f0cc76c9e9a378b894ab016932"
+  },
+  "D:\\Project\\Python\\webhook-ec2\\requirements.txt": {
+    "mtime": 1783265636.8392992,
+    "ast_hash": "3e0663814f77ea8a7016abca5322db13",
+    "semantic_hash": "3e0663814f77ea8a7016abca5322db13"
+  }
+}

@@ -74,6 +74,7 @@ from .messages import (
     health_text,
     help_text,
     trade_close_message,
+    trade_open_message,
 )
 
 # ── Command / event registries ─────────────────────────────────────
