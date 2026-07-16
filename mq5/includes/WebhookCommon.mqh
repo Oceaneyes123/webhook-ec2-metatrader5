@@ -103,7 +103,7 @@ bool SendWebhook(string payload)
    int mt5Error = GetLastError();
    string responseBody = CharArrayToString(result, 0, -1, CP_UTF8);
 
-   if(PrintDebugLogs)
+   if(PrintDebugLogs && StringFind(payload, "\"event_type\":\"EA_HEARTBEAT\"") < 0)
    {
       Print("========== WEBHOOK DEBUG START ==========");
       Print("Webhook URL: ", WebhookUrl);

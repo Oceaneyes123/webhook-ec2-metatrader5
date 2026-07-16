@@ -184,8 +184,6 @@ bool FetchTradeConfig(TradeConfig &config)
       cachedTradeConfig = config;
       cachedTradeConfigTime = now;
       hasCachedTradeConfig = true;
-      if(PrintDebugLogs)
-         Print("Refreshed trade config: mode=", config.mode, " lot=", config.lotSize, " trail=", config.trailPips);
       return true;
    }
 
