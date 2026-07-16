@@ -1,7 +1,7 @@
 {
-  "default_mode": "SELL",
+  "default_mode": "NOTRADE",
   "symbols": {
     "GOLD": "NOTRADE"
   },
-  "updated_at": "2026-07-06T00:02:45Z"
+  "updated_at": "2026-07-06T05:23:21Z"
 }

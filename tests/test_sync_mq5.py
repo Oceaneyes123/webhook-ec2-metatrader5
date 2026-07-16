@@ -191,7 +191,7 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("cachedTradeConfigTime", manager)
         self.assertIn("TradeConfigRefreshSeconds", manager)
         self.assertIn("TradeConfigMaxStaleSeconds", manager)
-        self.assertIn("Using cached trade config", manager)
+        self.assertNotIn("Using cached trade config", manager)
         self.assertIn("stale-but-allowed fallback", manager)
 
     def test_webhook_common_has_send_ea_heartbeat(self):

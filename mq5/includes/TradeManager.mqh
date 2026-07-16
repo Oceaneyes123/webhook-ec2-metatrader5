@@ -155,8 +155,6 @@ bool FetchTradeConfig(TradeConfig &config)
    // Use cached config if fresh enough
    if(hasCachedTradeConfig && now - cachedTradeConfigTime < TradeConfigRefreshSeconds)
    {
-      if(PrintDebugLogs)
-         Print("Using cached trade config, age=", now - cachedTradeConfigTime, "s");
       config = cachedTradeConfig;
       return true;
    }
