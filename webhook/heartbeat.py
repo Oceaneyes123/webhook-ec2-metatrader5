@@ -1,14 +1,14 @@
-"""EA heartbeat tracking — records, ages, and reports heartbeat status."""
+"""EA heartbeat tracking and silent stale/recovery monitoring."""
 
 import time
+import threading
 
-from .app_logger import get_logger
 from .config import heartbeat_stale_seconds
 from .json_data_parser import display_symbol
 
-logger = get_logger()
-
 EA_HEARTBEATS: dict = {}
+HEARTBEAT_ALERT_STATES: dict = {}
+HEARTBEAT_MONITOR_SECONDS = 15
 
 
 def record_ea_heartbeat(payload):
@@ -30,6 +30,51 @@ def heartbeat_age_seconds(source):
     if entry is None:
         return None
     return int(time.monotonic() - entry["last_seen"])
+
+
+def _send_heartbeat_alert(message):
+    try:
+        from .telegram_sender import send_telegram_message
+
+        send_telegram_message(message, retries=1, log=False)
+    except Exception:
+        pass
+
+
+def check_heartbeat_alerts(now=None, notify=None):
+    """Send one alert when a seen EA becomes stale and one on recovery."""
+    now = time.monotonic() if now is None else now
+    notify = _send_heartbeat_alert if notify is None else notify
+    stale_after = heartbeat_stale_seconds()
+
+    for source, entry in EA_HEARTBEATS.items():
+        age = int(now - entry["last_seen"])
+        stale = age > stale_after
+        was_stale = HEARTBEAT_ALERT_STATES.get(source, False)
+        name = source.capitalize()
+        symbol = entry.get("symbol", "") or "?"
+
+        if stale and not was_stale:
+            HEARTBEAT_ALERT_STATES[source] = True
+            notify(
+                f"🔴 <b>{name} stale</b>\n"
+                f"Symbol: {symbol}\n"
+                f"Last heartbeat: {age}s ago"
+            )
+        elif not stale and was_stale:
+            HEARTBEAT_ALERT_STATES[source] = False
+            notify(f"🟢 <b>{name} recovered</b>\nSymbol: {symbol}")
+
+
+def start_heartbeat_monitor():
+    def monitor():
+        while True:
+            time.sleep(HEARTBEAT_MONITOR_SECONDS)
+            check_heartbeat_alerts()
+
+    thread = threading.Thread(target=monitor, daemon=True)
+    thread.start()
+    return thread
 
 
 def heartbeat_status_lines():

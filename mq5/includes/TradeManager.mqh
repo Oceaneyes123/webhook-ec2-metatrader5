@@ -384,10 +384,34 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
    }
 }
 
+void NotifyFilledEaPositions()
+{
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol
+         || (long)PositionGetInteger(POSITION_MAGIC) != TradeMagicNumber)
+         continue;
+
+      SendTradeOpenNotification(
+         "webhook2",
+         (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE),
+         PositionGetDouble(POSITION_PRICE_OPEN),
+         PositionGetDouble(POSITION_VOLUME),
+         PositionGetDouble(POSITION_SL),
+         PositionGetDouble(POSITION_TP)
+      );
+   }
+}
+
 void ManageTrading()
 {
    // Detect position close (runs every tick, even if config fetch fails below)
    bool hasPosition = HasOpenPositionForSymbol();
+   if(!lastHadPosition && hasPosition)
+      NotifyFilledEaPositions();
    if(lastHadPosition && !hasPosition)
    {
       double balance = AccountInfoDouble(ACCOUNT_BALANCE);

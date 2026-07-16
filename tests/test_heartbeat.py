@@ -16,6 +16,7 @@ class HeartbeatTest(unittest.TestCase):
 
     def setUp(self):
         webhook.EA_HEARTBEATS.clear()
+        webhook.HEARTBEAT_ALERT_STATES.clear()
 
     def test_record_ea_heartbeat_stores_source_symbol_and_status(self):
         webhook.record_ea_heartbeat(
@@ -153,6 +154,26 @@ class HeartbeatTest(unittest.TestCase):
         lines = webhook.heartbeat_status_lines()
         self.assertEqual(lines[0], "Webhook1: missing")
         self.assertTrue(any("Myea" in line for line in lines))
+
+    def test_stale_alert_is_sent_once_then_recovery_is_sent_once(self):
+        now = 1_000
+        webhook.EA_HEARTBEATS["webhook1"] = {
+            "source": "webhook1",
+            "symbol": "GOLD",
+            "status": "running",
+            "last_seen": now - webhook.heartbeat_stale_seconds() - 1,
+        }
+        alerts = []
+
+        webhook.check_heartbeat_alerts(now=now, notify=alerts.append)
+        webhook.check_heartbeat_alerts(now=now + 1, notify=alerts.append)
+        webhook.EA_HEARTBEATS["webhook1"]["last_seen"] = now + 2
+        webhook.check_heartbeat_alerts(now=now + 2, notify=alerts.append)
+        webhook.check_heartbeat_alerts(now=now + 3, notify=alerts.append)
+
+        self.assertEqual(len(alerts), 2)
+        self.assertIn("stale", alerts[0])
+        self.assertIn("recovered", alerts[1])
 
 
 if __name__ == "__main__":

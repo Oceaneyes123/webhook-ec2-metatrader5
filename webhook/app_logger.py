@@ -1,17 +1,17 @@
 import logging
 import os
-import time
 from pathlib import Path
 
 
 LOG_FILE = Path(os.environ.get("WEBHOOK_LOG_FILE", "webhook.log"))
-CLEAN_AFTER_SECONDS = 5 * 60 * 60
+MAX_LOG_BYTES = 10 * 1024 * 1024
 
 
 class CleanFileHandler(logging.FileHandler):
     def emit(self, record):
         _clean_old_log(self)
         super().emit(record)
+        _clean_old_log(self)
 
 
 def get_logger():
@@ -29,7 +29,7 @@ def get_logger():
 
 
 def _clean_old_log(handler=None):
-    if LOG_FILE.exists() and time.time() - LOG_FILE.stat().st_mtime >= CLEAN_AFTER_SECONDS:
+    if LOG_FILE.exists() and LOG_FILE.stat().st_size > MAX_LOG_BYTES:
         if handler and handler.stream:
             handler.stream.close()
             handler.stream = None

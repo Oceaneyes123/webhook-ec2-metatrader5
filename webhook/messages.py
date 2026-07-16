@@ -59,6 +59,7 @@ def trade_close_message(payload):
 
 def trade_open_message(payload):
     symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
+    source = str(payload.get("source", "")).strip().lower()
     trade_type = str(payload.get("type", "")).upper()
     price = payload.get("price")
     volume = float(payload.get("volume", 0))
@@ -67,7 +68,7 @@ def trade_open_message(payload):
 
     emoji = "📈" if trade_type == "BUY" else "📉"
     lines = [
-        f"{emoji} <b>Manual Trade Opened</b>",
+        f"{emoji} <b>{'Manual Trade Opened' if source == 'manual' else 'Trade Opened'}</b>",
         f"Symbol: {symbol}",
         f"Type: {'🟢 BUY' if trade_type == 'BUY' else '🔴 SELL'}",
     ]

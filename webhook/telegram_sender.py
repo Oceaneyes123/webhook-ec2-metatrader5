@@ -13,26 +13,30 @@ from .app_logger import get_logger
 logger = get_logger()
 
 
-def _post_telegram_request(request, retries):
+def _post_telegram_request(request, retries, log=True):
     for attempt in range(retries):
         try:
-            logger.info("Sending Telegram request attempt=%s", attempt + 1)
+            if log:
+                logger.info("Sending Telegram request attempt=%s", attempt + 1)
             with urllib.request.urlopen(request, timeout=10) as response:
                 result = response.read()
-                logger.info("Telegram request sent")
+                if log:
+                    logger.info("Telegram request sent")
                 return result
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
-            logger.error("Telegram HTTP error=%s", detail or str(error))
+            if log:
+                logger.error("Telegram HTTP error=%s", detail or str(error))
             raise RuntimeError(detail or str(error)) from error
         except urllib.error.URLError as error:
-            logger.warning("Telegram connection error attempt=%s error=%s", attempt + 1, error)
+            if log:
+                logger.warning("Telegram connection error attempt=%s error=%s", attempt + 1, error)
             if attempt == retries - 1:
                 raise
             time.sleep(2)
 
 
-def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML"):
+def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML", log=True):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
     payload = {"chat_id": chat_id, "text": text}
@@ -45,7 +49,7 @@ def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML"):
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    return _post_telegram_request(request, retries)
+    return _post_telegram_request(request, retries, log)
 
 
 def send_telegram_photo(photo_path, caption=None, retries=3, chat_id=None, parse_mode="HTML"):

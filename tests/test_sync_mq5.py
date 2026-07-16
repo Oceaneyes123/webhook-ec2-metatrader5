@@ -234,6 +234,14 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("SL_HIT", manager)
         self.assertIn("MANUAL_CLOSE", manager)
 
+    def test_trade_manager_notifies_when_an_ea_order_fills(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("NotifyFilledEaPositions", manager)
+        self.assertIn('"webhook2"', manager)
+
     def test_webhook_common_has_send_trade_open(self):
         common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
             encoding="utf-8"

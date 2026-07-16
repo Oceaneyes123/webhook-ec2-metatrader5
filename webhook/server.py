@@ -8,7 +8,7 @@ from .app_logger import get_logger
 from .commands import is_telegram_update
 from .config import load_dotenv, server_config
 from .events import EVENT_HANDLERS
-from .heartbeat import record_ea_heartbeat
+from .heartbeat import record_ea_heartbeat, start_heartbeat_monitor
 from .messages import health_text
 from .polling import reply_to_telegram_update, start_telegram_polling
 from .trade_state import trade_config
@@ -59,14 +59,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             payload = body
             logger.warning("Webhook body is not JSON")
 
-        # Compact heartbeat log — skip the verbose body/payload dump on every tick
         if isinstance(payload, dict) and payload.get("event_type") == "EA_HEARTBEAT":
-            logger.info(
-                "Received EA_HEARTBEAT from %s, %s, %s",
-                payload.get("source", "?"),
-                payload.get("symbol", "?"),
-                payload.get("status", "?"),
-            )
             record_ea_heartbeat(payload)
             self.write_text(200, "ok")
             return
@@ -127,6 +120,7 @@ def main():
     host, port, public_url = server_config()
     logger.info("Starting webhook server host=%s port=%s public_url=%s", host, port, public_url)
     start_telegram_polling()
+    start_heartbeat_monitor()
     print(f"Listening on {public_url}")
     HTTPServer((host, port), WebhookHandler).serve_forever()
 

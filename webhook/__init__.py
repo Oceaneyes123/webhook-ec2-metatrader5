@@ -61,10 +61,13 @@ from .trade_state import (
 # ── Heartbeat (depends on json_data_parser, config) ─────────────────
 from .heartbeat import (
     EA_HEARTBEATS,
+    HEARTBEAT_ALERT_STATES,
     _format_age,
+    check_heartbeat_alerts,
     heartbeat_age_seconds,
     heartbeat_status_lines,
     record_ea_heartbeat,
+    start_heartbeat_monitor,
 )
 
 # ── Message formatters (depends on config, json_data_parser) ───────
