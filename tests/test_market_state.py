@@ -214,6 +214,18 @@ class MarketStatePatternsTest(unittest.TestCase):
         )
         self.assertEqual(duplicate, [])
 
+    def test_market_state_notifies_patterns_sent_by_the_ea(self):
+        payload = snapshot(
+            "M15",
+            "2026.06.28 12:15:00",
+            patterns=[{"event_type": "ENGULFING_CANDLE", "signal": "BUY"}],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            notifications = market_state.MarketState(
+                Path(directory) / "state.json"
+            ).update(payload)
+        self.assertEqual(notifications[0]["event_type"], "ENGULFING_CANDLE")
+
     def test_initial_snapshot_stores_patterns_without_notification(self):
         payload = snapshot(
             "H4",

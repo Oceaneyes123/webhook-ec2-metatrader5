@@ -61,7 +61,7 @@ def display_time(value):
 def is_supported_payload(payload):
     return isinstance(payload, dict) and (
         payload.get("event_type") in SUPPORTED_EVENTS
-        or payload.get("event_type") in ("TIMEFRAME_SNAPSHOT", "EA_ERROR", "EA_HEARTBEAT", "TRADE_CLOSE", "TRADE_OPEN")
+        or payload.get("event_type") in ("TIMEFRAME_SNAPSHOT", "EA_ERROR", "EA_HEARTBEAT", "TRADE_CLOSE", "TRADE_OPEN", "BIG_MOVE")
     )
 
 

@@ -83,6 +83,19 @@ def trade_open_message(payload):
     return "\n".join(lines)
 
 
+def big_move_message(payload):
+    symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
+    value = lambda key: html.escape(str(payload.get(key, "?")))
+    return (
+        f"⚡ <b>Big M15 Move</b>\n"
+        f"Symbol: {symbol}\n"
+        f"🕒 {value('candle_time')}\n"
+        f"Range: <code>{value('range')}</code>\n"
+        f"Current D1 ATR(14): <code>{value('daily_atr')}</code>\n"
+        f"Threshold: <code>{value('threshold')}</code> ({value('atr_percent')}%)"
+    )
+
+
 def help_text():
     return "\n".join(
         [

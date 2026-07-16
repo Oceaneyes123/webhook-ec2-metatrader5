@@ -28,6 +28,7 @@ LIVE_EAS = (ROOT / "Webhook1.mq5", ROOT / "Webhook2.mq5")
 RELATIVE_SOURCES = (
     Path("Webhook1.mq5"),
     Path("Webhook2.mq5"),
+    Path("BigMove.mq5"),
     Path("includes/WebhookCommon.mqh"),
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),
@@ -126,19 +127,19 @@ def _find_live_dir(
     # 1 — explicit env var override
     env_dir = _resolve_via_env()
     if env_dir is not None:
-        print(f"✓ Using MT5 Experts dir from MT5_EXPERTS_DIR: {env_dir}")
+        print(f"Using MT5 Experts dir from MT5_EXPERTS_DIR: {env_dir}")
         return env_dir
 
     # 2 — auto-scan terminal instances
     scan_dir = _resolve_via_scan()
     if scan_dir is not None:
-        print(f"✓ Auto-detected MT5 Experts dir: {scan_dir}")
+        print(f"Auto-detected MT5 Experts dir: {scan_dir}")
         return scan_dir
 
     # 3 — symlink fallback
     symlink_dir = _resolve_via_symlinks(live_eas)
     if symlink_dir is not None:
-        print(f"✓ Using MT5 Experts dir from symlinks: {symlink_dir}")
+        print(f"Using MT5 Experts dir from symlinks: {symlink_dir}")
         return symlink_dir
 
     # 4 — nothing worked; build a helpful error
@@ -220,6 +221,7 @@ def sync_mq5(
     targets: tuple[Path, ...] = (
         target_dir / "Webhook1.mq5",
         target_dir / "Webhook2.mq5",
+        target_dir / "BigMove.mq5",
         target_dir / "includes/WebhookCommon.mqh",
         target_dir / "includes/MarketSnapshot.mqh",
         target_dir / "includes/TradeManager.mqh",

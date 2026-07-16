@@ -72,7 +72,7 @@ def validate_snapshot(payload):
         for key in ("support", "resistance", "fib", "bullish_fvg", "bearish_fvg"):
             if key not in levels:
                 raise ValueError(f"missing required level: {key}")
-    patterns = payload.get("retained_patterns", [])
+    patterns = payload.get("patterns", payload.get("retained_patterns", []))
     if isinstance(patterns, list):
         for pattern in patterns:
             event_type = pattern.get("event_type")
@@ -249,7 +249,7 @@ class MarketState:
         return "BULLISH" if ema20 > ema50 else "BEARISH" if ema20 < ema50 else "NEUTRAL"
 
     def _process_patterns(self, payload, symbol, timeframe):
-        raw = payload.get("retained_patterns", [])
+        raw = payload.get("patterns", payload.get("retained_patterns", []))
         if not isinstance(raw, list):
             return []
         existing = {}

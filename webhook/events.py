@@ -2,7 +2,7 @@
 
 from .app_logger import get_logger
 from .json_data_parser import candle_alert_message, display_symbol
-from .messages import ea_issue_message, error_message, trade_close_message, trade_open_message
+from .messages import big_move_message, ea_issue_message, error_message, trade_close_message, trade_open_message
 from . import state as _state
 from . import telegram_sender as _tg
 
@@ -63,6 +63,13 @@ def _handle_trade_open(payload, server):
         payload.get("type", "?"),
     )
     _tg.send_telegram_message(trade_open_message(payload))
+    server.write_text(200, "ok")
+
+
+@register_handler("BIG_MOVE")
+def _handle_big_move(payload, server):
+    if not _state.ALERTS_PAUSED:
+        _tg.send_telegram_message(big_move_message(payload))
     server.write_text(200, "ok")
 
 

@@ -119,6 +119,7 @@ MQ5_SOURCE_DIR = PROJECT_ROOT / "mq5"
 MQ5_RELATIVE_SOURCES = (
     Path("Webhook1.mq5"),
     Path("Webhook2.mq5"),
+    Path("BigMove.mq5"),
     Path("includes/WebhookCommon.mqh"),
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),

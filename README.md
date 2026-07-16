@@ -80,7 +80,7 @@ Telegram: configured
 Alerts: running
 ```
 
-## Two-EA MT5 Setup
+## MT5 EA Setup
 
 `mq5/Webhook1.mq5` is the market-data EA. Attach it to the symbol chart to
 send snapshots, candle history, RSI/EMA values, patterns, and key levels. It
@@ -91,7 +91,11 @@ chart only when trade management is desired. It fetches
 `/trade-config?symbol=<symbol>` and can create, modify, and delete pending
 orders.
 
-Both EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
+`mq5/BigMove.mq5` alerts after a closed M15 candle has a high-to-low range of
+at least 25% of the current D1 ATR(14). Attach it to each symbol chart to
+monitor; it sends through the same webhook and Telegram bot.
+
+All EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
 Telegram chat.
 
 Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
@@ -100,11 +104,11 @@ Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
 After every MQ5 edit:
 
 ```powershell
-python sync_mq5.py
+python -m webhook.sync_mq5
 ```
 
-This updates both live EAs and their three shared includes. Then compile and
-reload both live EAs in MetaEditor.
+This updates the live EAs and their shared includes. Then compile and reload
+the changed EAs in MetaEditor.
 
 In MetaTrader 5:
 
@@ -119,6 +123,8 @@ In MetaTrader 5:
 4. Attach `Webhook1` to the required symbol chart.
 5. Attach `Webhook2` to the same chart only if trade management is required,
    then enable algorithmic trading.
+6. Attach `BigMove` to each symbol chart that should receive M15 big-move
+   alerts.
 
 The EA's default URL is:
 
