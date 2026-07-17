@@ -3,3 +3,5 @@ __pycache__/
 *.log
 .codegraph
 market_state.json
+Webhook1.mq5
+Webhook2.mq5
