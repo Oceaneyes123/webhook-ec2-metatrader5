@@ -61,6 +61,11 @@ $env:PUBLIC_URL = "http://127.0.0.1:8000/webhook"
 $env:STATE_FILE = "D:\Project\Python\webhook-ec2\market_state.json"
 $env:TRADE_STATE_FILE = "D:\Project\Python\webhook-ec2\trade_state.json"
 $env:TELEGRAM_POLL_SECONDS = "10"
+$env:ACCOUNT_DB_FILE = "D:\Project\Python\webhook-ec2\account_state.db"
+$env:ACCOUNT_ACTIONS_ENABLED = "false" # set true only after demo testing
+$env:ACCOUNT_ACTION_SECRET = "long-random-local-secret"
+$env:AUTHORIZED_TELEGRAM_CHAT = "your_chat_id"
+$env:AUTHORIZED_TELEGRAM_USER = "" # optional Telegram user ID
 ```
 
 PowerShell variables apply only to the current terminal. Start `webhook.py`
@@ -148,6 +153,36 @@ MinFvgAtrRatio = 0.25
 
 `TradeManageIntervalSeconds` controls how often `Webhook2` runs trade
 management through `OnTimer`.
+
+### Account-wide trade monitoring and safety
+
+Webhook2 uses `OnTradeTransaction()` for account-wide trade activity, including
+manual trades, other EAs, hedging positions, netting positions, pending orders,
+partial closes, SL/TP changes, and broker rejections. Each event carries account,
+position, order, deal, magic, price, P&L, reason, and an idempotency key. The
+timer remains only for trade management, heartbeat, confirmed actions, and a
+60-second account-position reconciliation backup.
+
+The Python service stores transaction ids, open-position snapshots, entry
+decisions, confirmation tokens, queued actions, and sent reports in SQLite
+(`ACCOUNT_DB_FILE`, default `account_state.db`), so duplicate webhooks and
+restarts do not repeat alerts. Keep this file when restarting the service.
+
+Account-wide Telegram actions are disabled by default. To enable them, set
+`ACCOUNT_ACTIONS_ENABLED=true` and configure `AUTHORIZED_TELEGRAM_CHAT`
+(and optionally `AUTHORIZED_TELEGRAM_USER`) plus a unique `ACCOUNT_ACTION_SECRET`
+matching Webhook2's `AccountActionSecret` input. Buttons require a short-lived
+confirmation, revalidate positions in MT5, and report actual MT5 result codes.
+`Move SL to BE` targets positions above 30 pips and protects about 10 pips;
+`Close Profitable Positions` targets all positions with positive floating P&L.
+Both can affect manual and other-EA positions on the whole account. Test only
+on a demo account before enabling them.
+
+Daily reports are sent at `DAILY_REPORT_HOUR` (default `6`) in
+`PHILIPPINE_TIMEZONE` (default `Asia/Manila`) and cover the preceding 24 hours.
+Session reports follow Tokyo, London, and New York local session clocks, so London
+and New York delivery shifts automatically with daylight saving time. Set
+`DAILY_REPORT_ENABLED=false` or `SESSION_REPORTS_ENABLED=false` to disable them.
 
 ### EA Heartbeat
 
@@ -310,6 +345,9 @@ include candle patterns and key levels.
 /summary Gold - Show EMA and retained-pattern confluence
 /levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, PDH/PDL, and a key-levels plot image
 /rsi Gold - Show RSI(14) status and 70/30 extreme lookback
+/price Gold - Latest MetaTrader bid, ask, spread, daily range, and data age
+/market Gold - M5 EMA trend and current Asian/London/New York session
+/why Gold - Latest concise Webhook2 entry decision
 /buy - Start trailing buy-limit mode
 /sell - Start trailing sell-limit mode
 /notrade - Stop trading activity
@@ -332,6 +370,9 @@ rsi - Show RSI(14) status and 70/30 extreme lookback
 buy - Start trailing buy-limit mode
 sell - Start trailing sell-limit mode
 notrade - Stop trading activity
+price - Latest MT5 price
+market - M5 EMA trend and session
+why - Latest entry decision
 status - Check status and trade mode for Gold
 buy - Start trailing buy-limit mode for Gold
 sell - Start trailing sell-limit mode for Gold

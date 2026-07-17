@@ -36,12 +36,14 @@ def _post_telegram_request(request, retries, log=True):
             time.sleep(2)
 
 
-def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML", log=True):
+def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML", log=True, reply_markup=None):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
     payload = {"chat_id": chat_id, "text": text}
     if parse_mode:
         payload["parse_mode"] = parse_mode
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     data = json.dumps(payload).encode()
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",
@@ -106,3 +108,11 @@ def get_telegram_updates(offset=None, timeout_seconds=10):
     if not data.get("ok"):
         raise RuntimeError(data)
     return data.get("result", [])
+
+
+def answer_callback_query(callback_id):
+    if not callback_id:
+        return None
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    request = urllib.request.Request(f"https://api.telegram.org/bot{token}/answerCallbackQuery", data=json.dumps({"callback_query_id": callback_id}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+    return _post_telegram_request(request, 1, log=False)

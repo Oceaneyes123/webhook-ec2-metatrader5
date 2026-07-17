@@ -221,18 +221,13 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("SendTradeCloseNotification", common)
         self.assertIn("TRADE_CLOSE", common)
 
-    def test_trade_manager_has_position_close_detection(self):
+    def test_trade_manager_uses_transaction_reconciliation_not_timer_close_detection(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn("lastHadPosition", manager)
-        self.assertIn("SendTradeCloseNotification", manager)
-        self.assertIn("DEAL_REASON_TP", manager)
-        self.assertIn("HistorySelect", manager)
-        self.assertIn("TP_HIT", manager)
-        self.assertIn("SL_HIT", manager)
-        self.assertIn("MANUAL_CLOSE", manager)
+        self.assertNotIn("lastHadPosition", manager)
+        self.assertIn("MaybeSendAccountReconciliation", manager)
 
     def test_trade_manager_notifies_when_an_ea_order_fills(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
@@ -250,26 +245,23 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("SendTradeOpenNotification", common)
         self.assertIn("TRADE_OPEN", common)
 
-    def test_trade_manager_has_manual_position_open_detection(self):
+    def test_trade_manager_has_account_reconciliation(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
             encoding="utf-8"
         )
 
-        # P2 fix: tracks individual tickets, not a bool
-        self.assertIn("lastManualPositionTickets", manager)
-        self.assertIn("SendTradeOpenNotification", manager)
-        # Detects new tickets regardless of EA position presence
-        self.assertIn("TradeMagicNumber", manager)
-        self.assertIn("StringFind", manager)
-        # Iterates all positions (not just first), handles multiple opens per tick
+        self.assertIn("ACCOUNT_RECONCILIATION", manager)
+        self.assertIn("position_ticket", manager)
         self.assertIn("for(int index = PositionsTotal() - 1; index >= 0; index--)", manager)
 
-    def test_trade_ea_initializes_manual_position_tracker(self):
+    def test_trade_ea_has_account_wide_transaction_handler(self):
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
 
-        self.assertIn("lastManualPositionTickets", ea)
-        # Initializes from existing positions at startup to avoid phantom TRADE_OPEN
-        self.assertIn("HasOpenPositionForSymbol", ea)
+        self.assertIn("OnTradeTransaction", ea)
+        self.assertIn("TRADE_TRANSACTION", ea)
+        self.assertIn("PENDING_ORDER_FILLED", ea)
+        self.assertIn("MANUAL_CLOSE", ea)
+        self.assertNotIn("lastManualPositionTickets", ea)
 
 
 if __name__ == "__main__":

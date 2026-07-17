@@ -159,6 +159,12 @@ class MarketState:
                 "digits": payload.get("digits", 5),
                 "levels": payload.get("levels", {}),
                 "chart_timeframe": payload.get("chart_timeframe", ""),
+                "bid": payload.get("bid", payload.get("close")),
+                "ask": payload.get("ask", payload.get("close")),
+                "daily_open": payload.get("daily_open"),
+                "daily_high": payload.get("daily_high"),
+                "daily_low": payload.get("daily_low"),
+                "received_at": __import__("time").time(),
             }
             # Process patterns, separating notification-worthy from retained
             _processed = self._process_patterns(payload, symbol, timeframe)

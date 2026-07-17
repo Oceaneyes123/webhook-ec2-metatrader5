@@ -41,6 +41,26 @@ def heartbeat_stale_seconds():
     return int(os.environ.get("EA_HEARTBEAT_STALE_SECONDS", "90"))
 
 
+def account_db_path():
+    return Path(os.environ.get("ACCOUNT_DB_FILE", "account_state.db"))
+
+
+def price_stale_seconds():
+    return int(os.environ.get("PRICE_DATA_STALE_SECONDS", "120"))
+
+
+def account_actions_enabled():
+    return os.environ.get("ACCOUNT_ACTIONS_ENABLED", "false").lower() in ("1", "true", "yes")
+
+
+def authorized_chat_id():
+    return os.environ.get("AUTHORIZED_TELEGRAM_CHAT", os.environ.get("TELEGRAM_CHAT_ID", ""))
+
+
+def authorized_user_id():
+    return os.environ.get("AUTHORIZED_TELEGRAM_USER", "")
+
+
 def telegram_configured():
     return bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
 
@@ -54,3 +74,8 @@ def uptime_text():
     if minutes:
         return f"{minutes}m {seconds}s"
     return f"{seconds}s"
+
+
+# Configuration-backed singletons (market/account state) are imported before
+# server.main(), so load .env before those modules read their settings.
+load_dotenv()

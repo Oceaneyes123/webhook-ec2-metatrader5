@@ -1,6 +1,7 @@
 """Telegram long-polling — fetches updates and dispatches commands."""
 
 import html
+import json
 import tempfile
 import threading
 import time
@@ -8,6 +9,8 @@ from pathlib import Path
 
 from .app_logger import get_logger
 from .commands import command_reply, is_telegram_update
+from .account import STORE, confirmation_prompt
+from .config import account_actions_enabled, authorized_chat_id, authorized_user_id
 from .config import polling_interval
 from .json_data_parser import display_symbol
 from .state import MARKET_ANALYZER, MARKET_CHART
@@ -17,6 +20,8 @@ logger = get_logger()
 
 
 def reply_to_telegram_update(update):
+    if update.get("callback_query"):
+        return reply_to_callback(update["callback_query"])
     message = update.get("message", {})
     text = message.get("text", "")
     chat_id = str(message.get("chat", {}).get("id", ""))
@@ -25,6 +30,33 @@ def reply_to_telegram_update(update):
     if maybe_send_levels_chart(text, chat_id):
         return
     _tg.send_telegram_message(command_reply(text), chat_id=chat_id)
+
+
+def reply_to_callback(callback):
+    message = callback.get("message", {})
+    chat_id = str(message.get("chat", {}).get("id", "")); user_id = str(callback.get("from", {}).get("id", "")); data = str(callback.get("data", ""))
+    _tg.answer_callback_query(callback.get("id", ""))
+    if chat_id != str(authorized_chat_id()) or (authorized_user_id() and user_id != str(authorized_user_id())):
+        logger.warning("Rejected unauthorized Telegram trade callback")
+        STORE.event({"event_id": f"callback:rejected:{callback.get('id', '')}", "event_type": "ACTION_AUDIT", "action": "rejected"})
+        return
+    if not account_actions_enabled():
+        _tg.send_telegram_message("Account-wide actions are disabled.", chat_id=chat_id); return
+    if data in ("act:be", "act:close"):
+        STORE.event({"event_id": f"callback:requested:{callback.get('id', '')}", "event_type": "ACTION_AUDIT", "action": data})
+        text, markup = confirmation_prompt(data.split(":", 1)[1])
+        _tg.send_telegram_message(text, chat_id=chat_id, reply_markup=markup); return
+    kind, _, token = data.partition(":")
+    if kind == "cancel":
+        STORE.event({"event_id": f"callback:cancelled:{callback.get('id', '')}", "event_type": "ACTION_AUDIT", "action": "cancelled"})
+        STORE.consume_confirmation(token); _tg.send_telegram_message("Action cancelled.", chat_id=chat_id); return
+    if kind != "confirm": return
+    confirmation = STORE.consume_confirmation(token)
+    if not confirmation:
+        _tg.send_telegram_message("Confirmation expired or was already used.", chat_id=chat_id); return
+    action_id = STORE.queue_action(confirmation["action"], json.loads(confirmation["payload"]))
+    STORE.event({"event_id": f"callback:confirmed:{callback.get('id', '')}", "event_type": "ACTION_AUDIT", "action": confirmation["action"]})
+    _tg.send_telegram_message(f"Action queued for MetaTrader (request {action_id}). Results follow after execution.", chat_id=chat_id)
 
 
 def maybe_send_levels_chart(text, chat_id):

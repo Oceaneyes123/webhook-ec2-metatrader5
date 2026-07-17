@@ -18,6 +18,7 @@ from .trade_state import (
     set_trade_mode,
     trade_config,
 )
+from .account import market_report, price_report, why_report
 
 logger = get_logger()
 
@@ -135,6 +136,17 @@ def _cmd_market_command(command, symbol):
     return _state.MARKET_ANALYZER.rsi_summary(symbol)
 
 
+@register_command("/price", "/market", "/why")
+def _cmd_account_command(command, symbol):
+    if not symbol:
+        return f"Usage: {command} Gold"
+    if command == "/price":
+        return price_report(symbol, _state.MARKET_STATE)
+    if command == "/market":
+        return market_report(symbol, _state.MARKET_STATE)
+    return why_report(symbol)
+
+
 def command_reply(text):
     parts = text.strip().split()
     command = parts[0].split("@", 1)[0].lower() if parts else ""
@@ -147,4 +159,4 @@ def command_reply(text):
 
 
 def is_telegram_update(payload):
-    return isinstance(payload, dict) and isinstance(payload.get("message"), dict)
+    return isinstance(payload, dict) and (isinstance(payload.get("message"), dict) or isinstance(payload.get("callback_query"), dict))

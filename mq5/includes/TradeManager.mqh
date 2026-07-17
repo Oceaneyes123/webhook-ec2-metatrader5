@@ -11,8 +11,6 @@ struct TradeConfig
 TradeConfig cachedTradeConfig;
 datetime cachedTradeConfigTime = 0;
 bool hasCachedTradeConfig = false;
-bool lastHadPosition = false;
-string lastManualPositionTickets = "";
 
 bool SendEaIssue(
    string message,
@@ -41,10 +39,23 @@ bool SendEaIssue(
    return SendWebhook(payload);
 }
 
+void SendEntryDecision(string direction, string result, string reason)
+{
+   SendWebhook("{\"event_type\":\"ENTRY_DECISION\",\"source\":\"webhook2\",\"symbol\":\"" + JsonEscape(_Symbol)
+      + "\",\"direction\":\"" + direction + "\",\"result\":\"" + result + "\",\"reason\":\"" + JsonEscape(reason)
+      + "\",\"time\":\"" + DateTimeToText(TimeCurrent()) + "\"}");
+}
+
 string TradeResultText()
 {
    return "retcode=" + IntegerToString((int)trade.ResultRetcode())
       + " " + trade.ResultRetcodeDescription();
+}
+
+bool TradeResultSucceeded()
+{
+   uint code = trade.ResultRetcode();
+   return code == TRADE_RETCODE_DONE || code == TRADE_RETCODE_DONE_PARTIAL || code == TRADE_RETCODE_PLACED;
 }
 
 string UrlEncode(string value)
@@ -74,6 +85,14 @@ string TradeConfigUrl()
       return StringSubstr(WebhookUrl, 0, marker)
          + "/trade-config?symbol=" + UrlEncode(_Symbol);
    return WebhookUrl + "/trade-config?symbol=" + UrlEncode(_Symbol);
+}
+
+string AccountActionUrl()
+{
+   int marker = StringFind(WebhookUrl, "/webhook");
+   if(marker >= 0)
+      return StringSubstr(WebhookUrl, 0, marker) + "/account-action";
+   return WebhookUrl + "/account-action";
 }
 
 bool HttpGet(string url, string &responseBody)
@@ -110,6 +129,26 @@ bool HttpGet(string url, string &responseBody)
       return false;
    }
    return true;
+}
+
+bool HttpGetAccountAction(string &responseBody)
+{
+   if(AccountActionSecret == "") return false;
+   char data[]; char result[]; string resultHeaders;
+   string headers = "Accept: application/json\r\nX-Account-Action-Key: " + AccountActionSecret + "\r\n";
+   ResetLastError();
+   int code = WebRequest("GET", AccountActionUrl(), headers, WebRequestTimeoutMs, data, result, resultHeaders);
+   responseBody = CharArrayToString(result, 0, -1, CP_UTF8);
+   return code >= 200 && code < 300;
+}
+
+double AccountPipSize(string symbol)
+{
+   string name = symbol; StringToUpper(name);
+   if(StringFind(name, "XAU") >= 0 || StringFind(name, "GOLD") >= 0) return GoldPipSize;
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+   return (digits == 3 || digits == 5) ? point * 10.0 : point;
 }
 
 string JsonStringValue(string json, string key, string fallback)
@@ -200,6 +239,120 @@ bool FetchTradeConfig(TradeConfig &config)
    if(PrintDebugLogs)
       Print("Trade config unavailable. No valid cache.");
    return false;
+}
+
+// Python only queues an action after an authorized, short-lived confirmation.
+// Re-reading positions here is the final safety check before any account-wide change.
+void ProcessAccountAction()
+{
+   string body;
+   if(!HttpGetAccountAction(body) || body == "" || body == "{}")
+      return;
+   string action = JsonStringValue(body, "action", "");
+   string requestId = JsonStringValue(body, "id", "");
+   if(action != "be" && action != "close")
+      return;
+
+   int modified = 0, skipped = 0, failed = 0;
+   string results = "";
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      string symbol = PositionGetString(POSITION_SYMBOL);
+      ENUM_POSITION_TYPE type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      double profit = PositionGetDouble(POSITION_PROFIT);
+      if(action == "close")
+      {
+         if(profit <= 0) { skipped++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"skipped\",\"reason\":\"not profitable\"},"; continue; }
+         bool requested = trade.PositionClose(ticket);
+         if(requested && TradeResultSucceeded()) { modified++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"closed\",\"reason\":\"" + JsonEscape(trade.ResultRetcodeDescription()) + "\"},"; }
+         else { failed++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"failed\",\"reason\":\"" + JsonEscape(trade.ResultRetcodeDescription()) + "\"},"; }
+         continue;
+      }
+
+      int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+      double pip = AccountPipSize(symbol);
+      double entry = PositionGetDouble(POSITION_PRICE_OPEN);
+      double current = type == POSITION_TYPE_BUY ? SymbolInfoDouble(symbol, SYMBOL_BID) : SymbolInfoDouble(symbol, SYMBOL_ASK);
+      double pips = (type == POSITION_TYPE_BUY ? current - entry : entry - current) / pip;
+      double eligibility = JsonDoubleValue(body, "eligibility_pips", 30.0);
+      double protectedPips = JsonDoubleValue(body, "protected_pips", 10.0);
+      if(pips <= eligibility) { skipped++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"skipped\",\"reason\":\"below threshold\"},"; continue; }
+      double target = entry + (type == POSITION_TYPE_BUY ? protectedPips * pip : -protectedPips * pip);
+      double tick = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+      target = NormalizeDouble(tick > 0 ? MathRound(target / tick) * tick : target, digits);
+      double minDistance = MathMax((double)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL), (double)SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL)) * SymbolInfoDouble(symbol, SYMBOL_POINT);
+      if((type == POSITION_TYPE_BUY && current - target < minDistance) || (type == POSITION_TYPE_SELL && target - current < minDistance)) { skipped++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"skipped\",\"reason\":\"broker stop/freeze level\"},"; continue; }
+      double oldSl = PositionGetDouble(POSITION_SL);
+      bool better = type == POSITION_TYPE_BUY ? oldSl >= target && oldSl > 0 : oldSl <= target && oldSl > 0;
+      if(better) { skipped++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"skipped\",\"reason\":\"already better protected\"},"; continue; }
+      bool requested = trade.PositionModify(ticket, target, PositionGetDouble(POSITION_TP));
+      if(requested && TradeResultSucceeded()) { modified++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"modified\",\"reason\":\"" + JsonEscape(trade.ResultRetcodeDescription()) + "\"},"; }
+      else { failed++; results += "{\"ticket\":\"" + IntegerToString(ticket) + "\",\"status\":\"failed\",\"reason\":\"" + JsonEscape(trade.ResultRetcodeDescription()) + "\"},"; }
+   }
+   if(StringLen(results) > 0) results = StringSubstr(results, 0, StringLen(results) - 1);
+   SendWebhook("{\"event_type\":\"ACCOUNT_ACTION_RESULT\",\"request_id\":\"" + JsonEscape(requestId)
+      + "\",\"action\":\"" + action + "\",\"modified\":" + IntegerToString(modified)
+      + ",\"skipped\":" + IntegerToString(skipped) + ",\"failed\":" + IntegerToString(failed)
+      + ",\"retcode\":\"" + IntegerToString((int)trade.ResultRetcode()) + "\""
+      + ",\"retcode_description\":\"" + JsonEscape(trade.ResultRetcodeDescription()) + "\""
+      + ",\"results\":[" + results + "]}");
+}
+
+void MaybeSendAccountReconciliation()
+{
+   datetime now = TimeCurrent();
+   if(now - lastAccountReconcileTime < AccountReconcileSeconds)
+      return;
+   string positions = "";
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket == 0 || !PositionSelectByTicket(ticket)) continue;
+      string symbol = PositionGetString(POSITION_SYMBOL);
+      int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+      double pip = AccountPipSize(symbol);
+      ENUM_POSITION_TYPE type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+      double entry = PositionGetDouble(POSITION_PRICE_OPEN);
+      double current = type == POSITION_TYPE_BUY ? SymbolInfoDouble(symbol, SYMBOL_BID) : SymbolInfoDouble(symbol, SYMBOL_ASK);
+      double pips = (type == POSITION_TYPE_BUY ? current - entry : entry - current) / pip;
+      if(positions != "") positions += ",";
+      positions += "{\"position_ticket\":\"" + IntegerToString(ticket)
+         + "\",\"symbol\":\"" + JsonEscape(symbol) + "\",\"direction\":\"" + (type == POSITION_TYPE_BUY ? "BUY" : "SELL")
+         + "\",\"entry_price\":" + DoubleToString(entry, digits)
+         + ",\"current_price\":" + DoubleToString(current, digits)
+         + ",\"profit_pips\":" + DoubleToString(pips, 1)
+         + ",\"floating_profit\":" + DoubleToString(PositionGetDouble(POSITION_PROFIT), 2)
+         + ",\"duration\":\"" + IntegerToString((long)(TimeCurrent() - (datetime)PositionGetInteger(POSITION_TIME))) + "s\""
+         + ",\"sl\":" + DoubleToString(PositionGetDouble(POSITION_SL), digits)
+         + ",\"tp\":" + DoubleToString(PositionGetDouble(POSITION_TP), digits) + "}";
+   }
+   string orders = "";
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0) continue;
+      string symbol = OrderGetString(ORDER_SYMBOL);
+      int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+      if(orders != "") orders += ",";
+      orders += "{\"order_ticket\":\"" + IntegerToString(ticket)
+         + "\",\"symbol\":\"" + JsonEscape(symbol) + "\",\"type\":\"" + JsonEscape(EnumToString((ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE)))
+         + "\",\"volume\":" + DoubleToString(OrderGetDouble(ORDER_VOLUME_CURRENT), 2)
+         + ",\"price\":" + DoubleToString(OrderGetDouble(ORDER_PRICE_OPEN), digits)
+         + ",\"sl\":" + DoubleToString(OrderGetDouble(ORDER_SL), digits)
+         + ",\"tp\":" + DoubleToString(OrderGetDouble(ORDER_TP), digits) + "}";
+   }
+   string payload = "{\"event_type\":\"ACCOUNT_RECONCILIATION\",\"source\":\"webhook2\""
+      + ",\"account_login\":" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN))
+      + ",\"broker_server\":\"" + JsonEscape(AccountInfoString(ACCOUNT_SERVER)) + "\""
+      + ",\"margin_mode\":\"" + JsonEscape(EnumToString((ENUM_ACCOUNT_MARGIN_MODE)AccountInfoInteger(ACCOUNT_MARGIN_MODE))) + "\""
+      + ",\"balance\":" + DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2)
+      + ",\"equity\":" + DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2)
+      + ",\"positions\":[" + positions + "],\"pending_orders\":[" + orders + "]}";
+   if(SendWebhook(payload))
+      lastAccountReconcileTime = now;
 }
 
 bool ReadTradeEmaValues(int index, double &ema20, double &ema50)
@@ -408,83 +561,17 @@ void NotifyFilledEaPositions()
 
 void ManageTrading()
 {
-   // Detect position close (runs every tick, even if config fetch fails below)
-   bool hasPosition = HasOpenPositionForSymbol();
-   if(!lastHadPosition && hasPosition)
-      NotifyFilledEaPositions();
-   if(lastHadPosition && !hasPosition)
-   {
-      double balance = AccountInfoDouble(ACCOUNT_BALANCE);
-      string reason = "MANUAL_CLOSE";
-      double profit = 0;
-
-      // Look up the last closed deal for this symbol/magic
-      HistorySelect(TimeCurrent() - 7 * 86400, TimeCurrent());
-      int totalDeals = HistoryDealsTotal();
-      for(int i = totalDeals - 1; i >= 0; i--)
-      {
-         ulong dealTicket = HistoryDealGetTicket(i);
-         if(dealTicket <= 0) continue;
-         if(HistoryDealGetString(dealTicket, DEAL_SYMBOL) != _Symbol) continue;
-         if((long)HistoryDealGetInteger(dealTicket, DEAL_MAGIC) != TradeMagicNumber) continue;
-         if((long)HistoryDealGetInteger(dealTicket, DEAL_ENTRY) != DEAL_ENTRY_OUT) continue;
-
-         profit = HistoryDealGetDouble(dealTicket, DEAL_PROFIT);
-         long dealReason = HistoryDealGetInteger(dealTicket, DEAL_REASON);
-
-         if(dealReason == DEAL_REASON_TP) reason = "TP_HIT";
-         else if(dealReason == DEAL_REASON_SL) reason = "SL_HIT";
-         else reason = "MANUAL_CLOSE";
-         break;
-      }
-
-      SendTradeCloseNotification(reason, profit, balance);
-   }
-   lastHadPosition = hasPosition;
-
-   // Detect new manual position open — tracks individual position tickets
-   // Handles: second manual position, manual while EA position exists, and multiple
-   // positions opened between timer ticks (P2 fix).
-   string currentManualTickets = "";
-   for(int index = PositionsTotal() - 1; index >= 0; index--)
-   {
-      ulong ticket = PositionGetTicket(index);
-      if(ticket == 0 || !PositionSelectByTicket(ticket))
-         continue;
-      if(PositionGetString(POSITION_SYMBOL) == _Symbol)
-      {
-         long magic = (long)PositionGetInteger(POSITION_MAGIC);
-         if(magic != TradeMagicNumber)
-         {
-            string ticketStr = IntegerToString(ticket);
-            if(currentManualTickets != "")
-               currentManualTickets += ",";
-            currentManualTickets += ticketStr;
-
-            // New ticket not in the last known set → detect it
-            string needle = "," + ticketStr + ",";
-            string haystack = "," + lastManualPositionTickets + ",";
-            if(StringFind(haystack, needle) < 0)
-            {
-               double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-               ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
-               double volume = PositionGetDouble(POSITION_VOLUME);
-               double sl = PositionGetDouble(POSITION_SL);
-               double tp = PositionGetDouble(POSITION_TP);
-               SendTradeOpenNotification("manual", posType, openPrice, volume, sl, tp);
-            }
-         }
-      }
-   }
-   lastManualPositionTickets = currentManualTickets;
-
    TradeConfig config;
    if(!FetchTradeConfig(config))
+   {
+      SendEntryDecision("?", "FAIL", "Trade configuration unavailable");
       return;
+   }
 
    trade.SetExpertMagicNumber(TradeMagicNumber);
-   if(hasPosition)
+   if(HasOpenPositionForSymbol())
    {
+      SendEntryDecision(config.mode, "FAIL", "Existing position already open");
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       return;
@@ -495,16 +582,25 @@ void ManageTrading()
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       if(!BuyConfluence())
       {
+         SendEntryDecision("BUY", "FAIL", "EMA or candle alignment failed");
          DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
          return;
       }
       double ema20 = 0;
       double ema50 = 0;
       if(!ReadTradeEmaValues(0, ema20, ema50))
+      {
+         SendEntryDecision("BUY", "FAIL", "M1 EMA data unavailable");
          return;
+      }
       double price = ema20 - config.trailPips * PipSize();
       if(price < SymbolInfoDouble(_Symbol, SYMBOL_ASK))
+      {
+         SendEntryDecision("BUY", "PASS", "Confluence passed; maintaining BUY_LIMIT");
          TrailPendingOrder(ORDER_TYPE_BUY_LIMIT, config.lotSize, price);
+      }
+      else
+         SendEntryDecision("BUY", "FAIL", "Buy limit price is not below ask");
       return;
    }
 
@@ -513,21 +609,31 @@ void ManageTrading()
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       if(!SellConfluence())
       {
+         SendEntryDecision("SELL", "FAIL", "EMA or candle alignment failed");
          DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
          return;
       }
       double ema20 = 0;
       double ema50 = 0;
       if(!ReadTradeEmaValues(0, ema20, ema50))
+      {
+         SendEntryDecision("SELL", "FAIL", "M1 EMA data unavailable");
          return;
+      }
       double price = ema20 + config.trailPips * PipSize();
       if(price > SymbolInfoDouble(_Symbol, SYMBOL_BID))
+      {
+         SendEntryDecision("SELL", "PASS", "Confluence passed; maintaining SELL_LIMIT");
          TrailPendingOrder(ORDER_TYPE_SELL_LIMIT, config.lotSize, price);
+      }
+      else
+         SendEntryDecision("SELL", "FAIL", "Sell limit price is not above bid");
       return;
    }
 
    if(config.mode == "NOTRADE")
    {
+      SendEntryDecision("?", "FAIL", "Trading mode is NOTRADE");
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       return;

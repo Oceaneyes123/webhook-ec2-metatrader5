@@ -494,6 +494,11 @@ string BuildSnapshotPayload(
       + ",\"high\":" + DoubleToString(candle.high, digits)
       + ",\"low\":" + DoubleToString(candle.low, digits)
       + ",\"close\":" + DoubleToString(candle.close, digits)
+      + ",\"bid\":" + DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_BID), digits)
+      + ",\"ask\":" + DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_ASK), digits)
+      + ",\"daily_open\":" + DoubleToString(iOpen(_Symbol, PERIOD_D1, 0), digits)
+      + ",\"daily_high\":" + DoubleToString(iHigh(_Symbol, PERIOD_D1, 0), digits)
+      + ",\"daily_low\":" + DoubleToString(iLow(_Symbol, PERIOD_D1, 0), digits)
       + ",\"digits\":" + IntegerToString(digits)
       + ",\"notify_patterns\":" + (notifyPatterns ? "true" : "false")
       + ",\"candles\":" + BuildCandlesJson(timeframe, digits);
