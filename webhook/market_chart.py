@@ -22,6 +22,8 @@ class MarketChart:
         self.state = market_state
 
     def levels_chart(self, symbol, output_path):
+        if Image is None:
+            return None
         symbol = display_symbol(symbol).upper()
         output_path = Path(output_path)
         with self.state.lock:

@@ -64,6 +64,7 @@ def poll_telegram_forever():
         try:
             offset = poll_telegram_once(offset)
         except Exception:
+            logger.exception("Telegram polling failed")
             time.sleep(polling_interval())
 
 
