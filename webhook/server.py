@@ -2,7 +2,7 @@
 
 import json
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .app_logger import get_logger
 from .commands import is_telegram_update
@@ -122,7 +122,7 @@ def main():
     start_telegram_polling()
     start_heartbeat_monitor()
     print(f"Listening on {public_url}")
-    HTTPServer((host, port), WebhookHandler).serve_forever()
+    ThreadingHTTPServer((host, port), WebhookHandler).serve_forever()
 
 
 if __name__ == "__main__":
