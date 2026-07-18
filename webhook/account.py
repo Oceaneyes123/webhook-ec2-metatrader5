@@ -14,9 +14,47 @@ from .config import account_actions_enabled, account_db_path, price_stale_second
 from .json_data_parser import display_symbol
 
 PHT = ZoneInfo(os.environ.get("PHILIPPINE_TIMEZONE", "Asia/Manila"))
-SESSIONS = (("Asian", "Asia/Tokyo", clock(9), clock(18)),
-            ("London", "Europe/London", clock(8), clock(17)),
-            ("New York", "America/New_York", clock(8), clock(17)))
+DEFAULT_SESSIONS = (("Asian", "Asia/Tokyo", clock(9), clock(18)),
+                    ("London", "Europe/London", clock(8), clock(17)),
+                    ("New York", "America/New_York", clock(8), clock(17)))
+
+
+def sessions():
+    """Optional NAME|IANA_ZONE|HH:MM|HH:MM records; defaults stay DST-aware."""
+    raw = os.environ.get("REPORT_SESSIONS", "")
+    if not raw:
+        return DEFAULT_SESSIONS
+    result = []
+    for item in raw.split(","):
+        try:
+            name, zone, start, end = (part.strip() for part in item.split("|"))
+            result.append((name, zone, clock.fromisoformat(start), clock.fromisoformat(end)))
+        except ValueError:
+            continue
+    return tuple(result) or DEFAULT_SESSIONS
+
+
+def session_enabled(name):
+    return os.environ.get("SESSION_%s_ENABLED" % name.upper().replace(" ", "_"), "true").lower() in ("1", "true", "yes")
+
+
+def _event_timestamp(payload):
+    value = payload.get("event_time")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00").replace(".", "-", 2))
+            if parsed.tzinfo:
+                return parsed.timestamp()
+            offset = payload.get("event_time_offset_seconds")
+            if isinstance(offset, (int, float)):
+                return parsed.replace(tzinfo=ZoneInfo("UTC")).timestamp() - float(offset)
+        except ValueError:
+            pass
+    # MT5 broker-local text without an offset is ambiguous.  Keep its receive
+    # order rather than silently treating it as Philippine time.
+    return time.time()
 
 
 class _Connection(sqlite3.Connection):
@@ -33,14 +71,20 @@ class AccountStore:
         self.lock = threading.RLock()
         with self._connect() as db:
             db.executescript("""
-                CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, kind TEXT, ts REAL, payload TEXT);
+                CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, kind TEXT, ts REAL, payload TEXT, delivered INTEGER DEFAULT 0, delivery_lease REAL DEFAULT 0);
                 CREATE TABLE IF NOT EXISTS positions (ticket TEXT PRIMARY KEY, payload TEXT, updated REAL);
                 CREATE TABLE IF NOT EXISTS account_snapshots (ts REAL PRIMARY KEY, payload TEXT);
                 CREATE TABLE IF NOT EXISTS decisions (symbol TEXT PRIMARY KEY, payload TEXT, updated REAL);
                 CREATE TABLE IF NOT EXISTS confirmations (token TEXT PRIMARY KEY, action TEXT, payload TEXT, expires REAL, used INTEGER DEFAULT 0);
-                CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, action TEXT, payload TEXT, created REAL, claimed INTEGER DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, action TEXT, payload TEXT, created REAL, claimed INTEGER DEFAULT 0, claim_until REAL DEFAULT 0, claim_attempts INTEGER DEFAULT 0);
                 CREATE TABLE IF NOT EXISTS reports (window TEXT PRIMARY KEY, sent REAL);
+                CREATE TABLE IF NOT EXISTS pending_orders (ticket TEXT PRIMARY KEY, payload TEXT, updated REAL);
+                CREATE TABLE IF NOT EXISTS cooldowns (key TEXT PRIMARY KEY, until REAL);
             """)
+            for table, column, definition in (("events", "delivered", "INTEGER DEFAULT 0"), ("events", "delivery_lease", "REAL DEFAULT 0"), ("actions", "claim_until", "REAL DEFAULT 0"), ("actions", "claim_attempts", "INTEGER DEFAULT 0")):
+                if column not in {row[1] for row in db.execute(f"PRAGMA table_info({table})")}:
+                    db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            db.execute("PRAGMA user_version=1")
 
     def _connect(self):
         db = sqlite3.connect(self.path, factory=_Connection)
@@ -48,13 +92,41 @@ class AccountStore:
         return db
 
     def event(self, payload):
+        payload = dict(payload)
+        received_at = time.time()
+        payload.setdefault("received_at", received_at)
+        payload.setdefault("delayed", received_at - _event_timestamp(payload) > float(os.environ.get("EVENT_DELAY_SECONDS", "60")))
         event_id = str(payload.get("event_id") or payload.get("deal_ticket") or payload.get("order_ticket") or secrets.token_hex(12))
         with self.lock, self._connect() as db:
             try:
-                db.execute("INSERT INTO events VALUES (?,?,?,?)", (event_id, str(payload.get("event_type", "TRADE_TRANSACTION")), time.time(), json.dumps(payload)))
+                db.execute("INSERT INTO events(id,kind,ts,payload) VALUES (?,?,?,?)", (event_id, str(payload.get("event_type", "TRADE_TRANSACTION")), _event_timestamp(payload), json.dumps(payload)))
             except sqlite3.IntegrityError:
                 return False
         return True
+
+    def claim_delivery(self, event_id, lease_seconds=60):
+        """Claim an undelivered event; expired claims recover after process/send failure."""
+        now = time.time()
+        with self.lock, self._connect() as db:
+            changed = db.execute("UPDATE events SET delivery_lease=? WHERE id=? AND delivered=0 AND delivery_lease<?", (now + lease_seconds, str(event_id), now)).rowcount
+        return bool(changed)
+
+    def delivered(self, event_id):
+        with self.lock, self._connect() as db:
+            db.execute("UPDATE events SET delivered=1, delivery_lease=0 WHERE id=?", (str(event_id),))
+
+    def claim_cooldown(self, key, seconds):
+        now = time.time()
+        with self.lock, self._connect() as db:
+            row = db.execute("SELECT until FROM cooldowns WHERE key=?", (key,)).fetchone()
+            if row and row["until"] > now:
+                return False
+            db.execute("INSERT OR REPLACE INTO cooldowns VALUES (?,?)", (key, now + seconds))
+        return True
+
+    def release_cooldown(self, key):
+        with self.lock, self._connect() as db:
+            db.execute("DELETE FROM cooldowns WHERE key=?", (key,))
 
     def reconcile(self, positions, account=None):
         with self.lock, self._connect() as db:
@@ -65,6 +137,11 @@ class AccountStore:
                     db.execute("INSERT OR REPLACE INTO positions VALUES (?,?,?)", (ticket, json.dumps(position), time.time()))
             if isinstance(account, dict):
                 db.execute("INSERT INTO account_snapshots VALUES (?,?)", (time.time(), json.dumps(account)))
+                db.execute("DELETE FROM pending_orders")
+                for order in account.get("pending_orders", []):
+                    ticket = str(order.get("order_ticket") or order.get("ticket") or "")
+                    if ticket:
+                        db.execute("INSERT OR REPLACE INTO pending_orders VALUES (?,?,?)", (ticket, json.dumps(order), time.time()))
         return positions
 
     def positions(self):
@@ -99,14 +176,14 @@ class AccountStore:
     def queue_action(self, action, payload):
         action_id = secrets.token_urlsafe(12)
         with self.lock, self._connect() as db:
-            db.execute("INSERT INTO actions VALUES (?,?,?,?,0)", (action_id, action, json.dumps(payload), time.time()))
+            db.execute("INSERT INTO actions(id,action,payload,created) VALUES (?,?,?,?)", (action_id, action, json.dumps(payload), time.time()))
         return action_id
 
     def claim_action(self):
         with self.lock, self._connect() as db:
-            row = db.execute("SELECT * FROM actions WHERE claimed=0 ORDER BY created LIMIT 1").fetchone()
+            row = db.execute("SELECT * FROM actions WHERE claimed=0 OR claim_until<=? ORDER BY created LIMIT 1", (time.time(),)).fetchone()
             if not row: return None
-            db.execute("UPDATE actions SET claimed=1 WHERE id=?", (row["id"],))
+            db.execute("UPDATE actions SET claimed=1, claim_until=?, claim_attempts=claim_attempts+1 WHERE id=?", (time.time() + int(os.environ.get("ACCOUNT_ACTION_LEASE_SECONDS", "60")), row["id"]))
         return {"id": row["id"], "action": row["action"], **json.loads(row["payload"])}
 
     def action_result(self, action_id):
@@ -180,7 +257,9 @@ def price_report(symbol, market_state):
 def session_status(now=None):
     now = now or datetime.now(PHT)
     active = []
-    for name, zone, start, end in SESSIONS:
+    for name, zone, start, end in sessions():
+        if not session_enabled(name):
+            continue
         local = now.astimezone(ZoneInfo(zone)).time()
         if start <= local < end: active.append(name)
     return " / ".join(active) if active else "Outside configured sessions"
@@ -190,7 +269,7 @@ def session_times(now=None):
     now = now or datetime.now(PHT)
     return " | ".join(
         f"{name}: {datetime.combine(now.astimezone(ZoneInfo(zone)).date(), start, tzinfo=ZoneInfo(zone)).astimezone(PHT):%H:%M}–{datetime.combine(now.astimezone(ZoneInfo(zone)).date(), end, tzinfo=ZoneInfo(zone)).astimezone(PHT):%H:%M}"
-        for name, zone, start, end in SESSIONS
+        for name, zone, start, end in sessions() if session_enabled(name)
     )
 
 
@@ -215,7 +294,12 @@ def why_report(symbol):
     age = int(time.time() - updated)
     lines = [f"🧭 <b>{html.escape(symbol)} Entry Decision</b>", f"Direction: {html.escape(str(decision.get('direction', '?')))}", f"Result: <b>{html.escape(str(decision.get('result', 'FAIL')))}</b>"]
     if decision.get("reason"): lines.append(f"Reason: {html.escape(str(decision['reason']))}")
-    lines.extend([f"Time: {html.escape(str(decision.get('time', '?')))}", f"Age: {age}s" + (" ⚠️ stale" if age > price_stale_seconds() else "")])
+    data_age = decision.get("data_age_seconds")
+    freshness = ""
+    if data_age is not None:
+        freshness = " ⚠️ stale market data" if float(data_age) > price_stale_seconds() else ""
+        lines.append(f"Market data age: {html.escape(str(data_age))}s{freshness}")
+    lines.extend([f"Time: {html.escape(str(decision.get('time', '?')))}", f"Decision age: {age}s" + (" ⚠️ stale decision" if age > price_stale_seconds() else "")])
     return "\n".join(lines)
 
 
@@ -233,7 +317,6 @@ def profit_alert(payload):
     if not ticket: return None
     pips = float(payload.get("profit_pips", 0))
     if pips < float(os.environ.get("PROFIT_ALERT_PIPS", "50")): return None
-    if not STORE.event({"event_id": f"profit-alert:{ticket}", "event_type": "PROFIT_ALERT"}): return None
     symbol = display_symbol(payload.get("symbol")).upper()
     return "\n".join((f"🛡️ <b>Profit Protection</b>", f"Symbol: {html.escape(symbol)}", f"Position: {html.escape(ticket)}", f"Direction: {html.escape(str(payload.get('direction', '?')))}", f"Entry / Current: {payload.get('entry_price', '?')} / {payload.get('current_price', '?')}", f"Profit: <b>{pips:.1f} pips</b> ({float(payload.get('floating_profit', 0)):+.2f})", f"SL / TP: {payload.get('sl', '?')} / {payload.get('tp', '?')}", f"Duration: {payload.get('duration', '?')}"))
 
@@ -250,7 +333,8 @@ def confirmation_prompt(action):
         detail = f"{len(eligible)} positions; combined floating profit {sum(float(p.get('floating_profit', p.get('profit', 0))) for p in eligible):+.2f}."
     if not eligible: return "No positions are currently eligible.", None
     token = STORE.confirmation(action, {"tickets": [str(p.get("position_ticket") or p.get("ticket")) for p in eligible], "eligibility_pips": float(os.environ.get("BREAKEVEN_ELIGIBILITY_PIPS", "30")), "protected_pips": float(os.environ.get("BREAKEVEN_PROTECTED_PIPS", "10"))})
-    return f"⚠️ <b>Confirm: {title}</b>\n{detail}\nPositions are revalidated before execution.", {"inline_keyboard": [[{"text": "Confirm", "callback_data": f"confirm:{token}"}, {"text": "Cancel", "callback_data": f"cancel:{token}"}]]}
+    symbols = ", ".join(sorted({display_symbol(p.get("symbol")).upper() for p in eligible if p.get("symbol")})) or "unknown"
+    return f"⚠️ <b>Confirm: {title}</b>\n{detail}\nSymbols: {html.escape(symbols)}\nPositions are revalidated before execution.", {"inline_keyboard": [[{"text": "Confirm", "callback_data": f"confirm:{token}"}, {"text": "Cancel", "callback_data": f"cancel:{token}"}]]}
 
 
 def action_buttons():
@@ -259,17 +343,23 @@ def action_buttons():
 
 def report_text(name, start, end, store=STORE):
     events = store.events_between(start, end)
-    closed = [e for e in events if e.get("transaction_type") in ("POSITION_CLOSED", "PARTIAL_CLOSE", "MANUAL_CLOSE", "STOP_LOSS_HIT", "TAKE_PROFIT_HIT")]
-    profit = [float(e.get("profit", 0)) for e in closed]
-    gross_profit, gross_loss = sum(p for p in profit if p > 0), sum(p for p in profit if p < 0)
-    positions = store.positions(); floating = sum(float(p.get("floating_profit", 0)) for p in positions)
+    closed_kinds = ("POSITION_CLOSED", "MANUAL_CLOSE", "MANUAL_PARTIAL_CLOSE", "PARTIAL_CLOSE", "STOP_LOSS_HIT", "TAKE_PROFIT_HIT", "POSITION_REVERSED")
+    closed = [e for e in events if e.get("transaction_type") in closed_kinds]
+    gross = [float(e.get("profit", 0)) for e in closed]
+    net = [p + float(e.get("commission", 0)) + float(e.get("swap", 0)) for p, e in zip(gross, closed)]
+    gross_profit, gross_loss = sum(p for p in gross if p > 0), sum(p for p in gross if p < 0)
     opening, ending = store.account_snapshot(start), store.account_snapshot(end)
+    positions = ending.get("positions", []) if ending else []
+    floating = sum(float(p.get("floating_profit", 0)) for p in positions)
     balance, equity = ending.get("balance"), ending.get("equity")
     manual = sum(e.get("magic_number") in (0, "0", None) for e in closed)
     automated = len(closed) - manual
-    win_rate = 100 * sum(p > 0 for p in profit) / len(profit) if profit else 0
+    win_rate = 100 * sum(p > 0 for p in gross) / len(gross) if gross else 0
     symbols = ", ".join(sorted({display_symbol(e.get("symbol")).upper() for e in events if e.get("symbol")})) or "none"
-    lines = [f"📋 <b>{name}</b>", f"Period: {start.astimezone(PHT):%Y-%m-%d %H:%M} – {end.astimezone(PHT):%Y-%m-%d %H:%M} PHT", f"Symbols: {html.escape(symbols)}", f"Opened / Closed: {sum(e.get('transaction_type') in ('POSITION_OPENED', 'PENDING_ORDER_FILLED') for e in events)} / {len(closed)}", f"Wins/Losses/BE (win rate): {sum(p > 0 for p in profit)}/{sum(p < 0 for p in profit)}/{sum(p == 0 for p in profit)} ({win_rate:.0f}%)", f"Gross +/− / Net: {gross_profit:+.2f} / {gross_loss:+.2f} / {sum(profit):+.2f}", f"Commission / Swap: {sum(float(e.get('commission', 0)) for e in closed):+.2f} / {sum(float(e.get('swap', 0)) for e in closed):+.2f}", f"Largest win/loss: {max(profit, default=0):+.2f} / {min(profit, default=0):+.2f}", f"Manual / EA closes: {manual} / {automated}", f"Open positions / floating: {len(positions)} / {floating:+.2f}", f"Balance / Equity: {balance if balance is not None else '?'} / {equity if equity is not None else '?'}", f"Profit alerts / BE actions / close actions: {sum(e.get('event_type') == 'PROFIT_ALERT' for e in events)} / {sum(e.get('action') == 'be' for e in events)} / {sum(e.get('action') == 'close' for e in events)}"]
+    action_events = {e.get("event_id") for e in events if e.get("event_type") == "ACTION_AUDIT" and "results" in e}
+    lines = [f"📋 <b>{name}</b>", f"Period: {start.astimezone(PHT):%Y-%m-%d %H:%M} – {end.astimezone(PHT):%Y-%m-%d %H:%M} PHT", f"Symbols: {html.escape(symbols)}", f"Opened / Closed: {sum(e.get('transaction_type') in ('POSITION_OPENED', 'PENDING_ORDER_FILLED') for e in events)} / {len(closed)} (partial closes: {sum(e.get('transaction_type') in ('PARTIAL_CLOSE', 'MANUAL_PARTIAL_CLOSE') for e in events)})", f"Wins/Losses/BE (win rate): {sum(p > 0 for p in gross)}/{sum(p < 0 for p in gross)}/{sum(p == 0 for p in gross)} ({win_rate:.0f}%)", f"Gross +/− / Net: {gross_profit:+.2f} / {gross_loss:+.2f} / {sum(net):+.2f}", f"Commission / Swap: {sum(float(e.get('commission', 0)) for e in closed):+.2f} / {sum(float(e.get('swap', 0)) for e in closed):+.2f}", f"Largest gross win/loss: {max(gross, default=0):+.2f} / {min(gross, default=0):+.2f}", f"Manual / EA closes: {manual} / {automated}", f"Open positions / floating at report end: {len(positions)} / {floating:+.2f}", f"Starting balance: {opening.get('balance') if opening else 'unavailable'}", f"Balance / Equity: {balance if balance is not None else '?'} / {equity if equity is not None else '?'}", f"Profit alerts / completed account actions: {sum(e.get('event_type') == 'PROFIT_ALERT' for e in events)} / {len(action_events)}"]
+    if datetime.now(end.tzinfo) - end > timedelta(minutes=1): lines.append("⚠️ Delayed report recovery")
+    if any(e.get("delayed") for e in events): lines.append("⚠️ Delayed events included")
     snapshots = [e for e in events if e.get("event_type") == "TIMEFRAME_SNAPSHOT"]
     by_symbol = {}
     for snap in snapshots:
@@ -278,24 +368,38 @@ def report_text(name, start, end, store=STORE):
             by_symbol.setdefault(symbol, []).append(snap)
     for symbol, candles in sorted(by_symbol.items()):
         candles.sort(key=lambda item: str(item.get("candle_time", "")))
-        lines.append(f"{html.escape(symbol)} session O/H/L/C: {candles[0]['open']} / {max(float(c['high']) for c in candles)} / {min(float(c['low']) for c in candles)} / {candles[-1]['close']}")
+        opening_price, closing_price = float(candles[0]["open"]), float(candles[-1]["close"])
+        change = (closing_price - opening_price) / opening_price * 100 if opening_price else 0
+        largest = max(candles, key=lambda c: abs(float(c["high"]) - float(c["low"])))
+        last_m5 = next((c for c in reversed(candles) if c.get("timeframe") == "M5"), None)
+        trend = "?" if not last_m5 or last_m5.get("ema20") is None or last_m5.get("ema50") is None else "Bullish" if float(last_m5["ema20"]) > float(last_m5["ema50"]) else "Bearish" if float(last_m5["ema20"]) < float(last_m5["ema50"]) else "Mixed"
+        lines.append(f"{html.escape(symbol)} session O/H/L/C: {opening_price} / {max(float(c['high']) for c in candles)} / {min(float(c['low']) for c in candles)} / {closing_price} ({change:+.2f}%), M5: {trend}, largest move: {float(largest['high']) - float(largest['low']):.2f}")
     return "\n".join(lines)
 
 
-def due_reports(now=None):
+def due_reports(now=None, store=None):
     now = now or datetime.now(PHT)
     end = now.replace(second=0, microsecond=0)
     due = []
     hour = int(os.environ.get("DAILY_REPORT_HOUR", "6"))
     scheduled = end.replace(hour=hour, minute=0)
     if end < scheduled: scheduled -= timedelta(days=1)
+    recovery_days = max(1, int(os.environ.get("REPORT_RECOVERY_DAYS", "7")))
     if os.environ.get("DAILY_REPORT_ENABLED", "true").lower() in ("1", "true", "yes"):
-        due.append(("Daily 24-hour Report", scheduled - timedelta(days=1), scheduled))
-    for name, zone, _start, finish in SESSIONS:
+        for day in range(recovery_days):
+            finish = scheduled - timedelta(days=day)
+            if not store or day == 0 or store.events_between(finish - timedelta(days=1), finish) or store.account_snapshot(finish):
+                due.append(("Daily 24-hour Report", finish - timedelta(days=1), finish))
+    for name, zone, _start, finish in sessions():
         if os.environ.get("SESSION_REPORTS_ENABLED", "true").lower() not in ("1", "true", "yes"): break
+        if not session_enabled(name): continue
         local = end.astimezone(ZoneInfo(zone))
         scheduled_end = datetime.combine(local.date(), finish, tzinfo=ZoneInfo(zone))
         if local < scheduled_end: scheduled_end -= timedelta(days=1)
-        local_start = datetime.combine(scheduled_end.date(), _start, tzinfo=ZoneInfo(zone))
-        due.append((f"{name} Session Report", local_start, scheduled_end))
+        for day in range(recovery_days):
+            finish = scheduled_end - timedelta(days=day)
+            start_date = finish.date() if _start < finish.time() else finish.date() - timedelta(days=1)
+            start = datetime.combine(start_date, _start, tzinfo=ZoneInfo(zone))
+            if not store or day == 0 or store.events_between(start, finish) or store.account_snapshot(finish):
+                due.append((f"{name} Session Report", start, finish))
     return due

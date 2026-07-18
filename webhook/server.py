@@ -132,7 +132,7 @@ def main():
     start_heartbeat_monitor()
     def reports():
         while True:
-            for name, start, end in due_reports():
+            for name, start, end in due_reports(store=STORE):
                 window = f"{name}:{start.isoformat()}:{end.isoformat()}"
                 if not STORE.report_exists(window):
                     from .telegram_sender import send_telegram_message

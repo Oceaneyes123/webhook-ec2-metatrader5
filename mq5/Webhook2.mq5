@@ -100,6 +100,47 @@ void OnTick()
 
 // Account-wide transaction feed: it is independent of this chart, symbol,
 // magic number, and whether the account is netting or hedging.
+bool PositionIdentifierStillOpen(ulong identifier)
+{
+   for(int index = PositionsTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = PositionGetTicket(index);
+      if(ticket > 0 && PositionSelectByTicket(ticket)
+         && (ulong)PositionGetInteger(POSITION_IDENTIFIER) == identifier)
+         return true;
+   }
+   return false;
+}
+
+double HistoricalEntryPrice(ulong positionIdentifier, datetime until, double fallback)
+{
+   if(positionIdentifier == 0 || !HistorySelect(0, until)) return fallback;
+   for(int index = HistoryDealsTotal() - 1; index >= 0; index--)
+   {
+      ulong candidate = HistoryDealGetTicket(index);
+      if(candidate > 0 && HistoryDealSelect(candidate)
+         && (ulong)HistoryDealGetInteger(candidate, DEAL_POSITION_ID) == positionIdentifier
+         && HistoryDealGetInteger(candidate, DEAL_ENTRY) == DEAL_ENTRY_IN)
+         return HistoryDealGetDouble(candidate, DEAL_PRICE);
+   }
+   return fallback;
+}
+
+string PositionModificationKind(ulong position, double sl, double tp)
+{
+   static ulong identifiers[32]; static double previousSl[32]; static double previousTp[32];
+   int slot = -1;
+   for(int index = 0; index < ArraySize(identifiers); index++)
+      if(identifiers[index] == position || (slot < 0 && identifiers[index] == 0)) { slot = index; if(identifiers[index] == position) break; }
+   if(slot < 0) slot = 0;
+   bool slChanged = identifiers[slot] == position && previousSl[slot] != sl;
+   bool tpChanged = identifiers[slot] == position && previousTp[slot] != tp;
+   identifiers[slot] = position; previousSl[slot] = sl; previousTp[slot] = tp;
+   if(slChanged && !tpChanged) return "POSITION_SL_MODIFIED";
+   if(tpChanged && !slChanged) return "POSITION_TP_MODIFIED";
+   return "POSITION_SL_TP_MODIFIED";
+}
+
 void OnTradeTransaction(
    const MqlTradeTransaction &transaction,
    const MqlTradeRequest &request,
@@ -119,7 +160,7 @@ void OnTradeTransaction(
    ulong position = transaction.position;
    string symbol = transaction.symbol;
    long magic = 0;
-   double profit = 0, commission = 0, swap = 0;
+   double profit = 0, commission = 0, swap = 0, entryPrice = 0, exitPrice = 0;
    string reason = "";
    string direction = "";
    datetime eventTime = TimeCurrent();
@@ -133,6 +174,7 @@ void OnTradeTransaction(
       profit = HistoryDealGetDouble(deal, DEAL_PROFIT);
       commission = HistoryDealGetDouble(deal, DEAL_COMMISSION);
       swap = HistoryDealGetDouble(deal, DEAL_SWAP);
+      double dealPrice = HistoryDealGetDouble(deal, DEAL_PRICE);
       reason = EnumToString((ENUM_DEAL_REASON)HistoryDealGetInteger(deal, DEAL_REASON));
       direction = EnumToString((ENUM_DEAL_TYPE)HistoryDealGetInteger(deal, DEAL_TYPE));
       eventTime = (datetime)HistoryDealGetInteger(deal, DEAL_TIME);
@@ -141,30 +183,46 @@ void OnTradeTransaction(
       {
          ulong sourceOrder = (ulong)HistoryDealGetInteger(deal, DEAL_ORDER);
          eventKind = "POSITION_OPENED";
-         if(sourceOrder > 0 && HistoryOrderSelect(sourceOrder))
+         entryPrice = dealPrice;
+         if(sourceOrder > 0 && (OrderSelect(sourceOrder) || HistoryOrderSelect(sourceOrder)))
          {
-            ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)HistoryOrderGetInteger(sourceOrder, ORDER_TYPE);
+            ENUM_ORDER_TYPE orderType = (ENUM_ORDER_TYPE)(OrderSelect(sourceOrder)
+               ? OrderGetInteger(ORDER_TYPE) : HistoryOrderGetInteger(sourceOrder, ORDER_TYPE));
             if(orderType == ORDER_TYPE_BUY_LIMIT || orderType == ORDER_TYPE_SELL_LIMIT || orderType == ORDER_TYPE_BUY_STOP || orderType == ORDER_TYPE_SELL_STOP || orderType == ORDER_TYPE_BUY_STOP_LIMIT || orderType == ORDER_TYPE_SELL_STOP_LIMIT)
                eventKind = "PENDING_ORDER_FILLED";
          }
       }
+      else if(entry == DEAL_ENTRY_INOUT)
+      {
+         entryPrice = HistoricalEntryPrice(position, eventTime, dealPrice);
+         exitPrice = dealPrice;
+         eventKind = "POSITION_REVERSED";
+      }
       else if(entry == DEAL_ENTRY_OUT || entry == DEAL_ENTRY_OUT_BY)
-         eventKind = reason == "DEAL_REASON_SL" ? "STOP_LOSS_HIT" : reason == "DEAL_REASON_TP" ? "TAKE_PROFIT_HIT" : reason == "DEAL_REASON_CLIENT" ? "MANUAL_CLOSE" : PositionSelectByTicket(position) ? "PARTIAL_CLOSE" : "POSITION_CLOSED";
+      {
+         entryPrice = HistoricalEntryPrice(position, eventTime, 0);
+         exitPrice = dealPrice;
+         bool partial = PositionIdentifierStillOpen(position);
+         eventKind = partial ? (reason == "DEAL_REASON_CLIENT" ? "MANUAL_PARTIAL_CLOSE" : "PARTIAL_CLOSE")
+            : reason == "DEAL_REASON_SL" ? "STOP_LOSS_HIT" : reason == "DEAL_REASON_TP" ? "TAKE_PROFIT_HIT" : reason == "DEAL_REASON_CLIENT" ? "MANUAL_CLOSE" : "POSITION_CLOSED";
+      }
    }
-   else if(order > 0 && HistoryOrderSelect(order))
+   else if(order > 0 && (OrderSelect(order) || HistoryOrderSelect(order)))
    {
-      position = (ulong)HistoryOrderGetInteger(order, ORDER_POSITION_ID);
-      symbol = HistoryOrderGetString(order, ORDER_SYMBOL);
-      magic = HistoryOrderGetInteger(order, ORDER_MAGIC);
-      reason = EnumToString((ENUM_ORDER_STATE)HistoryOrderGetInteger(order, ORDER_STATE));
-      direction = EnumToString((ENUM_ORDER_TYPE)HistoryOrderGetInteger(order, ORDER_TYPE));
-      eventTime = (datetime)HistoryOrderGetInteger(order, ORDER_TIME_DONE);
+      bool activeOrder = OrderSelect(order);
+      position = (ulong)(activeOrder ? OrderGetInteger(ORDER_POSITION_ID) : HistoryOrderGetInteger(order, ORDER_POSITION_ID));
+      symbol = activeOrder ? OrderGetString(ORDER_SYMBOL) : HistoryOrderGetString(order, ORDER_SYMBOL);
+      magic = activeOrder ? OrderGetInteger(ORDER_MAGIC) : HistoryOrderGetInteger(order, ORDER_MAGIC);
+      reason = EnumToString((ENUM_ORDER_STATE)(activeOrder ? OrderGetInteger(ORDER_STATE) : HistoryOrderGetInteger(order, ORDER_STATE)));
+      direction = EnumToString((ENUM_ORDER_TYPE)(activeOrder ? OrderGetInteger(ORDER_TYPE) : HistoryOrderGetInteger(order, ORDER_TYPE)));
+      eventTime = activeOrder ? TimeCurrent() : (datetime)HistoryOrderGetInteger(order, ORDER_TIME_DONE);
       if(transaction.type == TRADE_TRANSACTION_ORDER_ADD) eventKind = "PENDING_ORDER_CREATED";
       else if(transaction.type == TRADE_TRANSACTION_ORDER_UPDATE) eventKind = "PENDING_ORDER_MODIFIED";
       else if(transaction.type == TRADE_TRANSACTION_ORDER_DELETE) eventKind = "PENDING_ORDER_CANCELLED";
    }
-   if(transaction.type == TRADE_TRANSACTION_POSITION) eventKind = "POSITION_SL_TP_MODIFIED";
-   if(transaction.type == TRADE_TRANSACTION_REQUEST && result.retcode != TRADE_RETCODE_DONE && result.retcode != TRADE_RETCODE_PLACED) eventKind = "TRADE_OPERATION_REJECTED";
+   if(transaction.type == TRADE_TRANSACTION_POSITION)
+      eventKind = PositionModificationKind(position, transaction.price_sl, transaction.price_tp);
+   if(transaction.type == TRADE_TRANSACTION_REQUEST && result.retcode != TRADE_RETCODE_DONE && result.retcode != TRADE_RETCODE_DONE_PARTIAL && result.retcode != TRADE_RETCODE_PLACED) eventKind = "TRADE_OPERATION_REJECTED";
 
    int digits = symbol == "" ? _Digits : (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
    ulong identity = deal > 0 ? deal : order;
@@ -187,8 +245,8 @@ void OnTradeTransaction(
       + ",\"magic_number\":" + IntegerToString(magic)
       + ",\"direction\":\"" + JsonEscape(direction) + "\""
       + ",\"volume\":" + DoubleToString(transaction.volume, 2)
-       + ",\"entry_price\":" + DoubleToString(transaction.price, digits)
-       + ",\"exit_price\":" + DoubleToString(transaction.price, digits)
+       + ",\"entry_price\":" + DoubleToString(entryPrice, digits)
+       + ",\"exit_price\":" + DoubleToString(exitPrice, digits)
       + ",\"sl\":" + DoubleToString(transaction.price_sl, digits)
       + ",\"tp\":" + DoubleToString(transaction.price_tp, digits)
       + ",\"profit\":" + DoubleToString(profit, 2)
@@ -196,6 +254,7 @@ void OnTradeTransaction(
       + ",\"swap\":" + DoubleToString(swap, 2)
       + ",\"reason\":\"" + JsonEscape(reason) + "\""
       + ",\"event_time\":\"" + DateTimeToText(eventTime) + "\""
+      + ",\"event_time_offset_seconds\":" + IntegerToString((int)(TimeCurrent() - TimeGMT()))
        + ",\"retcode\":" + IntegerToString((int)result.retcode)
        + ",\"retcode_description\":\"" + JsonEscape(result.comment) + "\"}";
    SendWebhook(payload);

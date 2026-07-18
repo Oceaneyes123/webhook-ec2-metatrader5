@@ -261,7 +261,29 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("TRADE_TRANSACTION", ea)
         self.assertIn("PENDING_ORDER_FILLED", ea)
         self.assertIn("MANUAL_CLOSE", ea)
+        self.assertIn("OrderSelect(sourceOrder) || HistoryOrderSelect(sourceOrder)", ea)
+        self.assertIn("DEAL_ENTRY_INOUT", ea)
+        self.assertIn("MANUAL_PARTIAL_CLOSE", ea)
+        self.assertIn("POSITION_SL_MODIFIED", ea)
+        self.assertIn("POSITION_TP_MODIFIED", ea)
+        self.assertIn("TRADE_RETCODE_DONE_PARTIAL", ea)
+        self.assertIn("PositionIdentifierStillOpen(position)", ea)
+        self.assertIn("POSITION_IDENTIFIER", ea)
+        self.assertIn("OrderGetInteger(ORDER_TYPE)", ea)
+        self.assertIn("HistoricalEntryPrice", ea)
+        self.assertIn("event_time_offset_seconds", ea)
+        self.assertIn("entryPrice", ea)
+        self.assertIn("exitPrice", ea)
         self.assertNotIn("lastManualPositionTickets", ea)
+
+    def test_account_actions_are_request_scoped_and_terminal_idempotent(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+        self.assertIn("JsonTicketRequested", manager)
+        self.assertIn("MarkActionProcessed", manager)
+        self.assertIn("GlobalVariableCheck", manager)
+        self.assertIn("broker stop/freeze level", manager)
+        self.assertIn("M1 EMA20 is not above EMA50", manager)
+        self.assertIn("M5 closed candle is not above EMA20", manager)
 
 
 if __name__ == "__main__":

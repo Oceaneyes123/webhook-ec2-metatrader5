@@ -66,6 +66,19 @@ $env:ACCOUNT_ACTIONS_ENABLED = "false" # set true only after demo testing
 $env:ACCOUNT_ACTION_SECRET = "long-random-local-secret"
 $env:AUTHORIZED_TELEGRAM_CHAT = "your_chat_id"
 $env:AUTHORIZED_TELEGRAM_USER = "" # optional Telegram user ID
+$env:PRICE_DATA_STALE_SECONDS = "120"
+$env:PROFIT_ALERT_PIPS = "50"
+$env:BREAKEVEN_ELIGIBILITY_PIPS = "30"
+$env:BREAKEVEN_PROTECTED_PIPS = "10"
+$env:ENTRY_DECISION_COOLDOWN_SECONDS = "300"
+$env:CONFIRMATION_EXPIRY_SECONDS = "120"
+$env:ACCOUNT_ACTION_LEASE_SECONDS = "60"
+$env:GOLD_PIP_SIZE = "0.1"
+$env:REPORT_RECOVERY_DAYS = "7"
+$env:EVENT_DELAY_SECONDS = "60"
+# Optional DST-aware session overrides: Name|IANA zone|start|end, comma-separated
+$env:REPORT_SESSIONS = "Asian|Asia/Tokyo|09:00|18:00,London|Europe/London|08:00|17:00,New York|America/New_York|08:00|17:00"
+$env:SESSION_LONDON_ENABLED = "true"
 ```
 
 PowerShell variables apply only to the current terminal. Start `webhook.py`
@@ -166,14 +179,22 @@ timer remains only for trade management, heartbeat, confirmed actions, and a
 The Python service stores transaction ids, open-position snapshots, entry
 decisions, confirmation tokens, queued actions, and sent reports in SQLite
 (`ACCOUNT_DB_FILE`, default `account_state.db`), so duplicate webhooks and
-restarts do not repeat alerts. Keep this file when restarting the service.
+restarts do not repeat acknowledged alerts. Delivery is leased until Telegram
+accepts it, so an HTTP/Telegram failure can be retried without losing the event.
+Telegram offers no idempotency key: a crash after Telegram accepts a request but
+before SQLite records it can produce one duplicate alert on retry. Queued actions
+are leased, while Webhook2 records each accepted request ID in a terminal global
+variable before execution and only considers the confirmed ticket list. This is
+at-most-once execution (a lost result may require manual reconciliation), not a
+claim of exactly-once result delivery. Keep the SQLite database and MT5 terminal
+data when restarting the service.
 
 Account-wide Telegram actions are disabled by default. To enable them, set
 `ACCOUNT_ACTIONS_ENABLED=true` and configure `AUTHORIZED_TELEGRAM_CHAT`
 (and optionally `AUTHORIZED_TELEGRAM_USER`) plus a unique `ACCOUNT_ACTION_SECRET`
 matching Webhook2's `AccountActionSecret` input. Buttons require a short-lived
 confirmation, revalidate positions in MT5, and report actual MT5 result codes.
-`Move SL to BE` targets positions above 30 pips and protects about 10 pips;
+`Move SL to BE` targets the confirmed positions above 30 pips and protects about 10 pips;
 `Close Profitable Positions` targets all positions with positive floating P&L.
 Both can affect manual and other-EA positions on the whole account. Test only
 on a demo account before enabling them.
@@ -182,7 +203,15 @@ Daily reports are sent at `DAILY_REPORT_HOUR` (default `6`) in
 `PHILIPPINE_TIMEZONE` (default `Asia/Manila`) and cover the preceding 24 hours.
 Session reports follow Tokyo, London, and New York local session clocks, so London
 and New York delivery shifts automatically with daylight saving time. Set
-`DAILY_REPORT_ENABLED=false` or `SESSION_REPORTS_ENABLED=false` to disable them.
+`DAILY_REPORT_ENABLED=false`, `SESSION_REPORTS_ENABLED=false`, or an individual
+`SESSION_<NAME>_ENABLED=false` to disable them. `REPORT_RECOVERY_DAYS` controls
+how many missed windows are recovered after downtime.
+Recovery sends older daily/session windows only when the local SQLite history has
+an event or account snapshot in that window; recovered data is labelled delayed.
+Session windows use each configured session's local start and end (including DST),
+not a 24-hour fallback. Trade timestamps carry MT5's server-to-UTC offset; old
+offset-less broker timestamps are retained at receive time rather than guessed as
+Philippine time.
 
 ### EA Heartbeat
 

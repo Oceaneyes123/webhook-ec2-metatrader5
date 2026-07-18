@@ -39,11 +39,22 @@ bool SendEaIssue(
    return SendWebhook(payload);
 }
 
+int DecisionDataAgeSeconds()
+{
+   datetime oldest = iTime(_Symbol, PERIOD_M1, 1);
+   for(int index = 1; index < TRADE_TF_COUNT; index++)
+   {
+      datetime candle = iTime(_Symbol, Timeframes[index], 1);
+      if(candle > 0 && (oldest == 0 || candle < oldest)) oldest = candle;
+   }
+   return oldest > 0 ? (int)(TimeCurrent() - oldest) : -1;
+}
+
 void SendEntryDecision(string direction, string result, string reason)
 {
    SendWebhook("{\"event_type\":\"ENTRY_DECISION\",\"source\":\"webhook2\",\"symbol\":\"" + JsonEscape(_Symbol)
       + "\",\"direction\":\"" + direction + "\",\"result\":\"" + result + "\",\"reason\":\"" + JsonEscape(reason)
-      + "\",\"time\":\"" + DateTimeToText(TimeCurrent()) + "\"}");
+      + "\",\"time\":\"" + DateTimeToText(TimeCurrent()) + "\",\"data_age_seconds\":" + IntegerToString(DecisionDataAgeSeconds()) + "}");
 }
 
 string TradeResultText()
@@ -187,6 +198,22 @@ double JsonDoubleValue(string json, string key, double fallback)
    return StringToDouble(StringSubstr(json, start, end - start));
 }
 
+bool JsonTicketRequested(string json, ulong ticket)
+{
+   int start = StringFind(json, "\"tickets\":[");
+   if(start < 0) return false;
+   int end = StringFind(json, "]", start);
+   return end > start && StringFind(StringSubstr(json, start, end - start), "\"" + IntegerToString(ticket) + "\"") >= 0;
+}
+
+bool MarkActionProcessed(string requestId)
+{
+   string key = "Webhook2Action:" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ":" + requestId;
+   if(GlobalVariableCheck(key)) return false;
+   GlobalVariableSet(key, (double)TimeCurrent());
+   return true;
+}
+
 bool FetchTradeConfig(TradeConfig &config)
 {
    datetime now = TimeCurrent();
@@ -250,7 +277,7 @@ void ProcessAccountAction()
       return;
    string action = JsonStringValue(body, "action", "");
    string requestId = JsonStringValue(body, "id", "");
-   if(action != "be" && action != "close")
+   if(requestId == "" || (action != "be" && action != "close") || !MarkActionProcessed(requestId))
       return;
 
    int modified = 0, skipped = 0, failed = 0;
@@ -259,6 +286,8 @@ void ProcessAccountAction()
    {
       ulong ticket = PositionGetTicket(index);
       if(ticket == 0 || !PositionSelectByTicket(ticket))
+         continue;
+      if(!JsonTicketRequested(body, ticket))
          continue;
       string symbol = PositionGetString(POSITION_SYMBOL);
       ENUM_POSITION_TYPE type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
@@ -401,32 +430,38 @@ bool ClosedCandleBelowEma20(int index)
    return candle.open < ema20 && candle.close < ema20;
 }
 
-bool BuyConfluence()
+bool BuyConfluence(string &reason)
 {
    double ema20 = 0;
    double ema50 = 0;
    if(!ReadTradeEmaValues(0, ema20, ema50))
    {
       SendEaIssue("M1 EMA data unavailable", "Buy confluence check", PERIOD_M1);
+      reason = "M1 EMA data unavailable";
       return false;
    }
-   return ema20 > ema50
-      && ClosedCandleAboveEma20(1)
-      && ClosedCandleAboveEma20(2);
+   if(ema20 <= ema50) { reason = "M1 EMA20 is not above EMA50"; return false; }
+   if(!ClosedCandleAboveEma20(1)) { reason = "M5 closed candle is not above EMA20"; return false; }
+   if(!ClosedCandleAboveEma20(2)) { reason = "M15 closed candle is not above EMA20"; return false; }
+   reason = "";
+   return true;
 }
 
-bool SellConfluence()
+bool SellConfluence(string &reason)
 {
    double ema20 = 0;
    double ema50 = 0;
    if(!ReadTradeEmaValues(0, ema20, ema50))
    {
       SendEaIssue("M1 EMA data unavailable", "Sell confluence check", PERIOD_M1);
+      reason = "M1 EMA data unavailable";
       return false;
    }
-   return ema50 > ema20
-      && ClosedCandleBelowEma20(1)
-      && ClosedCandleBelowEma20(2);
+   if(ema50 <= ema20) { reason = "M1 EMA50 is not above EMA20"; return false; }
+   if(!ClosedCandleBelowEma20(1)) { reason = "M5 closed candle is not below EMA20"; return false; }
+   if(!ClosedCandleBelowEma20(2)) { reason = "M15 closed candle is not below EMA20"; return false; }
+   reason = "";
+   return true;
 }
 
 double PipSize()
@@ -580,9 +615,10 @@ void ManageTrading()
    if(config.mode == "BUY")
    {
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
-      if(!BuyConfluence())
+      string reason = "";
+      if(!BuyConfluence(reason))
       {
-         SendEntryDecision("BUY", "FAIL", "EMA or candle alignment failed");
+         SendEntryDecision("BUY", "FAIL", reason);
          DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
          return;
       }
@@ -607,9 +643,10 @@ void ManageTrading()
    if(config.mode == "SELL")
    {
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-      if(!SellConfluence())
+      string reason = "";
+      if(!SellConfluence(reason))
       {
-         SendEntryDecision("SELL", "FAIL", "EMA or candle alignment failed");
+         SendEntryDecision("SELL", "FAIL", reason);
          DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
          return;
       }

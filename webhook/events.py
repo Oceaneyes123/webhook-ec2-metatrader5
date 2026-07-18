@@ -72,11 +72,26 @@ def _handle_trade_open(payload, server):
 
 @register_handler("TRADE_TRANSACTION")
 def _handle_trade_transaction(payload, server):
-    if STORE.event(payload):
-        _tg.send_telegram_message(transaction_message(payload))
-        alert = profit_alert(payload)
-        if alert:
+    event_id = str(payload.get("event_id") or payload.get("deal_ticket") or payload.get("order_ticket"))
+    STORE.event(payload)
+    if event_id and STORE.claim_delivery(event_id):
+        try:
+            _tg.send_telegram_message(transaction_message(payload))
+        except Exception:
+            logger.exception("Transaction delivery failed event_id=%s", event_id)
+            raise
+        STORE.delivered(event_id)
+    alert = profit_alert(payload)
+    alert_id = "profit-alert:%s" % (payload.get("position_ticket") or payload.get("ticket") or "")
+    if alert and STORE.event({"event_id": alert_id, "event_type": "PROFIT_ALERT", "event_time": payload.get("event_time")}):
+        pass
+    if alert and STORE.claim_delivery(alert_id):
+        try:
             _tg.send_telegram_message(alert, reply_markup=action_buttons())
+        except Exception:
+            logger.exception("Profit alert delivery failed event_id=%s", alert_id)
+            raise
+        STORE.delivered(alert_id)
     server.write_text(200, "ok")
 
 
@@ -86,8 +101,16 @@ def _handle_reconciliation(payload, server):
     if isinstance(_state_account, list):
         for position in STORE.reconcile(_state_account, payload):
             alert = profit_alert(position)
+            alert_id = "profit-alert:%s" % (position.get("position_ticket") or position.get("ticket") or "")
             if alert:
-                _tg.send_telegram_message(alert, reply_markup=action_buttons())
+                STORE.event({"event_id": alert_id, "event_type": "PROFIT_ALERT"})
+            if alert and STORE.claim_delivery(alert_id):
+                try:
+                    _tg.send_telegram_message(alert, reply_markup=action_buttons())
+                except Exception:
+                    logger.exception("Profit alert delivery failed event_id=%s", alert_id)
+                    raise
+                STORE.delivered(alert_id)
     server.write_text(200, "ok")
 
 
@@ -96,9 +119,13 @@ def _handle_entry_decision(payload, server):
     STORE.decision(payload)
     if str(payload.get("result", "FAIL")).upper() == "FAIL":
         cooldown = max(1, int(os.environ.get("ENTRY_DECISION_COOLDOWN_SECONDS", "300")))
-        key = "decision-alert:%s:%s:%s:%s" % (payload.get("symbol"), payload.get("direction"), payload.get("reason"), int(time.time() // cooldown))
-        if STORE.event({"event_id": key, "event_type": "ENTRY_DECISION_ALERT"}):
-            _tg.send_telegram_message("⚠️ <b>Entry Rejected</b>\n%s" % transaction_message(payload))
+        key = "decision-alert:%s:%s:%s" % (payload.get("symbol"), payload.get("direction"), payload.get("reason"))
+        if STORE.claim_cooldown(key, cooldown):
+            try:
+                _tg.send_telegram_message("⚠️ <b>Entry Rejected</b>\n%s" % transaction_message(payload))
+            except Exception:
+                STORE.release_cooldown(key)
+                raise
     server.write_text(200, "ok")
 
 
