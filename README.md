@@ -109,9 +109,10 @@ chart only when trade management is desired. It fetches
 `/trade-config?symbol=<symbol>` and can create, modify, and delete pending
 orders.
 
-`mq5/BigMove.mq5` alerts after a closed M15 candle has a high-to-low range of
-at least 25% of the current D1 ATR(14). Attach it to each symbol chart to
-monitor; it sends through the same webhook and Telegram bot.
+`mq5/BigMove.mq5` alerts after a closed M15, M30, H1, H2, or H4 candle reaches
+its strong-candle average (16%, 22%, 32.5%, 42.5%, or 60%) of the current D1
+ATR(14). Attach it to each symbol chart to monitor; it sends through the same
+webhook and Telegram bot.
 
 All EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
 Telegram chat.
@@ -141,7 +142,7 @@ In MetaTrader 5:
 4. Attach `Webhook1` to the required symbol chart.
 5. Attach `Webhook2` to the same chart only if trade management is required,
    then enable algorithmic trading.
-6. Attach `BigMove` to each symbol chart that should receive M15 big-move
+6. Attach `BigMove` to each symbol chart that should receive M15–H4 big-move
    alerts.
 
 The EA's default URL is:

@@ -137,13 +137,15 @@ class EaContentTest(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIn(expected, source)
 
-    def test_big_move_ea_checks_closed_m15_range_against_current_daily_atr(self):
+    def test_big_move_ea_checks_closed_m15_to_h4_ranges_against_current_daily_atr(self):
         source = (MQ5_SOURCE_DIR / "BigMove.mq5").read_text(encoding="utf-8")
 
         self.assertIn("iATR(_Symbol, PERIOD_D1, AtrPeriod)", source)
-        self.assertIn("iTime(_Symbol, PERIOD_M15, 1)", source)
+        self.assertIn("{PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H2, PERIOD_H4}", source)
+        self.assertIn("{16.0, 22.0, 32.5, 42.5, 60.0}", source)
+        self.assertIn("iTime(_Symbol, timeframes[i], 1)", source)
         self.assertIn("CopyBuffer(dailyAtrHandle, 0, 0, 1, atr)", source)
-        self.assertIn("range < threshold", source)
+        self.assertIn("range >= threshold", source)
         self.assertIn('\\"event_type\\":\\"BIG_MOVE\\"', source)
 
     def test_readme_documents_mt5_ea_setup(self):
