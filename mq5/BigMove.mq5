@@ -63,7 +63,7 @@ int OnInit()
       return INIT_FAILED;
 
    for(int i = 0; i < TIMEFRAME_COUNT; i++)
-      lastClosedBars[i] = iTime(_Symbol, timeframes[i], 1);
+      lastClosedBars[i] = iTime(_Symbol, timeframes[i], 2);
    return INIT_SUCCEEDED;
 }
 

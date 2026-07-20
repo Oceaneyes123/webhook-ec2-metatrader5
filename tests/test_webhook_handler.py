@@ -98,12 +98,12 @@ class WebhookHandlerTest(unittest.TestCase):
             handler = make_handler(
                 webhook,
                 "/webhook",
-                b'{"event_type":"BIG_MOVE","symbol":"GOLDmicro","timeframe":"M15","candle_time":"2026.06.26 11:15:00","range":10,"daily_atr":40,"threshold":10,"atr_percent":25}',
+                b'{"event_type":"BIG_MOVE","symbol":"GOLDmicro","timeframe":"H1","candle_time":"2026.06.26 11:15:00","range":10,"daily_atr":40,"threshold":10,"atr_percent":25}',
             )
             handler.do_POST()
 
         self.assertEqual(handler.wfile.getvalue(), b"ok")
-        self.assertIn("Big M15 Move", send.call_args.args[0])
+        self.assertIn("Big H1 Move", send.call_args.args[0])
 
     def test_trade_transaction_notification_filter(self):
         cases = (

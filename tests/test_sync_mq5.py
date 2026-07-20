@@ -143,6 +143,7 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("iATR(_Symbol, PERIOD_D1, AtrPeriod)", source)
         self.assertIn("{PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H2, PERIOD_H4}", source)
         self.assertIn("{16.0, 22.0, 32.5, 42.5, 60.0}", source)
+        self.assertIn("lastClosedBars[i] = iTime(_Symbol, timeframes[i], 2)", source)
         self.assertIn("iTime(_Symbol, timeframes[i], 1)", source)
         self.assertIn("CopyBuffer(dailyAtrHandle, 0, 0, 1, atr)", source)
         self.assertIn("range >= threshold", source)
