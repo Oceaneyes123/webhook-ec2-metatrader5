@@ -126,7 +126,7 @@ double HistoricalEntryPrice(ulong positionIdentifier, datetime until, double fal
    return fallback;
 }
 
-string PositionModificationKind(ulong position, double sl, double tp)
+string PositionModificationKind(ulong position, string symbol, double sl, double tp, double &slChangePips)
 {
    static ulong identifiers[32]; static double previousSl[32]; static double previousTp[32];
    int slot = -1;
@@ -135,6 +135,9 @@ string PositionModificationKind(ulong position, double sl, double tp)
    if(slot < 0) slot = 0;
    bool slChanged = identifiers[slot] == position && previousSl[slot] != sl;
    bool tpChanged = identifiers[slot] == position && previousTp[slot] != tp;
+   double pip = AccountPipSize(symbol);
+   slChangePips = slChanged && previousSl[slot] > 0 && sl > 0 && pip > 0
+      ? MathAbs(sl - previousSl[slot]) / pip : 0;
    identifiers[slot] = position; previousSl[slot] = sl; previousTp[slot] = tp;
    if(slChanged && !tpChanged) return "POSITION_SL_MODIFIED";
    if(tpChanged && !slChanged) return "POSITION_TP_MODIFIED";
@@ -165,6 +168,7 @@ void OnTradeTransaction(
    string direction = "";
    datetime eventTime = TimeCurrent();
    string eventKind = kind;
+   double slChangePips = 0;
 
    if(deal > 0 && HistoryDealSelect(deal))
    {
@@ -221,7 +225,7 @@ void OnTradeTransaction(
       else if(transaction.type == TRADE_TRANSACTION_ORDER_DELETE) eventKind = "PENDING_ORDER_CANCELLED";
    }
    if(transaction.type == TRADE_TRANSACTION_POSITION)
-      eventKind = PositionModificationKind(position, transaction.price_sl, transaction.price_tp);
+      eventKind = PositionModificationKind(position, symbol, transaction.price_sl, transaction.price_tp, slChangePips);
    if(transaction.type == TRADE_TRANSACTION_REQUEST && result.retcode != TRADE_RETCODE_DONE && result.retcode != TRADE_RETCODE_DONE_PARTIAL && result.retcode != TRADE_RETCODE_PLACED) eventKind = "TRADE_OPERATION_REJECTED";
 
    int digits = symbol == "" ? _Digits : (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
@@ -248,6 +252,7 @@ void OnTradeTransaction(
        + ",\"entry_price\":" + DoubleToString(entryPrice, digits)
        + ",\"exit_price\":" + DoubleToString(exitPrice, digits)
       + ",\"sl\":" + DoubleToString(transaction.price_sl, digits)
+      + ",\"sl_change_pips\":" + DoubleToString(slChangePips, 1)
       + ",\"tp\":" + DoubleToString(transaction.price_tp, digits)
       + ",\"profit\":" + DoubleToString(profit, 2)
       + ",\"commission\":" + DoubleToString(commission, 2)

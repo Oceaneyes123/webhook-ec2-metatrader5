@@ -74,7 +74,12 @@ def _handle_trade_open(payload, server):
 def _handle_trade_transaction(payload, server):
     event_id = str(payload.get("event_id") or payload.get("deal_ticket") or payload.get("order_ticket"))
     STORE.event(payload)
-    if event_id and STORE.claim_delivery(event_id):
+    kind = str(payload.get("transaction_type") or "")
+    try:
+        notify = kind not in {"TRADE_TRANSACTION_REQUEST", "PENDING_ORDER_CREATED", "PENDING_ORDER_CANCELLED"} and (not kind.startswith("POSITION_SL_") or float(payload.get("sl_change_pips", 0)) >= 50)
+    except (TypeError, ValueError):
+        notify = False
+    if notify and event_id and STORE.claim_delivery(event_id):
         try:
             _tg.send_telegram_message(transaction_message(payload))
         except Exception:

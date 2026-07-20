@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from uuid import uuid4
 from pathlib import Path
 from unittest.mock import patch
 
@@ -103,6 +104,26 @@ class WebhookHandlerTest(unittest.TestCase):
 
         self.assertEqual(handler.wfile.getvalue(), b"ok")
         self.assertIn("Big M15 Move", send.call_args.args[0])
+
+    def test_trade_transaction_notification_filter(self):
+        cases = (
+            ("TRADE_TRANSACTION_REQUEST", 0, False),
+            ("PENDING_ORDER_CREATED", 0, False),
+            ("PENDING_ORDER_CANCELLED", 0, False),
+            ("POSITION_SL_MODIFIED", 49.9, False),
+            ("POSITION_SL_MODIFIED", 50, True),
+        )
+        with patch("webhook.telegram_sender.send_telegram_message") as send:
+            expected_count = 0
+            event_prefix = uuid4().hex
+            for index, (kind, sl_change_pips, expected) in enumerate(cases):
+                handler = make_handler(webhook, "/webhook", json.dumps({
+                    "event_type": "TRADE_TRANSACTION", "event_id": f"notification-filter-{event_prefix}-{index}",
+                    "transaction_type": kind, "symbol": "GOLD", "sl_change_pips": sl_change_pips,
+                }).encode())
+                handler.do_POST()
+                expected_count += expected
+                self.assertEqual(send.call_count, expected_count)
 
     def test_telegram_pause_and_resume_commands_control_alerts(self):
         send = unittest.mock.MagicMock()
