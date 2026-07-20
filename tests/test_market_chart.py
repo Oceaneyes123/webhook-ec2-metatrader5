@@ -43,11 +43,17 @@ class MarketChartLevelsTest(unittest.TestCase):
                 )
             )
             result = market_chart.MarketChart(state).levels_chart("Gold", path)
-
             self.assertEqual(result, path)
             self.assertTrue(path.exists())
             self.assertGreater(path.stat().st_size, 1000)
             self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+            items, *_ = market_chart.MarketChart(state)._chart_items(
+                state.data["symbols"]["GOLD"]
+            )
+            self.assertEqual(
+                [item["label"] for item in items if item["kind"] == "fib"],
+                ["M15 Fib 61.8"],
+            )
 
     def test_levels_chart_draws_recent_candlesticks(self):
         levels = {

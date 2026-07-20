@@ -234,7 +234,7 @@ class MarketChart:
                     previous_day_added = True
             fib = levels.get("fib")
             if fib:
-                for key in ("38.2", "50.0", "61.8"):
+                for key in ("61.8",):
                     items.append(
                         {
                             "kind": "fib",
