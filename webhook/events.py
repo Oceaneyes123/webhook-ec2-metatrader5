@@ -76,7 +76,7 @@ def _handle_trade_transaction(payload, server):
     STORE.event(payload)
     kind = str(payload.get("transaction_type") or "")
     try:
-        notify = kind not in {"TRADE_TRANSACTION_REQUEST", "PENDING_ORDER_CREATED", "PENDING_ORDER_CANCELLED"} and (not kind.startswith("POSITION_SL_") or float(payload.get("sl_change_pips", 0)) >= 50)
+        notify = kind not in {"TRADE_TRANSACTION_REQUEST", "PENDING_ORDER_CREATED", "PENDING_ORDER_MODIFIED", "PENDING_ORDER_CANCELLED"} and (not kind.startswith("POSITION_SL_") or float(payload.get("sl_change_pips", 0)) >= 50)
     except (TypeError, ValueError):
         notify = False
     if notify and event_id and STORE.claim_delivery(event_id):

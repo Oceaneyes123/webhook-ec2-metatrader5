@@ -151,13 +151,8 @@ void OnTradeTransaction(
 )
 {
    if(transaction.type != TRADE_TRANSACTION_DEAL_ADD
-      && transaction.type != TRADE_TRANSACTION_ORDER_ADD
-      && transaction.type != TRADE_TRANSACTION_ORDER_UPDATE
-      && transaction.type != TRADE_TRANSACTION_ORDER_DELETE
-      && transaction.type != TRADE_TRANSACTION_POSITION
-      && transaction.type != TRADE_TRANSACTION_REQUEST)
+      && transaction.type != TRADE_TRANSACTION_POSITION)
       return;
-   string kind = EnumToString(transaction.type);
    ulong deal = transaction.deal;
    ulong order = transaction.order;
    ulong position = transaction.position;
@@ -167,7 +162,7 @@ void OnTradeTransaction(
    string reason = "";
    string direction = "";
    datetime eventTime = TimeCurrent();
-   string eventKind = kind;
+   string eventKind = "";
    double slChangePips = 0;
 
    if(deal > 0 && HistoryDealSelect(deal))
@@ -211,30 +206,16 @@ void OnTradeTransaction(
             : reason == "DEAL_REASON_SL" ? "STOP_LOSS_HIT" : reason == "DEAL_REASON_TP" ? "TAKE_PROFIT_HIT" : reason == "DEAL_REASON_CLIENT" ? "MANUAL_CLOSE" : "POSITION_CLOSED";
       }
    }
-   else if(order > 0 && (OrderSelect(order) || HistoryOrderSelect(order)))
-   {
-      bool activeOrder = OrderSelect(order);
-      position = (ulong)(activeOrder ? OrderGetInteger(ORDER_POSITION_ID) : HistoryOrderGetInteger(order, ORDER_POSITION_ID));
-      symbol = activeOrder ? OrderGetString(ORDER_SYMBOL) : HistoryOrderGetString(order, ORDER_SYMBOL);
-      magic = activeOrder ? OrderGetInteger(ORDER_MAGIC) : HistoryOrderGetInteger(order, ORDER_MAGIC);
-      reason = EnumToString((ENUM_ORDER_STATE)(activeOrder ? OrderGetInteger(ORDER_STATE) : HistoryOrderGetInteger(order, ORDER_STATE)));
-      direction = EnumToString((ENUM_ORDER_TYPE)(activeOrder ? OrderGetInteger(ORDER_TYPE) : HistoryOrderGetInteger(order, ORDER_TYPE)));
-      eventTime = activeOrder ? TimeCurrent() : (datetime)HistoryOrderGetInteger(order, ORDER_TIME_DONE);
-      if(transaction.type == TRADE_TRANSACTION_ORDER_ADD) eventKind = "PENDING_ORDER_CREATED";
-      else if(transaction.type == TRADE_TRANSACTION_ORDER_UPDATE) eventKind = "PENDING_ORDER_MODIFIED";
-      else if(transaction.type == TRADE_TRANSACTION_ORDER_DELETE) eventKind = "PENDING_ORDER_CANCELLED";
-   }
    if(transaction.type == TRADE_TRANSACTION_POSITION)
       eventKind = PositionModificationKind(position, symbol, transaction.price_sl, transaction.price_tp, slChangePips);
-   if(transaction.type == TRADE_TRANSACTION_REQUEST && result.retcode != TRADE_RETCODE_DONE && result.retcode != TRADE_RETCODE_DONE_PARTIAL && result.retcode != TRADE_RETCODE_PLACED) eventKind = "TRADE_OPERATION_REJECTED";
+   if((eventKind == "POSITION_SL_MODIFIED" || eventKind == "POSITION_SL_TP_MODIFIED") && slChangePips < 50)
+      return;
 
    int digits = symbol == "" ? _Digits : (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
    ulong identity = deal > 0 ? deal : order;
    string eventId = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ":"
        + IntegerToString(identity) + ":" + IntegerToString((int)transaction.type);
    if(identity == 0) eventId += ":" + IntegerToString(GetTickCount64());
-   else if(transaction.type == TRADE_TRANSACTION_ORDER_UPDATE)
-      eventId += ":" + DoubleToString(transaction.price, digits) + ":" + DoubleToString(transaction.price_sl, digits) + ":" + DoubleToString(transaction.price_tp, digits) + ":" + DoubleToString(transaction.volume, 2);
    string payload =
       "{\"event_type\":\"TRADE_TRANSACTION\""
       ",\"event_id\":\"" + eventId + "\""

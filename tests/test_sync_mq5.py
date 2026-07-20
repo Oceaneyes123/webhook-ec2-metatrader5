@@ -268,7 +268,7 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("MANUAL_PARTIAL_CLOSE", ea)
         self.assertIn("POSITION_SL_MODIFIED", ea)
         self.assertIn("POSITION_TP_MODIFIED", ea)
-        self.assertIn("TRADE_RETCODE_DONE_PARTIAL", ea)
+        self.assertIn("slChangePips < 50", ea)
         self.assertIn("PositionIdentifierStillOpen(position)", ea)
         self.assertIn("POSITION_IDENTIFIER", ea)
         self.assertIn("OrderGetInteger(ORDER_TYPE)", ea)
@@ -276,6 +276,13 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("event_time_offset_seconds", ea)
         self.assertIn("entryPrice", ea)
         self.assertIn("exitPrice", ea)
+        self.assertNotIn("TRADE_TRANSACTION_REQUEST", ea)
+        self.assertNotIn("TRADE_TRANSACTION_ORDER_ADD", ea)
+        self.assertNotIn("TRADE_TRANSACTION_ORDER_UPDATE", ea)
+        self.assertNotIn("TRADE_TRANSACTION_ORDER_DELETE", ea)
+        self.assertNotIn("PENDING_ORDER_CREATED", ea)
+        self.assertNotIn("PENDING_ORDER_MODIFIED", ea)
+        self.assertNotIn("PENDING_ORDER_CANCELLED", ea)
         self.assertNotIn("lastManualPositionTickets", ea)
 
     def test_account_actions_are_request_scoped_and_terminal_idempotent(self):

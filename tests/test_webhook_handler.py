@@ -109,6 +109,7 @@ class WebhookHandlerTest(unittest.TestCase):
         cases = (
             ("TRADE_TRANSACTION_REQUEST", 0, False),
             ("PENDING_ORDER_CREATED", 0, False),
+            ("PENDING_ORDER_MODIFIED", 0, False),
             ("PENDING_ORDER_CANCELLED", 0, False),
             ("POSITION_SL_MODIFIED", 49.9, False),
             ("POSITION_SL_MODIFIED", 50, True),
