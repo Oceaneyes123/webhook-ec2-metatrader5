@@ -255,6 +255,7 @@ class EaContentTest(unittest.TestCase):
 
         self.assertIn("ACCOUNT_RECONCILIATION", manager)
         self.assertIn("position_ticket", manager)
+        self.assertIn("magic_number", manager)
         self.assertIn("for(int index = PositionsTotal() - 1; index >= 0; index--)", manager)
 
     def test_trade_ea_has_account_wide_transaction_handler(self):

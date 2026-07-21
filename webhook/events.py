@@ -1,6 +1,5 @@
 """EA webhook event dispatcher — strongly-typed handlers by event_type."""
 
-import os
 import time
 
 from .app_logger import get_logger
@@ -76,7 +75,7 @@ def _handle_trade_transaction(payload, server):
     STORE.event(payload)
     kind = str(payload.get("transaction_type") or "")
     try:
-        notify = kind not in {"TRADE_TRANSACTION_REQUEST", "PENDING_ORDER_CREATED", "PENDING_ORDER_MODIFIED", "PENDING_ORDER_CANCELLED"} and (not kind.startswith("POSITION_SL_") or float(payload.get("sl_change_pips", 0)) >= 50)
+        notify = payload.get("magic_number") not in (0, "0", None) and kind not in {"TRADE_TRANSACTION_REQUEST", "PENDING_ORDER_CREATED", "PENDING_ORDER_MODIFIED", "PENDING_ORDER_CANCELLED"} and (not kind.startswith("POSITION_SL_") or float(payload.get("sl_change_pips", 0)) >= 50)
     except (TypeError, ValueError):
         notify = False
     if notify and event_id and STORE.claim_delivery(event_id):
@@ -105,6 +104,8 @@ def _handle_reconciliation(payload, server):
     _state_account = payload.get("positions", [])
     if isinstance(_state_account, list):
         for position in STORE.reconcile(_state_account, payload):
+            if position.get("magic_number") in (0, "0", None):
+                continue
             alert = profit_alert(position)
             alert_id = "profit-alert:%s" % (position.get("position_ticket") or position.get("ticket") or "")
             if alert:
@@ -122,15 +123,6 @@ def _handle_reconciliation(payload, server):
 @register_handler("ENTRY_DECISION")
 def _handle_entry_decision(payload, server):
     STORE.decision(payload)
-    if str(payload.get("result", "FAIL")).upper() == "FAIL":
-        cooldown = max(1, int(os.environ.get("ENTRY_DECISION_COOLDOWN_SECONDS", "300")))
-        key = "decision-alert:%s:%s:%s" % (payload.get("symbol"), payload.get("direction"), payload.get("reason"))
-        if STORE.claim_cooldown(key, cooldown):
-            try:
-                _tg.send_telegram_message("⚠️ <b>Entry Rejected</b>\n%s" % transaction_message(payload))
-            except Exception:
-                STORE.release_cooldown(key)
-                raise
     server.write_text(200, "ok")
 
 

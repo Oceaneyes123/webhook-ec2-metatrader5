@@ -350,6 +350,7 @@ void MaybeSendAccountReconciliation()
       if(positions != "") positions += ",";
       positions += "{\"position_ticket\":\"" + IntegerToString(ticket)
          + "\",\"symbol\":\"" + JsonEscape(symbol) + "\",\"direction\":\"" + (type == POSITION_TYPE_BUY ? "BUY" : "SELL")
+         + "\",\"magic_number\":" + IntegerToString(PositionGetInteger(POSITION_MAGIC))
          + "\",\"entry_price\":" + DoubleToString(entry, digits)
          + ",\"current_price\":" + DoubleToString(current, digits)
          + ",\"profit_pips\":" + DoubleToString(pips, 1)
