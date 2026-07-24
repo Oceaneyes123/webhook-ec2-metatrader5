@@ -19,6 +19,7 @@ string TimeframeToText(ENUM_TIMEFRAMES timeframe)
       case PERIOD_M30: return "M30";
       case PERIOD_H1:  return "H1";
       case PERIOD_H4:  return "H4";
+      case PERIOD_D1:  return "D1";
       default:         return EnumToString(timeframe);
    }
 }

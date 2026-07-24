@@ -97,6 +97,46 @@ def big_move_message(payload):
     )
 
 
+def strong_rsi_message(payload):
+    symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
+    timeframe = str(payload.get("timeframe", "")).upper() or "?"
+    rsi = float(payload.get("rsi14", 0))
+    direction = "🔴 Overbought / SELL" if rsi >= 70 else "🟢 Oversold / BUY"
+    return (
+        f"⚡ <b>Strong RSI(14)</b>\n"
+        f"Symbol: {symbol}\n"
+        f"Timeframe: <b>{timeframe}</b>\n"
+        f"RSI(14): <code>{rsi:.2f}</code>\n"
+        f"Signal: <b>{direction}</b>\n"
+        f"🕒 {html.escape(str(payload.get('candle_time', '?')))}"
+    )
+
+
+def key_level_message(payload):
+    symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
+    timeframe = str(payload.get("timeframe", "")).upper() or "?"
+    label = html.escape(str(payload.get("key_level_label", "Key Level")))
+    try:
+        price = f"{float(payload.get('key_level_price')):.{int(payload.get('digits', 5))}f}"
+    except (TypeError, ValueError):
+        price = html.escape(str(payload.get("key_level_price", "?")))
+    lines = [
+        "📍 <b>Key Level Reached</b>",
+        f"Symbol: {symbol}",
+        f"Primary: <b>{timeframe} {label}</b>",
+        f"Price: <code>{price}</code>",
+    ]
+    coincident = payload.get("coincident_timeframes", [])
+    if coincident:
+        lines.append(
+            "Also coincides with "
+            + ", ".join(f"{html.escape(str(tf))} timeframe key level" for tf in coincident)
+            + "."
+        )
+    lines.append(f"🕒 {html.escape(str(payload.get('candle_time', '?')))}")
+    return "\n".join(lines)
+
+
 def help_text():
     return "\n".join(
         [

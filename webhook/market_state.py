@@ -9,6 +9,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from .app_logger import get_logger
@@ -17,11 +18,14 @@ from .json_data_parser import SUPPORTED_EVENTS, display_symbol
 logger = get_logger()
 
 # Timeframe constants used across the codebase.
-TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4")
+TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
 EMA_TIMEFRAMES = ("M1", "M5")
 PATTERN_TIMEFRAMES = ("M15", "M30", "H1", "H4")
-RSI_TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4")
-RSI_LOOKBACKS = {"M1": 60, "M5": 36, "M15": 24, "M30": 16, "H1": 12, "H4": 8}
+LEVEL_TIMEFRAMES = ("M5", "M15", "M30", "H1", "H4", "D1")
+RSI_TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
+RSI_LOOKBACKS = {"M1": 60, "M5": 36, "M15": 24, "M30": 16, "H1": 12, "H4": 8, "D1": 5}
+RSI_STRONG_LOW = 30
+RSI_STRONG_HIGH = 70
 CHART_CANDLE_LOOKBACK = 60  # candles in levels chart
 
 # Default path used when none is supplied.
@@ -99,8 +103,9 @@ class MarketState:
                 self.data = json.load(f)
             if "symbols" not in self.data:
                 self.data = {"symbols": {}}
+            self.data.setdefault("key_level_alerts", {})
         except (FileNotFoundError, json.JSONDecodeError, ValueError):
-            self.data = {"symbols": {}}
+            self.data = {"symbols": {}, "key_level_alerts": {}}
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +149,7 @@ class MarketState:
             snapshot = timeframes.get(timeframe, {})
             prev_ema_bias = snapshot.get("ema_bias")
             prev_rsi_history = snapshot.get("rsi_history", [])
+            prev_rsi_notified_at = snapshot.get("rsi_notified_at", 0)
 
             # Build snapshot from payload
             snapshot = {
@@ -164,7 +170,8 @@ class MarketState:
                 "daily_open": payload.get("daily_open"),
                 "daily_high": payload.get("daily_high"),
                 "daily_low": payload.get("daily_low"),
-                "received_at": __import__("time").time(),
+                "rsi_notified_at": prev_rsi_notified_at,
+                "received_at": time.time(),
             }
             # Process patterns, separating notification-worthy from retained
             _processed = self._process_patterns(payload, symbol, timeframe)
@@ -178,6 +185,7 @@ class MarketState:
             snapshot["retained_patterns"] = _retained
 
             # RSI
+            rsi_notification = None
             rsi = payload.get("rsi14")
             if rsi is not None:
                 snapshot["rsi14"] = rsi
@@ -192,6 +200,27 @@ class MarketState:
                 max_rsi = max(RSI_LOOKBACKS.values())
                 history = history[-max_rsi:]
                 snapshot["rsi_history"] = history
+
+                try:
+                    rsi = float(rsi)
+                    cooldown = self._rsi_cooldown_seconds(timeframe)
+                    if (
+                        (rsi <= RSI_STRONG_LOW or rsi >= RSI_STRONG_HIGH)
+                        and time.time() - float(prev_rsi_notified_at) >= cooldown
+                    ):
+                        rsi_notification = {
+                            "event_type": "STRONG_RSI",
+                            "symbol": symbol,
+                            "timeframe": timeframe,
+                            "candle_time": payload.get("candle_time"),
+                            "rsi14": rsi,
+                            "open": payload.get("open"),
+                            "high": payload.get("high"),
+                            "low": payload.get("low"),
+                            "close": payload.get("close"),
+                        }
+                except (TypeError, ValueError):
+                    rsi_notification = None
 
             # Candle history
             candle_history = payload.get("candle_history")
@@ -219,6 +248,8 @@ class MarketState:
 
             # Build notifications (pattern + EMA crossover)
             notifications = []
+            if rsi_notification:
+                notifications.append(rsi_notification)
             _notify = bool(payload.get("notify_patterns", True))
             if _notify:
                 notifications.extend(_pattern_notifications)
@@ -241,6 +272,12 @@ class MarketState:
                             "digits": payload.get("digits", 5),
                         }
                     )
+
+            notifications.extend(
+                self._key_level_notifications(
+                    symbol, timeframe, timeframes, snapshot, payload
+                )
+            )
 
             timeframes[timeframe] = snapshot
             if timeframe in PATTERN_TIMEFRAMES:
@@ -310,14 +347,111 @@ class MarketState:
             symbol = display_symbol(notification.get("symbol", "")).upper()
             timeframe = notification.get("timeframe", "")
             key = self._pattern_key(notification)
+            if notification.get("event_type") == "KEY_LEVEL_REACHED":
+                alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
+                alerts[notification["key_level_key"]] = notification["alert_day"]
+                self._save()
+                return
             snapshot = self.data["symbols"].get(symbol, {}).get(timeframe)
             if not snapshot:
+                return
+            if notification.get("event_type") == "STRONG_RSI":
+                snapshot["rsi_notified_at"] = time.time()
+                self._save()
                 return
             patterns = snapshot.get("retained_patterns", [])
             for pattern in patterns:
                 if self._pattern_key(pattern) == key:
                     pattern["notified"] = True
             self._save()
+
+    @staticmethod
+    def _rsi_cooldown_seconds(timeframe):
+        timeframe = str(timeframe)
+        value = int(timeframe[1:])
+        minutes = value * {"M": 1, "H": 60, "D": 1440}[timeframe[0]]
+        return minutes * 5 * 60
+
+    def _key_level_notifications(self, symbol, timeframe, timeframes, snapshot, payload):
+        if timeframe not in LEVEL_TIMEFRAMES:
+            return []
+
+        levels_by_timeframe = dict(timeframes)
+        levels_by_timeframe[timeframe] = snapshot
+        low = float(payload.get("low"))
+        high = float(payload.get("high"))
+        if timeframe == "D1":
+            low = min(float(payload.get("bid", payload.get("close"))), float(payload.get("ask", payload.get("close"))))
+            high = max(float(payload.get("bid", payload.get("close"))), float(payload.get("ask", payload.get("close"))))
+
+        matches = []
+        for level_timeframe in LEVEL_TIMEFRAMES:
+            levels = levels_by_timeframe.get(level_timeframe, {}).get("levels", {})
+            for label, value, is_zone in self._key_level_values(levels):
+                if value is None:
+                    continue
+                if is_zone:
+                    reached = low <= value[1] and high >= value[0]
+                    level_price = (value[0] + value[1]) / 2
+                else:
+                    reached = low <= value <= high
+                    level_price = value
+                if reached:
+                    matches.append((level_timeframe, label, level_price))
+
+        grouped = {}
+        for level_timeframe, label, level_price in matches:
+            key = f"{level_price:.5f}"
+            grouped.setdefault(key, []).append((level_timeframe, label, level_price))
+
+        today = datetime.now().date().isoformat()
+        alerted = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
+        notifications = []
+        timeframe_rank = {name: index for index, name in enumerate(LEVEL_TIMEFRAMES)}
+        for key, group in grouped.items():
+            if alerted.get(key) == today:
+                continue
+            primary_timeframe, primary_label, level_price = max(
+                group, key=lambda item: timeframe_rank[item[0]]
+            )
+            coincident = sorted({item[0] for item in group if item[0] != primary_timeframe}, key=timeframe_rank.get)
+            notifications.append(
+                {
+                    "event_type": "KEY_LEVEL_REACHED",
+                    "symbol": symbol,
+                    "timeframe": primary_timeframe,
+                    "candle_time": payload.get("candle_time"),
+                    "key_level_key": key,
+                    "key_level_price": level_price,
+                    "key_level_label": primary_label,
+                    "coincident_timeframes": coincident,
+                    "alert_day": today,
+                    "digits": payload.get("digits", 5),
+                }
+            )
+        return notifications
+
+    @staticmethod
+    def _key_level_values(levels):
+        values = (
+            ("Support", levels.get("support"), False),
+            ("Resistance", levels.get("resistance"), False),
+            ("Fib 61.8", levels.get("fib", {}).get("61.8") if isinstance(levels.get("fib"), dict) else None, False),
+            ("Bullish FVG", levels.get("bullish_fvg"), True),
+            ("Bearish FVG", levels.get("bearish_fvg"), True),
+            ("Previous Day High", levels.get("previous_day_high"), False),
+            ("Previous Day Low", levels.get("previous_day_low"), False),
+        )
+        result = []
+        for label, value, is_zone in values:
+            try:
+                if is_zone and isinstance(value, dict):
+                    result.append((label, (float(value["low"]), float(value["high"])), True))
+                elif not is_zone and value is not None:
+                    result.append((label, float(value), False))
+            except (KeyError, TypeError, ValueError):
+                continue
+        return result
 
     @staticmethod
     def _pattern_key(pattern):

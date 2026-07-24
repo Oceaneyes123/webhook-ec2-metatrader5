@@ -480,6 +480,7 @@ string BuildSnapshotPayload(
    double ema50,
    bool hasRsi,
    double rsi14,
+   bool hasLevels,
    const LevelResult &levels
 )
 {
@@ -511,8 +512,9 @@ string BuildSnapshotPayload(
          + ",\"ema50\":" + DoubleToString(ema50, digits);
    else
       payload +=
-         ",\"patterns\":[" + patternsJson + "]"
-         + ",\"levels\":" + BuildLevelsJson(levels, digits);
+         ",\"patterns\":[" + patternsJson + "]";
+   if(hasLevels)
+      payload += ",\"levels\":" + BuildLevelsJson(levels, digits);
    return payload + "}";
 }
 
@@ -531,6 +533,7 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
    ResetLevels(levels);
    string patternsJson = "";
    bool hasEma = index < 2;
+   bool hasLevels = index >= 1;
    double ema20 = 0;
    double ema50 = 0;
    double rsi14 = 0;
@@ -566,8 +569,13 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
          InsideBarBreakoutSignal(candle1, candle2, candle3);
       if(insideBarSignal != "")
          AddPattern(patternsJson, "INSIDE_BAR_BREAKOUT", insideBarSignal);
-      CalculateLevels(timeframe, candle1.close, levels);
    }
+   if(hasLevels)
+      CalculateLevels(
+         timeframe,
+         timeframe == PERIOD_D1 ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : candle1.close,
+         levels
+      );
 
    return SendWebhook(
       BuildSnapshotPayload(
@@ -581,6 +589,7 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
          ema50,
          hasRsi,
          rsi14,
+         hasLevels,
          levels
       )
    );

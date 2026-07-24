@@ -151,11 +151,73 @@ class MarketStateSnapshotTest(unittest.TestCase):
         self.assertIn("2026.06.29 04:30 AM", report)
         self.assertNotIn("23:30:00", report)
 
+    def test_strong_rsi_notification_uses_timeframe_cooldown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            payload = snapshot("M5", "2026.06.28 10:00:00", rsi14=71.0)
+
+            notifications = state.update(payload)
+            self.assertEqual(notifications[0]["event_type"], "STRONG_RSI")
+            state.mark_notified(notifications[0])
+
+            self.assertEqual(state.update({**payload, "candle_time": "2026.06.28 10:05:00"}), [])
+            state.data["symbols"]["GOLD"]["M5"]["rsi_notified_at"] -= 25 * 60
+            self.assertEqual(
+                state.update({**payload, "candle_time": "2026.06.28 10:10:00"})[0]["event_type"],
+                "STRONG_RSI",
+            )
+
+    def test_key_level_notification_prefers_higher_timeframe_and_deduplicates(self):
+        levels = {
+            "support": 2280.0,
+            "resistance": 2340.0,
+            "fib": None,
+            "bullish_fvg": None,
+            "bearish_fvg": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                snapshot(
+                    "M15",
+                    "2026.06.28 10:15:00",
+                    low=2290.0,
+                    high=2310.0,
+                    levels=levels,
+                )
+            )
+            notifications = state.update(
+                snapshot(
+                    "M5",
+                    "2026.06.28 10:20:00",
+                    low=2275.0,
+                    high=2285.0,
+                    levels=levels,
+                )
+            )
+
+            self.assertEqual(len(notifications), 1)
+            self.assertEqual(notifications[0]["timeframe"], "M15")
+            self.assertEqual(notifications[0]["coincident_timeframes"], ["M5"])
+            state.mark_notified(notifications[0])
+            self.assertEqual(
+                state.update(
+                    snapshot(
+                        "M5",
+                        "2026.06.28 10:25:00",
+                        low=2275.0,
+                        high=2285.0,
+                        levels=levels,
+                    )
+                ),
+                [],
+            )
+
     def test_market_state_rejects_snapshot_for_unknown_timeframe(self):
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
             with self.assertRaisesRegex(ValueError, "timeframe"):
-                state.update(snapshot("D1", "2026.06.28 10:00:00"))
+                state.update(snapshot("W1", "2026.06.28 10:00:00"))
 
 
 class MarketStatePatternsTest(unittest.TestCase):

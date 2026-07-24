@@ -328,6 +328,68 @@ class EaErrorTest(unittest.TestCase):
         self.assertEqual(handler.wfile.getvalue(), b"ok")
         update.assert_called_once_with(payload)
 
+    def test_strong_rsi_snapshot_sends_telegram_notification(self):
+        payload = {
+            "event_type": "TIMEFRAME_SNAPSHOT",
+            "symbol": "GOLDmicro",
+            "timeframe": "M5",
+            "candle_time": "2026.06.28 10:01:00",
+            "open": 2300.0,
+            "high": 2310.0,
+            "low": 2290.0,
+            "close": 2305.0,
+            "rsi14": 71.5,
+        }
+        notification = {
+            "event_type": "STRONG_RSI",
+            "symbol": "GOLD",
+            "timeframe": "M5",
+            "candle_time": payload["candle_time"],
+            "rsi14": payload["rsi14"],
+        }
+        with patch.object(webhook.MARKET_STATE, "update", return_value=[notification]), \
+             patch.object(webhook.MARKET_STATE, "mark_notified"), \
+             patch("webhook.telegram_sender.send_telegram_message") as send:
+            handler = make_handler(webhook, "/webhook", json.dumps(payload).encode())
+            handler.do_POST()
+
+        self.assertEqual(handler.wfile.getvalue(), b"ok")
+        message = send.call_args.args[0]
+        self.assertIn("Strong RSI(14)", message)
+        self.assertIn("71.50", message)
+        self.assertIn("Overbought / SELL", message)
+
+    def test_key_level_snapshot_sends_higher_timeframe_notification(self):
+        payload = {
+            "event_type": "TIMEFRAME_SNAPSHOT",
+            "symbol": "GOLDmicro",
+            "timeframe": "M5",
+            "candle_time": "2026.06.28 10:01:00",
+            "open": 2285.0,
+            "high": 2285.0,
+            "low": 2275.0,
+            "close": 2280.0,
+        }
+        notification = {
+            "event_type": "KEY_LEVEL_REACHED",
+            "symbol": "GOLD",
+            "timeframe": "M15",
+            "candle_time": payload["candle_time"],
+            "key_level_price": 2280.0,
+            "key_level_label": "Support",
+            "coincident_timeframes": ["M5"],
+            "digits": 2,
+        }
+        with patch.object(webhook.MARKET_STATE, "update", return_value=[notification]), \
+             patch.object(webhook.MARKET_STATE, "mark_notified"), \
+             patch("webhook.telegram_sender.send_telegram_message") as send:
+            handler = make_handler(webhook, "/webhook", json.dumps(payload).encode())
+            handler.do_POST()
+
+        message = send.call_args.args[0]
+        self.assertIn("M15 Support", message)
+        self.assertIn("Also coincides with M5 timeframe key level.", message)
+
 
 # ── Trade state / config ──────────────────────────────────────────────
 

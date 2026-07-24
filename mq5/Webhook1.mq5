@@ -19,7 +19,7 @@ input int AtrPeriod = 14;
 input double MinFvgAtrRatio = 0.25;
 input int HeartbeatSeconds = 30;
 
-#define TF_COUNT 6
+#define TF_COUNT 7
 
 ENUM_TIMEFRAMES Timeframes[TF_COUNT] =
 {
@@ -28,7 +28,8 @@ ENUM_TIMEFRAMES Timeframes[TF_COUNT] =
    PERIOD_M15,
    PERIOD_M30,
    PERIOD_H1,
-   PERIOD_H4
+   PERIOD_H4,
+   PERIOD_D1
 };
 
 datetime lastBarTimes[TF_COUNT];

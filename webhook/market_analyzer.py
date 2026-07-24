@@ -9,6 +9,7 @@ import html
 from .json_data_parser import SUPPORTED_EVENTS, display_symbol, display_time
 from .market_state import (
     EMA_TIMEFRAMES,
+    LEVEL_TIMEFRAMES,
     PATTERN_TIMEFRAMES,
     RSI_LOOKBACKS,
     RSI_TIMEFRAMES,
@@ -171,7 +172,7 @@ class MarketAnalyzer:
 
             lines = [f"🧭 <b>{html.escape(symbol)} Key Levels</b>"]
             previous_day = None
-            for timeframe in PATTERN_TIMEFRAMES:
+            for timeframe in LEVEL_TIMEFRAMES:
                 snapshot = timeframes.get(timeframe)
                 lines.append(f"\n<b>{timeframe}</b>")
                 if not snapshot:
