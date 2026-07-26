@@ -23,7 +23,7 @@ def trade_state_path():
 
 def normalize_trade_mode(value):
     mode = str(value or "").strip().upper()
-    return mode if mode in {"BUY", "SELL", "NOTRADE"} else "NOTRADE"
+    return mode if mode in {"AUTO", "BUY", "SELL", "NOTRADE"} else "NOTRADE"
 
 
 def normalize_trade_symbol(value):

@@ -20,6 +20,9 @@ input int TradeConfigMaxStaleSeconds = 30;
 input int AccountReconcileSeconds = 60;
 input string AccountActionSecret = "";
 input double GoldPipSize = 0.1;
+input int KeyLevelLookbackBars = 100;
+input int KeyLevelSwingStrength = 2;
+input double KeyLevelProtectionPips = 50;
 
 #define TRADE_TF_COUNT 3
 
@@ -48,11 +51,14 @@ int OnInit()
       || HeartbeatSeconds < 10
       || HeartbeatSeconds < TradeManageIntervalSeconds
       || TradeConfigRefreshSeconds < 1
-      || TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds)
+      || TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds
+      || KeyLevelLookbackBars < 10
+      || KeyLevelSwingStrength < 1
+      || KeyLevelProtectionPips < 0)
    {
       Print("Invalid Webhook2 inputs.");
       SendEaIssue("Invalid Webhook2 inputs",
-         "TradeManageIntervalSeconds/ManualCloseCooldownMinutes/HeartbeatSeconds/TradeConfigRefreshSeconds/TradeConfigMaxStaleSeconds");
+         "Trade timing, config cache, or key-level inputs");
       return INIT_PARAMETERS_INCORRECT;
    }
 

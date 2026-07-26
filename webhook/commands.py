@@ -106,6 +106,20 @@ def _cmd_sell(command, symbol):
     )
 
 
+@register_command("/auto")
+def _cmd_auto(command, symbol):
+    if not symbol:
+        return "Usage: /auto Gold"
+    set_trade_mode("AUTO", symbol)
+    config = trade_config(symbol)
+    return (
+        f"🤖 AUTO mode enabled for {symbol}\n"
+        f"Lot: {config['lot_size']}\n"
+        f"Will place only the BUY or SELL limit with full confluence, and cancels "
+        "that limit within 50 pips of opposing support/resistance."
+    )
+
+
 @register_command("/notrade")
 def _cmd_notrade(command, symbol):
     set_trade_mode("NOTRADE", symbol)

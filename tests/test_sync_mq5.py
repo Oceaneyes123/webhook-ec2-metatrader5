@@ -208,6 +208,30 @@ class EaContentTest(unittest.TestCase):
         self.assertNotIn("Refreshed trade config", manager)
         self.assertIn("stale-but-allowed fallback", manager)
 
+    def test_auto_mode_uses_confluence_and_cancels_near_opposing_levels(self):
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("input double KeyLevelProtectionPips = 50;", ea)
+        self.assertIn('config.mode == "AUTO"', manager)
+        self.assertIn("IsNearOpposingKeyLevel", manager)
+        self.assertIn(
+            "{PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}", manager
+        )
+        self.assertNotIn(
+            "{PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}",
+            manager,
+        )
+        self.assertIn('IsNearOpposingKeyLevel("BUY"', manager)
+        self.assertIn('IsNearOpposingKeyLevel("SELL"', manager)
+        self.assertIn(
+            "KeyLevelProtectionPips * AccountPipSize(_Symbol)", manager
+        )
+        self.assertIn("DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);", manager)
+        self.assertIn("DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);", manager)
+
     def test_webhook_common_has_send_ea_heartbeat(self):
         common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
             encoding="utf-8"

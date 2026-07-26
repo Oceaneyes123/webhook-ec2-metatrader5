@@ -158,6 +158,7 @@ def help_text():
             "/buy Gold - Start buy-limit mode for one symbol",
             "/sell - Start trailing sell-limit mode",
             "/sell Gold - Start sell-limit mode for one symbol",
+            "/auto Gold - Automatically trade the fully confirmed direction",
             "/notrade - Stop trading activity",
             "/notrade Gold - Stop trading for one symbol",
         ]

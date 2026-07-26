@@ -445,6 +445,11 @@ class TradeStateTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(webhook.trade_config()["lot_size"], 0.1)
 
+    def test_auto_requires_a_symbol_and_sets_auto_mode(self):
+        self.assertEqual(webhook.command_reply("/auto"), "Usage: /auto Gold")
+        self.assertIn("AUTO mode enabled for GOLD", webhook.command_reply("/auto Gold"))
+        self.assertEqual(webhook.trade_config("Gold")["mode"], "AUTO")
+
     def test_missing_trade_state_uses_defaults(self):
         self.assertEqual(
             webhook.load_trade_state(),
