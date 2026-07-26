@@ -4,7 +4,9 @@ import json
 import threading
 import time
 import urllib.parse
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from zoneinfo import ZoneInfo
 
 from .app_logger import get_logger
 from .commands import is_telegram_update
@@ -17,6 +19,22 @@ from .trade_state import trade_config
 from .account import STORE, due_reports, report_text
 
 logger = get_logger()
+VWAP_REPORT_HOURS = {8, 12, 16, 20}
+PHILIPPINE_TIME = ZoneInfo("Asia/Manila")
+
+
+def vwap_report_window(now=None):
+    now = (now or datetime.now(PHILIPPINE_TIME)).astimezone(PHILIPPINE_TIME)
+    if now.hour not in VWAP_REPORT_HOURS or now.minute != 0:
+        return None
+    return now.strftime("%Y-%m-%dT%H:%M")
+
+
+def vwap_report_text():
+    from .state import MARKET_ANALYZER, MARKET_STATE
+    with MARKET_STATE.lock:
+        symbols = sorted(MARKET_STATE.data["symbols"])
+    return "\n\n".join(MARKET_ANALYZER.vwap(symbol) for symbol in symbols)
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
@@ -130,6 +148,21 @@ def main():
     logger.info("Starting webhook server host=%s port=%s public_url=%s", host, port, public_url)
     start_telegram_polling()
     start_heartbeat_monitor()
+    def vwap_reports():
+        last_window = None
+        while True:
+            window = vwap_report_window()
+            if window and window != last_window:
+                text = vwap_report_text()
+                if text:
+                    from .telegram_sender import send_telegram_message
+                    try:
+                        send_telegram_message(text)
+                    except Exception:
+                        logger.exception("VWAP report delivery failed window=%s", window)
+                    else:
+                        last_window = window
+            time.sleep(30)
     def reports():
         while True:
             for name, start, end in due_reports(store=STORE):
@@ -144,6 +177,7 @@ def main():
                         STORE.report_sent(window)
             time.sleep(30)
     threading.Thread(target=reports, daemon=True).start()
+    threading.Thread(target=vwap_reports, daemon=True).start()
     print(f"Listening on {public_url}")
     ThreadingHTTPServer((host, port), WebhookHandler).serve_forever()
 

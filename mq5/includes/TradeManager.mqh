@@ -231,7 +231,7 @@ bool FetchTradeConfig(TradeConfig &config)
    if(fetched)
    {
       config.mode = JsonStringValue(body, "mode", "NOTRADE");
-      config.lotSize = JsonDoubleValue(body, "lot_size", 0.2);
+      config.lotSize = JsonDoubleValue(body, "lot_size", 0.1);
       config.trailPips = JsonDoubleValue(body, "trail_pips", 20.0);
       if(config.lotSize <= 0 || config.trailPips < 0)
       {
@@ -514,6 +514,23 @@ bool HasAnyPositionForSymbol()
    return false;
 }
 
+string ManualCloseCooldownKey()
+{
+   return "Webhook2ManualClose:" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN))
+      + ":" + _Symbol + ":" + IntegerToString(TradeMagicNumber);
+}
+
+void StartManualCloseCooldown()
+{
+   GlobalVariableSet(ManualCloseCooldownKey(), (double)(TimeCurrent() + ManualCloseCooldownMinutes * 60));
+}
+
+bool ManualCloseCooldownActive()
+{
+   double until = 0;
+   return GlobalVariableGet(ManualCloseCooldownKey(), until) && until > TimeCurrent();
+}
+
 void DeletePendingOrders(ENUM_ORDER_TYPE type)
 {
    for(int index = OrdersTotal() - 1; index >= 0; index--)
@@ -605,6 +622,13 @@ void ManageTrading()
    }
 
    trade.SetExpertMagicNumber(TradeMagicNumber);
+   if(ManualCloseCooldownActive())
+   {
+      SendEntryDecision(config.mode, "FAIL", "Manual close cooldown active");
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      return;
+   }
    if(HasOpenPositionForSymbol())
    {
       SendEntryDecision(config.mode, "FAIL", "Existing position already open");

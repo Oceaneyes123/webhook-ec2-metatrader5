@@ -105,7 +105,7 @@ def set_trade_mode(mode, symbol=None):
 def trade_config(symbol=None):
     return {
         "mode": get_trade_mode(symbol),
-        "lot_size": float(os.environ.get("TRADE_LOT_SIZE", "0.2")),
+        "lot_size": float(os.environ.get("TRADE_LOT_SIZE", "0.1")),
         "trail_pips": float(os.environ.get("TRAIL_PIPS", "20")),
     }
 

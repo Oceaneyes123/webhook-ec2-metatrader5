@@ -125,7 +125,7 @@ def _cmd_recent(command, symbol):
     return f"Recent {symbol} signals:\n" + "\n".join(lines)
 
 
-@register_command("/summary", "/levels", "/rsi")
+@register_command("/summary", "/levels", "/rsi", "/vwap")
 def _cmd_market_command(command, symbol):
     if not symbol:
         return f"Usage: {command} Gold"
@@ -133,6 +133,8 @@ def _cmd_market_command(command, symbol):
         return _state.MARKET_ANALYZER.summary(symbol)
     if command == "/levels":
         return _state.MARKET_ANALYZER.levels(symbol)
+    if command == "/vwap":
+        return _state.MARKET_ANALYZER.vwap(symbol)
     return _state.MARKET_ANALYZER.rsi_summary(symbol)
 
 

@@ -371,7 +371,7 @@ class EaErrorTest(unittest.TestCase):
             "close": 2280.0,
         }
         notification = {
-            "event_type": "KEY_LEVEL_REACHED",
+            "event_type": "KEY_LEVEL_REJECTION_UP",
             "symbol": "GOLD",
             "timeframe": "M15",
             "candle_time": payload["candle_time"],
@@ -387,6 +387,7 @@ class EaErrorTest(unittest.TestCase):
             handler.do_POST()
 
         message = send.call_args.args[0]
+        self.assertIn("Key Level Rejection Up", message)
         self.assertIn("M15 Support", message)
         self.assertIn("Also coincides with M5 timeframe key level.", message)
 
@@ -439,6 +440,10 @@ class TradeStateTest(unittest.TestCase):
                 "Trading paused", webhook.command_reply("/notrade")
             )
             self.assertEqual(webhook.trade_config()["mode"], "NOTRADE")
+
+    def test_trade_config_defaults_to_010_lot(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(webhook.trade_config()["lot_size"], 0.1)
 
     def test_missing_trade_state_uses_defaults(self):
         self.assertEqual(

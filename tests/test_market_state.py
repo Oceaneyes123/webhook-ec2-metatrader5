@@ -167,7 +167,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
                 "STRONG_RSI",
             )
 
-    def test_key_level_notification_prefers_higher_timeframe_and_deduplicates(self):
+    def test_key_level_notification_prefers_higher_timeframe_and_rearms_after_exit(self):
         levels = {
             "support": 2280.0,
             "resistance": 2340.0,
@@ -181,6 +181,8 @@ class MarketStateSnapshotTest(unittest.TestCase):
                 snapshot(
                     "M15",
                     "2026.06.28 10:15:00",
+                    open=2300.0,
+                    close=2305.0,
                     low=2290.0,
                     high=2310.0,
                     levels=levels,
@@ -190,6 +192,8 @@ class MarketStateSnapshotTest(unittest.TestCase):
                 snapshot(
                     "M5",
                     "2026.06.28 10:20:00",
+                    open=2285.0,
+                    close=2282.0,
                     low=2275.0,
                     high=2285.0,
                     levels=levels,
@@ -197,6 +201,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
             )
 
             self.assertEqual(len(notifications), 1)
+            self.assertEqual(notifications[0]["event_type"], "KEY_LEVEL_REJECTION_UP")
             self.assertEqual(notifications[0]["timeframe"], "M15")
             self.assertEqual(notifications[0]["coincident_timeframes"], ["M5"])
             state.mark_notified(notifications[0])
@@ -205,6 +210,8 @@ class MarketStateSnapshotTest(unittest.TestCase):
                     snapshot(
                         "M5",
                         "2026.06.28 10:25:00",
+                        open=2285.0,
+                        close=2282.0,
                         low=2275.0,
                         high=2285.0,
                         levels=levels,
@@ -212,6 +219,22 @@ class MarketStateSnapshotTest(unittest.TestCase):
                 ),
                 [],
             )
+            state.update(snapshot("M5", "2026.06.28 10:30:00", low=2290.0, high=2300.0, levels=levels))
+            state.data["key_level_alerts"]["GOLD"]["2280.00000"]["events"]["KEY_LEVEL_REJECTION_UP"] -= 75 * 60
+            notifications = state.update(
+                snapshot("M5", "2026.06.28 10:35:00", open=2285.0, high=2287.0, low=2270.0, close=2282.0, levels=levels)
+            )
+            self.assertEqual(notifications[0]["event_type"], "KEY_LEVEL_REJECTION_UP")
+
+    def test_key_level_break_notifies_separately_after_rejection(self):
+        levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            rejection = state.update(snapshot("M5", "2026.06.28 10:00:00", open=2285.0, high=2287.0, low=2278.0, close=2282.0, levels=levels))[0]
+            state.mark_notified(rejection)
+            state.update(snapshot("M5", "2026.06.28 10:05:00", low=2290.0, high=2300.0, levels=levels))
+            broke = state.update(snapshot("M5", "2026.06.28 10:10:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels=levels))
+        self.assertEqual(broke[0]["event_type"], "KEY_LEVEL_BREAK_DOWN")
 
     def test_market_state_rejects_snapshot_for_unknown_timeframe(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -120,8 +120,9 @@ def key_level_message(payload):
         price = f"{float(payload.get('key_level_price')):.{int(payload.get('digits', 5))}f}"
     except (TypeError, ValueError):
         price = html.escape(str(payload.get("key_level_price", "?")))
+    outcome = str(payload.get("event_type", "KEY_LEVEL_REACHED")).replace("KEY_LEVEL_", "").replace("_", " ").title()
     lines = [
-        "📍 <b>Key Level Reached</b>",
+        f"📍 <b>Key Level {outcome}</b>",
         f"Symbol: {symbol}",
         f"Primary: <b>{timeframe} {label}</b>",
         f"Price: <code>{price}</code>",
@@ -149,6 +150,7 @@ def help_text():
             "/summary Gold - Multi-timeframe market summary",
             "/levels Gold - M15-H4 key levels",
             "/rsi Gold - RSI(14) 70/30 extremes",
+            "/vwap Gold - Current price above or below session VWAP",
             "/price Gold - Latest MetaTrader bid, ask, and daily range",
             "/market Gold - M5 EMA trend and trading session",
             "/why Gold - Latest Webhook2 entry decision",

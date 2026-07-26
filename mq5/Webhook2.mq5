@@ -11,6 +11,7 @@ input string WebhookUrl = "http://127.0.0.1:8000/webhook";
 input int WebRequestTimeoutMs = 5000;
 input bool PrintDebugLogs = true;
 input long TradeMagicNumber = 260628;
+input int ManualCloseCooldownMinutes = 15;
 input int EaIssueRepeatSeconds = 60;
 input int TradeManageIntervalSeconds = 1;
 input int HeartbeatSeconds = 30;
@@ -43,6 +44,7 @@ datetime lastAccountReconcileTime = 0;
 int OnInit()
 {
    if(TradeManageIntervalSeconds < 1
+      || ManualCloseCooldownMinutes < 0
       || HeartbeatSeconds < 10
       || HeartbeatSeconds < TradeManageIntervalSeconds
       || TradeConfigRefreshSeconds < 1
@@ -50,7 +52,7 @@ int OnInit()
    {
       Print("Invalid Webhook2 inputs.");
       SendEaIssue("Invalid Webhook2 inputs",
-         "TradeManageIntervalSeconds/HeartbeatSeconds/TradeConfigRefreshSeconds/TradeConfigMaxStaleSeconds");
+         "TradeManageIntervalSeconds/ManualCloseCooldownMinutes/HeartbeatSeconds/TradeConfigRefreshSeconds/TradeConfigMaxStaleSeconds");
       return INIT_PARAMETERS_INCORRECT;
    }
 
@@ -204,6 +206,8 @@ void OnTradeTransaction(
          bool partial = PositionIdentifierStillOpen(position);
          eventKind = partial ? (reason == "DEAL_REASON_CLIENT" ? "MANUAL_PARTIAL_CLOSE" : "PARTIAL_CLOSE")
             : reason == "DEAL_REASON_SL" ? "STOP_LOSS_HIT" : reason == "DEAL_REASON_TP" ? "TAKE_PROFIT_HIT" : reason == "DEAL_REASON_CLIENT" ? "MANUAL_CLOSE" : "POSITION_CLOSED";
+         if(eventKind == "MANUAL_CLOSE" && magic == TradeMagicNumber)
+            StartManualCloseCooldown();
       }
    }
    if(transaction.type == TRADE_TRANSACTION_POSITION)

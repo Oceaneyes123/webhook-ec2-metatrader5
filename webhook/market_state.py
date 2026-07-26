@@ -170,6 +170,7 @@ class MarketState:
                 "daily_open": payload.get("daily_open"),
                 "daily_high": payload.get("daily_high"),
                 "daily_low": payload.get("daily_low"),
+                "vwap": payload.get("vwap"),
                 "rsi_notified_at": prev_rsi_notified_at,
                 "received_at": time.time(),
             }
@@ -347,9 +348,14 @@ class MarketState:
             symbol = display_symbol(notification.get("symbol", "")).upper()
             timeframe = notification.get("timeframe", "")
             key = self._pattern_key(notification)
-            if notification.get("event_type") == "KEY_LEVEL_REACHED":
+            if notification.get("event_type", "").startswith("KEY_LEVEL_"):
                 alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
-                alerts[notification["key_level_key"]] = notification["alert_day"]
+                state = alerts.get(notification["key_level_key"], {})
+                if not isinstance(state, dict):
+                    state = {}
+                state["armed"] = False
+                state.setdefault("events", {})[notification["event_type"]] = time.time()
+                alerts[notification["key_level_key"]] = state
                 self._save()
                 return
             snapshot = self.data["symbols"].get(symbol, {}).get(timeframe)
@@ -390,34 +396,35 @@ class MarketState:
             for label, value, is_zone in self._key_level_values(levels):
                 if value is None:
                     continue
-                if is_zone:
-                    reached = low <= value[1] and high >= value[0]
-                    level_price = (value[0] + value[1]) / 2
-                else:
-                    reached = low <= value <= high
-                    level_price = value
-                if reached:
-                    matches.append((level_timeframe, label, level_price))
+                level_price = (value[0] + value[1]) / 2 if is_zone else value
+                key = f"{level_price:.5f}"
+                event_type = self._key_level_event(payload, value, is_zone)
+                alert_state = self._key_level_alert_state(symbol, key)
+                if event_type is None:
+                    if not self._key_level_touched(low, high, value, is_zone):
+                        alert_state["armed"] = True
+                    continue
+                matches.append((key, event_type, level_timeframe, label, level_price, alert_state))
 
         grouped = {}
-        for level_timeframe, label, level_price in matches:
-            key = f"{level_price:.5f}"
-            grouped.setdefault(key, []).append((level_timeframe, label, level_price))
+        for key, event_type, level_timeframe, label, level_price, alert_state in matches:
+            grouped.setdefault((key, event_type), []).append((level_timeframe, label, level_price, alert_state))
 
-        today = datetime.now().date().isoformat()
-        alerted = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
         notifications = []
         timeframe_rank = {name: index for index, name in enumerate(LEVEL_TIMEFRAMES)}
-        for key, group in grouped.items():
-            if alerted.get(key) == today:
-                continue
-            primary_timeframe, primary_label, level_price = max(
+        for (key, event_type), group in grouped.items():
+            primary_timeframe, primary_label, level_price, alert_state = max(
                 group, key=lambda item: timeframe_rank[item[0]]
             )
+            cooldown = self._rsi_cooldown_seconds(primary_timeframe)
+            last_alert_at = float(alert_state.get("events", {}).get(event_type, 0))
+            if not alert_state.get("armed", True) or time.time() - last_alert_at < cooldown:
+                alert_state["armed"] = False
+                continue
             coincident = sorted({item[0] for item in group if item[0] != primary_timeframe}, key=timeframe_rank.get)
             notifications.append(
                 {
-                    "event_type": "KEY_LEVEL_REACHED",
+                    "event_type": event_type,
                     "symbol": symbol,
                     "timeframe": primary_timeframe,
                     "candle_time": payload.get("candle_time"),
@@ -425,11 +432,51 @@ class MarketState:
                     "key_level_price": level_price,
                     "key_level_label": primary_label,
                     "coincident_timeframes": coincident,
-                    "alert_day": today,
                     "digits": payload.get("digits", 5),
                 }
             )
         return notifications
+
+    def _key_level_alert_state(self, symbol, key):
+        alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
+        state = alerts.get(key)
+        if not isinstance(state, dict):
+            state = {"armed": True, "events": {}}
+            alerts[key] = state
+        state.setdefault("armed", True)
+        state.setdefault("events", {})
+        return state
+
+    @staticmethod
+    def _key_level_touched(low, high, value, is_zone):
+        return low <= value[1] and high >= value[0] if is_zone else low <= value <= high
+
+    @staticmethod
+    def _key_level_event(payload, value, is_zone):
+        open_price = float(payload.get("open"))
+        close = float(payload.get("close"))
+        low = float(payload.get("low"))
+        high = float(payload.get("high"))
+        if is_zone:
+            lower, upper = value
+            if open_price >= upper and close < lower:
+                return "KEY_LEVEL_BREAK_DOWN"
+            if open_price <= lower and close > upper:
+                return "KEY_LEVEL_BREAK_UP"
+            if open_price > upper and close > upper and low <= upper:
+                return "KEY_LEVEL_REJECTION_UP"
+            if open_price < lower and close < lower and high >= lower:
+                return "KEY_LEVEL_REJECTION_DOWN"
+            return None
+        if open_price < value < close:
+            return "KEY_LEVEL_BREAK_UP"
+        if open_price > value > close:
+            return "KEY_LEVEL_BREAK_DOWN"
+        if open_price > value and close > value and low <= value:
+            return "KEY_LEVEL_REJECTION_UP"
+        if open_price < value and close < value and high >= value:
+            return "KEY_LEVEL_REJECTION_DOWN"
+        return None
 
     @staticmethod
     def _key_level_values(levels):

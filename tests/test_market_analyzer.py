@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from webhook import market_analyzer, market_state
+from webhook.server import vwap_report_window
 from tests.test_helpers import snapshot
 
 
@@ -110,6 +113,29 @@ class MarketAnalyzerHtmlEscapeTest(unittest.TestCase):
             report = market_analyzer.MarketAnalyzer(state).summary("X<Y")
         self.assertIn("X&lt;Y", report)
         self.assertNotIn("X<Y", report)
+
+
+class MarketAnalyzerVwapTest(unittest.TestCase):
+    def test_vwap_reports_current_price_relation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(
+                snapshot(
+                    "M1", "2026.06.28 12:01:00", bid=2306.0, ask=2308.0, vwap=2305.0
+                )
+            )
+            report = market_analyzer.MarketAnalyzer(state).vwap("Gold")
+        self.assertIn("Price: <code>2307.00</code>", report)
+        self.assertIn("VWAP: <code>2305.00</code>", report)
+        self.assertIn("<b>Above VWAP</b>", report)
+
+    def test_vwap_schedule_uses_four_philippine_time_windows(self):
+        ph = ZoneInfo("Asia/Manila")
+        self.assertEqual(
+            vwap_report_window(datetime(2026, 6, 28, 8, 0, tzinfo=ph)),
+            "2026-06-28T08:00",
+        )
+        self.assertIsNone(vwap_report_window(datetime(2026, 6, 28, 9, 0, tzinfo=ph)))
 
 
 if __name__ == "__main__":

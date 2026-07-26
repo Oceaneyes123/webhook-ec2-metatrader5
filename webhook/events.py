@@ -160,7 +160,7 @@ def _handle_tf_snapshot(payload, server):
         for notification in notifications:
             message = (
                 key_level_message(notification)
-                if notification.get("event_type") == "KEY_LEVEL_REACHED"
+                if notification.get("event_type", "").startswith("KEY_LEVEL_")
                 else strong_rsi_message(notification)
                 if notification.get("event_type") == "STRONG_RSI"
                 else candle_alert_message(notification)

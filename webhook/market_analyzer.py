@@ -159,6 +159,35 @@ class MarketAnalyzer:
                     )
             return "\n".join(lines)
 
+    def vwap(self, symbol):
+        symbol = display_symbol(symbol).upper()
+        with self.state.lock:
+            timeframes = self.state.data["symbols"].get(symbol)
+            if not timeframes:
+                return f"<b>{html.escape(symbol)}</b>\nAwaiting VWAP data"
+            snapshot = next(
+                (
+                    timeframes[timeframe]
+                    for timeframe in ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
+                    if timeframes.get(timeframe, {}).get("vwap") is not None
+                ),
+                None,
+            )
+            if not snapshot:
+                return f"<b>{html.escape(symbol)}</b>\nAwaiting VWAP data"
+            bid, ask = snapshot.get("bid"), snapshot.get("ask")
+            if bid is None or ask is None:
+                return f"<b>{html.escape(symbol)}</b>\nAwaiting current price"
+            price = (float(bid) + float(ask)) / 2
+            vwap = float(snapshot["vwap"])
+            relation = "Above" if price > vwap else "Below" if price < vwap else "At"
+            return (
+                f"📊 <b>{html.escape(symbol)} VWAP</b>\n"
+                f"Price: <code>{_price(price, snapshot)}</code>\n"
+                f"VWAP: <code>{_price(vwap, snapshot)}</code>\n"
+                f"<b>{relation} VWAP</b>"
+            )
+
     # ------------------------------------------------------------------
     # Key levels report
     # ------------------------------------------------------------------

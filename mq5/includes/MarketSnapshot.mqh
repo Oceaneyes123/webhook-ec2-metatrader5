@@ -469,6 +469,30 @@ string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits)
    return "[" + candles + "]";
 }
 
+bool SessionVwap(double &vwap)
+{
+   datetime sessionStart = iTime(_Symbol, PERIOD_D1, 0);
+   if(sessionStart <= 0)
+      return false;
+
+   MqlRates rates[];
+   int copied = CopyRates(_Symbol, PERIOD_M1, sessionStart, TimeCurrent(), rates);
+   double weightedPrice = 0;
+   long volume = 0;
+   for(int index = 0; index < copied; index++)
+   {
+      if(rates[index].tick_volume <= 0)
+         continue;
+      weightedPrice += (rates[index].high + rates[index].low + rates[index].close)
+         / 3.0 * rates[index].tick_volume;
+      volume += rates[index].tick_volume;
+   }
+   if(volume <= 0)
+      return false;
+   vwap = weightedPrice / volume;
+   return true;
+}
+
 string BuildSnapshotPayload(
    ENUM_TIMEFRAMES timeframe,
    datetime candleTime,
@@ -481,7 +505,9 @@ string BuildSnapshotPayload(
    bool hasRsi,
    double rsi14,
    bool hasLevels,
-   const LevelResult &levels
+   const LevelResult &levels,
+   bool hasVwap,
+   double vwap
 )
 {
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
@@ -515,6 +541,8 @@ string BuildSnapshotPayload(
          ",\"patterns\":[" + patternsJson + "]";
    if(hasLevels)
       payload += ",\"levels\":" + BuildLevelsJson(levels, digits);
+   if(hasVwap)
+      payload += ",\"vwap\":" + DoubleToString(vwap, digits);
    return payload + "}";
 }
 
@@ -537,7 +565,9 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
    double ema20 = 0;
    double ema50 = 0;
    double rsi14 = 0;
+   double vwap = 0;
    bool hasRsi = ReadRsiValue(index, rsi14);
+   bool hasVwap = SessionVwap(vwap);
 
    if(hasEma)
    {
@@ -590,7 +620,9 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
          hasRsi,
          rsi14,
          hasLevels,
-         levels
+         levels,
+         hasVwap,
+         vwap
       )
    );
 }

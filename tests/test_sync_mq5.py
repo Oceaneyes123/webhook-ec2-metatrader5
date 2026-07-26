@@ -278,6 +278,9 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("event_time_offset_seconds", ea)
         self.assertIn("entryPrice", ea)
         self.assertIn("exitPrice", ea)
+        self.assertIn("input int ManualCloseCooldownMinutes = 15;", ea)
+        self.assertIn("StartManualCloseCooldown();", ea)
+        self.assertIn("DEAL_REASON_CLIENT", ea)
         self.assertNotIn("TRADE_TRANSACTION_REQUEST", ea)
         self.assertNotIn("TRADE_TRANSACTION_ORDER_ADD", ea)
         self.assertNotIn("TRADE_TRANSACTION_ORDER_UPDATE", ea)
@@ -295,6 +298,8 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("broker stop/freeze level", manager)
         self.assertIn("M1 EMA20 is not above EMA50", manager)
         self.assertIn("M5 closed candle is not above EMA20", manager)
+        self.assertIn("ManualCloseCooldownActive", manager)
+        self.assertIn("Manual close cooldown active", manager)
 
 
 if __name__ == "__main__":
