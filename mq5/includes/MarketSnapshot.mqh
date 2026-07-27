@@ -439,7 +439,7 @@ string BuildLevelsJson(const LevelResult &levels, int digits)
       ) + "}";
 }
 
-string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits)
+string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits, int rsiHandle)
 {
    string candles = "";
    for(int shift = ChartHistoryBars; shift >= 1; shift--)
@@ -459,12 +459,17 @@ string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits)
          continue;
       if(candles != "")
          candles += ",";
+      double rsiBuffer[1];
+      bool hasRsi = CopyBuffer(rsiHandle, 0, shift, 1, rsiBuffer) == 1
+         && rsiBuffer[0] != EMPTY_VALUE;
       candles +=
          "{\"time\":\"" + JsonEscape(DateTimeToText(candleTime)) + "\""
          + ",\"open\":" + DoubleToString(open, digits)
          + ",\"high\":" + DoubleToString(high, digits)
          + ",\"low\":" + DoubleToString(low, digits)
-         + ",\"close\":" + DoubleToString(close, digits) + "}";
+         + ",\"close\":" + DoubleToString(close, digits)
+         + (hasRsi ? ",\"rsi14\":" + DoubleToString(rsiBuffer[0], 2) : "")
+         + "}";
    }
    return "[" + candles + "]";
 }
@@ -507,7 +512,8 @@ string BuildSnapshotPayload(
    bool hasLevels,
    const LevelResult &levels,
    bool hasVwap,
-   double vwap
+   double vwap,
+   int rsiHandle
 )
 {
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
@@ -528,7 +534,7 @@ string BuildSnapshotPayload(
       + ",\"daily_low\":" + DoubleToString(iLow(_Symbol, PERIOD_D1, 0), digits)
       + ",\"digits\":" + IntegerToString(digits)
       + ",\"notify_patterns\":" + (notifyPatterns ? "true" : "false")
-      + ",\"candles\":" + BuildCandlesJson(timeframe, digits);
+      + ",\"candles\":" + BuildCandlesJson(timeframe, digits, rsiHandle);
 
    if(hasRsi)
       payload += ",\"rsi14\":" + DoubleToString(rsi14, 2);
@@ -622,7 +628,8 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
          hasLevels,
          levels,
          hasVwap,
-         vwap
+         vwap,
+         rsiHandles[index]
       )
    );
 }

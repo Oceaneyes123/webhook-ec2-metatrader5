@@ -112,6 +112,26 @@ def strong_rsi_message(payload):
     )
 
 
+def divergence_message(payload):
+    symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
+    timeframe = str(payload.get("timeframe", "")).upper() or "?"
+    kind = "Regular (reversal)" if "REGULAR" in payload.get("event_type", "") else "Hidden (continuation)"
+    side = "Bullish / BUY" if payload.get("signal") == "BUY" else "Bearish / SELL"
+    digits = int(payload.get("digits", 5))
+    lines = [
+        f"↔️ <b>{kind} Divergence</b>",
+        f"Symbol: {symbol}",
+        f"Timeframe: <b>{timeframe}</b>",
+        f"Signal: <b>{side}</b>",
+        f"Price / RSI(14): <code>{float(payload['price']):.{digits}f}</code> / <code>{float(payload['rsi14']):.2f}</code>",
+    ]
+    level = payload.get("nearest_key_level")
+    if level:
+        lines.append(f"Nearest M30–D1 key level: <b>{html.escape(level['timeframe'])} {html.escape(level['label'])}</b> <code>{float(level['price']):.{digits}f}</code>")
+    lines.append(f"🕒 {html.escape(display_time(payload.get('candle_time')) or '?')} PHT")
+    return "\n".join(lines)
+
+
 def key_level_message(payload):
     symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
     timeframe = str(payload.get("timeframe", "")).upper() or "?"

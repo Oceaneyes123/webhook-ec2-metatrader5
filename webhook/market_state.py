@@ -28,6 +28,7 @@ RSI_LOOKBACKS = {"M1": 60, "M5": 36, "M15": 24, "M30": 16, "H1": 12, "H4": 8, "D
 RSI_STRONG_LOW = 30
 RSI_STRONG_HIGH = 70
 CHART_CANDLE_LOOKBACK = 60  # candles in levels chart
+DIVERGENCE_HISTORY = 200
 
 # Default path used when none is supplied.
 DEFAULT_PATH = Path("market_state.json")
@@ -91,7 +92,7 @@ class MarketState:
     def __init__(self, path=None):
         self.path = Path(path) if path else DEFAULT_PATH
         self.lock = threading.RLock()
-        self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}}
+        self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}, "divergence_alerts": {}}
         self._load()
 
     # ------------------------------------------------------------------
@@ -106,8 +107,9 @@ class MarketState:
                 self.data = {"symbols": {}}
             self.data.setdefault("key_level_alerts", {})
             self.data.setdefault("market_structure", {})
+            self.data.setdefault("divergence_alerts", {})
         except (FileNotFoundError, json.JSONDecodeError, ValueError):
-            self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}}
+            self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}, "divergence_alerts": {}}
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -150,7 +152,6 @@ class MarketState:
             timeframes = self.data["symbols"][symbol]
             snapshot = timeframes.get(timeframe, {})
             prev_ema_bias = snapshot.get("ema_bias")
-            prev_rsi_history = snapshot.get("rsi_history", [])
             prev_rsi_notified_at = snapshot.get("rsi_notified_at", 0)
 
             # Build snapshot from payload
@@ -192,18 +193,6 @@ class MarketState:
             rsi = payload.get("rsi14")
             if rsi is not None:
                 snapshot["rsi14"] = rsi
-                history = list(prev_rsi_history)
-                history.append(
-                    {
-                        "candle_time": payload.get("candle_time"),
-                        "rsi14": rsi,
-                    }
-                )
-                # Cap RSI history to the largest lookback needed
-                max_rsi = max(RSI_LOOKBACKS.values())
-                history = history[-max_rsi:]
-                snapshot["rsi_history"] = history
-
                 try:
                     rsi = float(rsi)
                     cooldown = self._rsi_cooldown_seconds(timeframe)
@@ -226,9 +215,21 @@ class MarketState:
                     rsi_notification = None
 
             # Candle history
-            candle_history = payload.get("candle_history")
+            candle_history = payload.get("candle_history", payload.get("candles"))
             if candle_history and isinstance(candle_history, list):
-                snapshot["candle_history"] = candle_history
+                snapshot["candle_history"] = [
+                    {
+                        **{key: candle.get(key) for key in ("open", "high", "low", "close", "rsi14") if key in candle},
+                        "candle_time": candle.get("candle_time", candle.get("time")),
+                    }
+                    for candle in candle_history
+                    if isinstance(candle, dict) and candle.get("candle_time", candle.get("time"))
+                ][-DIVERGENCE_HISTORY:]
+                if rsi is not None:
+                    for candle in reversed(snapshot["candle_history"]):
+                        if candle["candle_time"] == payload.get("candle_time"):
+                            candle["rsi14"] = rsi
+                            break
 
             # Auto-accumulate candle history from snapshot OHLC
             if "candle_history" not in snapshot:
@@ -241,13 +242,21 @@ class MarketState:
                         "low": payload.get("low"),
                         "close": payload.get("close"),
                     }
+                    if rsi is not None:
+                        candle_entry["rsi14"] = rsi
                     hist = timeframes.get(timeframe, {}).get("candle_history", [])
                     if not hist or hist[-1].get("candle_time") != candle_time:
                         hist = list(hist)
                         hist.append(candle_entry)
                     # Cap auto-accumulated candle history
-                    hist = hist[-CHART_CANDLE_LOOKBACK:]
+                    hist = hist[-DIVERGENCE_HISTORY:]
                     snapshot["candle_history"] = hist
+
+            snapshot["rsi_history"] = [
+                {"candle_time": candle["candle_time"], "rsi14": candle["rsi14"]}
+                for candle in snapshot.get("candle_history", [])
+                if candle.get("rsi14") is not None
+            ][-DIVERGENCE_HISTORY:]
 
             # Build notifications (pattern + EMA crossover)
             notifications = []
@@ -280,6 +289,9 @@ class MarketState:
                 self._key_level_notifications(
                     symbol, timeframe, timeframes, snapshot, payload
                 )
+            )
+            notifications.extend(
+                self._divergence_notifications(symbol, timeframe, timeframes, snapshot)
             )
 
             timeframes[timeframe] = snapshot
@@ -372,6 +384,12 @@ class MarketState:
                 snapshot["rsi_notified_at"] = time.time()
                 self._save()
                 return
+            if notification.get("event_type", "").startswith("DIVERGENCE_"):
+                self.data.setdefault("divergence_alerts", {}).setdefault(symbol, {}).setdefault(
+                    timeframe, {}
+                )[notification["divergence_key"]] = time.time()
+                self._save()
+                return
             patterns = snapshot.get("retained_patterns", [])
             for pattern in patterns:
                 if self._pattern_key(pattern) == key:
@@ -384,6 +402,54 @@ class MarketState:
         value = int(timeframe[1:])
         minutes = value * {"M": 1, "H": 60, "D": 1440}[timeframe[0]]
         return minutes * 5 * 60
+
+    def _divergence_notifications(self, symbol, timeframe, timeframes, snapshot):
+        history = snapshot.get("candle_history", [])
+        if len(history) < 5:
+            return []
+        lows = [item for index, item in enumerate(history[2:-2], 2) if item.get("rsi14") is not None and item["low"] < history[index - 1]["low"] and item["low"] < history[index + 1]["low"]]
+        highs = [item for index, item in enumerate(history[2:-2], 2) if item.get("rsi14") is not None and item["high"] > history[index - 1]["high"] and item["high"] > history[index + 1]["high"]]
+        matches = []
+        if len(lows) >= 2:
+            previous, current = lows[-2:]
+            if current["low"] < previous["low"] and current["rsi14"] > previous["rsi14"]:
+                matches.append(("DIVERGENCE_REGULAR_BULLISH", "BUY", previous, current))
+            if current["low"] > previous["low"] and current["rsi14"] < previous["rsi14"]:
+                matches.append(("DIVERGENCE_HIDDEN_BULLISH", "BUY", previous, current))
+        if len(highs) >= 2:
+            previous, current = highs[-2:]
+            if current["high"] > previous["high"] and current["rsi14"] < previous["rsi14"]:
+                matches.append(("DIVERGENCE_REGULAR_BEARISH", "SELL", previous, current))
+            if current["high"] < previous["high"] and current["rsi14"] > previous["rsi14"]:
+                matches.append(("DIVERGENCE_HIDDEN_BEARISH", "SELL", previous, current))
+        alerts = self.data.setdefault("divergence_alerts", {}).setdefault(symbol, {}).setdefault(timeframe, {})
+        notifications = []
+        for event_type, signal, previous, current in matches:
+            key = f"{event_type}:{current['candle_time']}"
+            if key in alerts:
+                continue
+            level = self._nearest_key_level(timeframes, timeframe, snapshot, current["close"])
+            notifications.append({
+                "event_type": event_type, "signal": signal, "symbol": symbol, "timeframe": timeframe,
+                "candle_time": current["candle_time"], "price": current["close"], "rsi14": current["rsi14"],
+                "previous_price": previous["close"], "previous_rsi14": previous["rsi14"], "digits": snapshot["digits"],
+                "divergence_key": key, "nearest_key_level": level,
+            })
+        return notifications
+
+    def _nearest_key_level(self, timeframes, timeframe, snapshot, price):
+        snapshots = dict(timeframes)
+        snapshots[timeframe] = snapshot
+        matches = []
+        for level_timeframe in KEY_LEVEL_ALERT_TIMEFRAMES:
+            for label, value, is_zone in self._key_level_values(snapshots.get(level_timeframe, {}).get("levels", {})):
+                if value is not None:
+                    level_price = sum(value) / 2 if is_zone else value
+                    matches.append((abs(price - level_price), level_timeframe, label, level_price))
+        if not matches:
+            return None
+        _, level_timeframe, label, level_price = min(matches)
+        return {"timeframe": level_timeframe, "label": label, "price": level_price}
 
     def _key_level_notifications(self, symbol, timeframe, timeframes, snapshot, payload):
         if timeframe not in KEY_LEVEL_ALERT_TIMEFRAMES:

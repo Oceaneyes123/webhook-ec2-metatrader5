@@ -4,7 +4,7 @@ import time
 
 from .app_logger import get_logger
 from .json_data_parser import candle_alert_message, display_symbol
-from .messages import big_move_message, ea_issue_message, error_message, key_level_message, strong_rsi_message, trade_close_message, trade_open_message
+from .messages import big_move_message, divergence_message, ea_issue_message, error_message, key_level_message, strong_rsi_message, trade_close_message, trade_open_message
 from . import state as _state
 from . import telegram_sender as _tg
 from .account import STORE, action_buttons, profit_alert, transaction_message
@@ -161,6 +161,8 @@ def _handle_tf_snapshot(payload, server):
             message = (
                 key_level_message(notification)
                 if notification.get("event_type", "").startswith("KEY_LEVEL_")
+                else divergence_message(notification)
+                if notification.get("event_type", "").startswith("DIVERGENCE_")
                 else strong_rsi_message(notification)
                 if notification.get("event_type") == "STRONG_RSI"
                 else candle_alert_message(notification)

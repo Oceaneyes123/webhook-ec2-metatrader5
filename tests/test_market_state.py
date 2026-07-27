@@ -261,6 +261,24 @@ class MarketStateSnapshotTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "timeframe"):
                 state.update(snapshot("W1", "2026.06.28 10:00:00"))
 
+    def test_divergence_alerts_regular_and_hidden_on_any_timeframe(self):
+        def candles(lows, rsis):
+            return [
+                {"time": f"2026.06.28 10:{index:02d}:00", "open": low + 2, "high": low + 4, "low": low, "close": low + 2, "rsi14": rsi}
+                for index, (low, rsi) in enumerate(zip(lows, rsis))
+            ]
+
+        levels = {"support": 6.5, "resistance": 20.0, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(snapshot("H1", "2026.06.28 10:00:00", levels=levels))
+            regular = state.update(snapshot("M1", "2026.06.28 10:08:00", candle_history=candles([10, 11, 8, 11, 12, 11, 7, 11, 12], [50, 48, 30, 45, 50, 45, 40, 48, 52])))
+            state.mark_notified(regular[0])
+            hidden = state.update(snapshot("H4", "2026.06.28 10:08:00", candle_history=candles([12, 13, 7, 13, 14, 13, 8, 13, 14], [50, 48, 45, 47, 50, 45, 35, 48, 52])))
+        self.assertEqual(regular[0]["event_type"], "DIVERGENCE_REGULAR_BULLISH")
+        self.assertEqual(regular[0]["nearest_key_level"]["timeframe"], "H1")
+        self.assertEqual(hidden[0]["event_type"], "DIVERGENCE_HIDDEN_BULLISH")
+
 
 class MarketStatePatternsTest(unittest.TestCase):
     """Pattern tracking, invalidation, and notification dedup."""
