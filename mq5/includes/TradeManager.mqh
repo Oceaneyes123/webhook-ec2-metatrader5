@@ -643,6 +643,98 @@ bool HasKeyLevelPendingOrder(ENUM_ORDER_TYPE type, double price)
    return false;
 }
 
+datetime UtcDateTime(int year, int month, int day, int hour)
+{
+   MqlDateTime value = {};
+   value.year = year;
+   value.mon = month;
+   value.day = day;
+   value.hour = hour;
+   return StructToTime(value);
+}
+
+int LastSundayOfMonth(int year, int month)
+{
+   int nextMonth = month == 12 ? 1 : month + 1;
+   int nextYear = month == 12 ? year + 1 : year;
+   MqlDateTime value;
+   TimeToStruct(UtcDateTime(nextYear, nextMonth, 1, 0) - 86400, value);
+   return value.day - value.day_of_week;
+}
+
+bool LondonDst(datetime now)
+{
+   MqlDateTime value;
+   TimeToStruct(now, value);
+   datetime starts = UtcDateTime(value.year, 3, LastSundayOfMonth(value.year, 3), 1);
+   datetime ends = UtcDateTime(value.year, 10, LastSundayOfMonth(value.year, 10), 1);
+   return now >= starts && now < ends;
+}
+
+bool NewYorkDst(datetime now)
+{
+   MqlDateTime value;
+   TimeToStruct(now, value);
+   datetime marchFirst = UtcDateTime(value.year, 3, 1, 0);
+   datetime novemberFirst = UtcDateTime(value.year, 11, 1, 0);
+   MqlDateTime march, november;
+   TimeToStruct(marchFirst, march);
+   TimeToStruct(novemberFirst, november);
+   int secondSundayMarch = 1 + ((7 - march.day_of_week) % 7) + 7;
+   int firstSundayNovember = 1 + ((7 - november.day_of_week) % 7);
+   datetime starts = UtcDateTime(value.year, 3, secondSundayMarch, 7);
+   datetime ends = UtcDateTime(value.year, 11, firstSundayNovember, 6);
+   return now >= starts && now < ends;
+}
+
+datetime SessionOpenUtc(datetime date, int session)
+{
+   MqlDateTime value;
+   TimeToStruct(date, value);
+   int hour = session == 0 ? 0 : session == 1 ? (LondonDst(date) ? 7 : 8) : (NewYorkDst(date) ? 12 : 13);
+   return UtcDateTime(value.year, value.mon, value.day, hour);
+}
+
+bool KeyLevelSessionSafetyActive()
+{
+   datetime now = TimeGMT();
+   int window = KeyLevelSessionSafetyMinutes * 60;
+   for(int session = 0; session < 3; session++)
+   {
+      datetime opening = SessionOpenUtc(now, session);
+      int secondsToOpen = (int)(opening - now);
+      if(secondsToOpen >= -window && secondsToOpen <= window)
+         return true;
+   }
+   return false;
+}
+
+bool IsNearCurrentPrice(double price)
+{
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   return bid > 0 && ask > 0
+      && MathAbs(price - (bid + ask) / 2.0) <= KeyLevelSessionSafetyPips * AccountPipSize(_Symbol);
+}
+
+void CancelNearbyKeyLevelOrdersForSession()
+{
+   if(!KeyLevelSessionSafetyActive())
+      return;
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) == _Symbol
+         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+         && StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level") == 0
+         && IsNearCurrentPrice(OrderGetDouble(ORDER_PRICE_OPEN))
+         && !trade.OrderDelete(ticket))
+         SendEaIssue("Session-safety key-level OrderDelete failed", TradeResultText());
+   }
+}
+
 void MaintainKeyLevelOrder(ENUM_ORDER_TYPE type, double price)
 {
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
@@ -650,6 +742,8 @@ void MaintainKeyLevelOrder(ENUM_ORDER_TYPE type, double price)
    double minimumDistance = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
    price = NormalizeDouble(price, digits);
    if(HasKeyLevelPendingOrder(type, price))
+      return;
+   if(KeyLevelSessionSafetyActive() && IsNearCurrentPrice(price))
       return;
 
    if((type == ORDER_TYPE_BUY_LIMIT && price >= SymbolInfoDouble(_Symbol, SYMBOL_ASK) - minimumDistance)
@@ -800,10 +894,11 @@ void ManageTrading()
 
    if(config.mode == "AUTO")
    {
-       SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");
-       MaintainUntouchedKeyLevelOrders();
-       return;
-    }
+      CancelNearbyKeyLevelOrdersForSession();
+      SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");
+      MaintainUntouchedKeyLevelOrders();
+      return;
+   }
 
    if(config.mode == "NOTRADE")
    {

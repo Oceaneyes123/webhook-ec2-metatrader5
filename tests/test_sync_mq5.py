@@ -273,6 +273,18 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("ORDER_TYPE_BUY_LIMIT, support", manager)
         self.assertIn("input double KeyLevelLotSize = 0.1;", ea)
 
+    def test_key_level_session_safety_cancels_only_nearby_key_level_orders(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("CancelNearbyKeyLevelOrdersForSession();", manager)
+        self.assertIn("KeyLevelSessionSafetyPips * AccountPipSize(_Symbol)", manager)
+        self.assertIn('StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level")', manager)
+        self.assertIn("input int KeyLevelSessionSafetyMinutes = 30;", ea)
+        self.assertIn("input double KeyLevelSessionSafetyPips = 200;", ea)
+
     def test_webhook_common_has_send_trade_open(self):
         common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
             encoding="utf-8"
