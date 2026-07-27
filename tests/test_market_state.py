@@ -234,7 +234,16 @@ class MarketStateSnapshotTest(unittest.TestCase):
             state.mark_notified(rejection)
             state.update(snapshot("M30", "2026.06.28 10:05:00", low=2290.0, high=2300.0, levels=levels))
             broke = state.update(snapshot("M30", "2026.06.28 10:10:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels=levels))
-        self.assertEqual(broke[0]["event_type"], "KEY_LEVEL_BREAK_DOWN")
+        self.assertEqual(broke[0]["event_type"], "KEY_LEVEL_BOS_DOWN")
+
+    def test_key_level_break_reversal_is_choch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            down = state.update(snapshot("M30", "2026.06.28 10:00:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels={"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}))[0]
+            state.mark_notified(down)
+            up = state.update(snapshot("M30", "2026.06.28 10:30:00", open=2295.0, high=2310.0, low=2294.0, close=2305.0, levels={"support": None, "resistance": 2300.0, "fib": None, "bullish_fvg": None, "bearish_fvg": None}))[0]
+        self.assertEqual(down["event_type"], "KEY_LEVEL_BOS_DOWN")
+        self.assertEqual(up["event_type"], "KEY_LEVEL_CHOCH_UP")
 
     def test_key_level_notifications_ignore_m5_and_m15(self):
         levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}

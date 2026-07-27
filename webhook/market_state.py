@@ -91,7 +91,7 @@ class MarketState:
     def __init__(self, path=None):
         self.path = Path(path) if path else DEFAULT_PATH
         self.lock = threading.RLock()
-        self.data = {"symbols": {}}
+        self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}}
         self._load()
 
     # ------------------------------------------------------------------
@@ -105,8 +105,9 @@ class MarketState:
             if "symbols" not in self.data:
                 self.data = {"symbols": {}}
             self.data.setdefault("key_level_alerts", {})
+            self.data.setdefault("market_structure", {})
         except (FileNotFoundError, json.JSONDecodeError, ValueError):
-            self.data = {"symbols": {}, "key_level_alerts": {}}
+            self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}}
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -357,6 +358,11 @@ class MarketState:
                 state["armed"] = False
                 state.setdefault("events", {})[notification["event_type"]] = time.time()
                 alerts[notification["key_level_key"]] = state
+                direction = notification.get("structure_direction")
+                if direction:
+                    self.data.setdefault("market_structure", {}).setdefault(symbol, {})[
+                        notification["timeframe"]
+                    ] = direction
                 self._save()
                 return
             snapshot = self.data["symbols"].get(symbol, {}).get(timeframe)
@@ -419,6 +425,9 @@ class MarketState:
             primary_timeframe, primary_label, level_price, alert_state = max(
                 group, key=lambda item: timeframe_rank[item[0]]
             )
+            event_type, structure_direction = self._structure_event(
+                symbol, primary_timeframe, event_type
+            )
             cooldown = self._rsi_cooldown_seconds(primary_timeframe)
             last_alert_at = float(alert_state.get("events", {}).get(event_type, 0))
             if not alert_state.get("armed", True) or time.time() - last_alert_at < cooldown:
@@ -436,9 +445,18 @@ class MarketState:
                     "key_level_label": primary_label,
                     "coincident_timeframes": coincident,
                     "digits": payload.get("digits", 5),
+                    "structure_direction": structure_direction,
                 }
             )
         return notifications
+
+    def _structure_event(self, symbol, timeframe, event_type):
+        if event_type not in ("KEY_LEVEL_BREAK_UP", "KEY_LEVEL_BREAK_DOWN"):
+            return event_type, None
+        direction = "UP" if event_type.endswith("_UP") else "DOWN"
+        previous = self.data.get("market_structure", {}).get(symbol, {}).get(timeframe)
+        kind = "CHOCH" if previous and previous != direction else "BOS"
+        return f"KEY_LEVEL_{kind}_{direction}", direction
 
     def _key_level_alert_state(self, symbol, key):
         alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})

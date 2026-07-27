@@ -120,7 +120,8 @@ def key_level_message(payload):
         price = f"{float(payload.get('key_level_price')):.{int(payload.get('digits', 5))}f}"
     except (TypeError, ValueError):
         price = html.escape(str(payload.get("key_level_price", "?")))
-    outcome = str(payload.get("event_type", "KEY_LEVEL_REACHED")).replace("KEY_LEVEL_", "").replace("_", " ").title()
+    outcome = str(payload.get("event_type", "KEY_LEVEL_REACHED")).replace("KEY_LEVEL_", "").replace("CHOCH", "CHoCH").replace("_", " ").title()
+    outcome = outcome.replace("Choch", "CHoCH").replace("Bos", "BOS")
     lines = [
         f"📍 <b>Key Level {outcome}</b>",
         f"Symbol: {symbol}",
