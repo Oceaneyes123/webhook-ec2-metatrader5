@@ -3,7 +3,7 @@
 import html
 
 from .config import telegram_configured, uptime_text
-from .json_data_parser import display_symbol
+from .json_data_parser import display_symbol, display_time
 
 
 def error_message(error):
@@ -125,7 +125,7 @@ def key_level_message(payload):
         f"📍 <b>Key Level {outcome}</b>",
         f"Symbol: {symbol}",
         f"Primary: <b>{timeframe} {label}</b>",
-        f"Price: <code>{price}</code>",
+        f"Key level: <code>{price}</code>",
     ]
     coincident = payload.get("coincident_timeframes", [])
     if coincident:
@@ -134,7 +134,7 @@ def key_level_message(payload):
             + ", ".join(f"{html.escape(str(tf))} timeframe key level" for tf in coincident)
             + "."
         )
-    lines.append(f"🕒 {html.escape(str(payload.get('candle_time', '?')))}")
+    lines.append(f"🕒 {html.escape(display_time(payload.get('candle_time')) or '?')} PHT")
     return "\n".join(lines)
 
 

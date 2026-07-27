@@ -389,6 +389,8 @@ class EaErrorTest(unittest.TestCase):
         message = send.call_args.args[0]
         self.assertIn("Key Level Rejection Up", message)
         self.assertIn("H1 Support", message)
+        self.assertIn("Key level: <code>2280.00</code>", message)
+        self.assertIn("2026.06.28 03:01 PM PHT", message)
         self.assertIn("Also coincides with M30 timeframe key level.", message)
 
 

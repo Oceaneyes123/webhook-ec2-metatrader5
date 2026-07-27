@@ -212,7 +212,7 @@ class MarketChart:
             ):
                 value = levels.get(key)
                 if value is not None:
-                    items.append({"kind": kind, "label": label, "price": value})
+                    items.append({"kind": kind, "label": label, "price": value, "timeframe": timeframe})
             if not previous_day_added:
                 previous_day_high = levels.get("previous_day_high")
                 previous_day_low = levels.get("previous_day_low")
@@ -240,6 +240,7 @@ class MarketChart:
                             "kind": "fib",
                             "label": f"{timeframe} Fib {key}",
                             "price": fib[key],
+                            "timeframe": timeframe,
                         }
                     )
             for key, label, kind in (
@@ -259,6 +260,14 @@ class MarketChart:
         candles, candle_timeframe = self._chart_candles(timeframes)
         if latest_snapshot is None and candle_timeframe:
             latest_snapshot = timeframes[candle_timeframe]
+        higher_prices = set()
+        retained = []
+        for timeframe in reversed(PATTERN_TIMEFRAMES):
+            timeframe_items = [item for item in items if item.get("timeframe") == timeframe]
+            retained.extend(item for item in timeframe_items if item.get("price") not in higher_prices)
+            higher_prices.update(item["price"] for item in timeframe_items if "price" in item)
+        retained.extend(item for item in items if "timeframe" not in item)
+        items = retained
         return items, latest_snapshot, candles, candle_timeframe
 
     def _chart_candles(self, timeframes):

@@ -104,7 +104,26 @@ class MarketChartLevelsTest(unittest.TestCase):
                             (248, 113, 113),
                         ):
                             candle_pixels += 1
-                self.assertGreater(candle_pixels, 40)
+            self.assertGreater(candle_pixels, 40)
+
+    def test_shared_price_keeps_highest_timeframe_level(self):
+        levels = {
+            "support": 2280.0, "resistance": 2340.0, "fib": None,
+            "bullish_fvg": None, "bearish_fvg": None,
+            "previous_day_high": None, "previous_day_low": None,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(snapshot("M15", "2026.06.28 13:15:00", levels=levels))
+            state.update(snapshot("H1", "2026.06.28 13:00:00", levels=levels))
+            items, *_ = market_chart.MarketChart(state)._chart_items(
+                state.data["symbols"]["GOLD"]
+            )
+
+        self.assertEqual(
+            [item["label"] for item in items if item.get("price") == 2280.0],
+            ["H1 Support"],
+        )
 
     def test_far_levels_are_labels_without_compressing_candles(self):
         levels = {
