@@ -22,7 +22,7 @@ input string AccountActionSecret = "";
 input double GoldPipSize = 0.1;
 input int KeyLevelLookbackBars = 100;
 input int KeyLevelSwingStrength = 2;
-input double KeyLevelProtectionPips = 50;
+input double KeyLevelLotSize = 0.1;
 
 #define TRADE_TF_COUNT 3
 
@@ -52,9 +52,9 @@ int OnInit()
       || HeartbeatSeconds < TradeManageIntervalSeconds
       || TradeConfigRefreshSeconds < 1
       || TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds
-      || KeyLevelLookbackBars < 10
-      || KeyLevelSwingStrength < 1
-      || KeyLevelProtectionPips < 0)
+       || KeyLevelLookbackBars < 10
+       || KeyLevelSwingStrength < 1
+       || KeyLevelLotSize <= 0)
    {
       Print("Invalid Webhook2 inputs.");
       SendEaIssue("Invalid Webhook2 inputs",

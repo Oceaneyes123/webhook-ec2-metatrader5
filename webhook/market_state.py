@@ -22,6 +22,7 @@ TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
 EMA_TIMEFRAMES = ("M1", "M5")
 PATTERN_TIMEFRAMES = ("M15", "M30", "H1", "H4")
 LEVEL_TIMEFRAMES = ("M5", "M15", "M30", "H1", "H4", "D1")
+KEY_LEVEL_ALERT_TIMEFRAMES = ("M30", "H1", "H4", "D1")
 RSI_TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
 RSI_LOOKBACKS = {"M1": 60, "M5": 36, "M15": 24, "M30": 16, "H1": 12, "H4": 8, "D1": 5}
 RSI_STRONG_LOW = 30
@@ -379,7 +380,7 @@ class MarketState:
         return minutes * 5 * 60
 
     def _key_level_notifications(self, symbol, timeframe, timeframes, snapshot, payload):
-        if timeframe not in LEVEL_TIMEFRAMES:
+        if timeframe not in KEY_LEVEL_ALERT_TIMEFRAMES:
             return []
 
         levels_by_timeframe = dict(timeframes)
@@ -391,7 +392,7 @@ class MarketState:
             high = max(float(payload.get("bid", payload.get("close"))), float(payload.get("ask", payload.get("close"))))
 
         matches = []
-        for level_timeframe in LEVEL_TIMEFRAMES:
+        for level_timeframe in KEY_LEVEL_ALERT_TIMEFRAMES:
             levels = levels_by_timeframe.get(level_timeframe, {}).get("levels", {})
             for label, value, is_zone in self._key_level_values(levels):
                 if value is None:
@@ -411,7 +412,9 @@ class MarketState:
             grouped.setdefault((key, event_type), []).append((level_timeframe, label, level_price, alert_state))
 
         notifications = []
-        timeframe_rank = {name: index for index, name in enumerate(LEVEL_TIMEFRAMES)}
+        timeframe_rank = {
+            name: index for index, name in enumerate(KEY_LEVEL_ALERT_TIMEFRAMES)
+        }
         for (key, event_type), group in grouped.items():
             primary_timeframe, primary_label, level_price, alert_state = max(
                 group, key=lambda item: timeframe_rank[item[0]]

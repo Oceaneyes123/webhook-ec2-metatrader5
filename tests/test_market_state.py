@@ -179,7 +179,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
             state = market_state.MarketState(Path(directory) / "state.json")
             state.update(
                 snapshot(
-                    "M15",
+                    "H1",
                     "2026.06.28 10:15:00",
                     open=2300.0,
                     close=2305.0,
@@ -190,7 +190,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
             )
             notifications = state.update(
                 snapshot(
-                    "M5",
+                    "M30",
                     "2026.06.28 10:20:00",
                     open=2285.0,
                     close=2282.0,
@@ -202,13 +202,13 @@ class MarketStateSnapshotTest(unittest.TestCase):
 
             self.assertEqual(len(notifications), 1)
             self.assertEqual(notifications[0]["event_type"], "KEY_LEVEL_REJECTION_UP")
-            self.assertEqual(notifications[0]["timeframe"], "M15")
-            self.assertEqual(notifications[0]["coincident_timeframes"], ["M5"])
+            self.assertEqual(notifications[0]["timeframe"], "H1")
+            self.assertEqual(notifications[0]["coincident_timeframes"], ["M30"])
             state.mark_notified(notifications[0])
             self.assertEqual(
                 state.update(
                     snapshot(
-                        "M5",
+                        "M30",
                         "2026.06.28 10:25:00",
                         open=2285.0,
                         close=2282.0,
@@ -219,10 +219,10 @@ class MarketStateSnapshotTest(unittest.TestCase):
                 ),
                 [],
             )
-            state.update(snapshot("M5", "2026.06.28 10:30:00", low=2290.0, high=2300.0, levels=levels))
-            state.data["key_level_alerts"]["GOLD"]["2280.00000"]["events"]["KEY_LEVEL_REJECTION_UP"] -= 75 * 60
+            state.update(snapshot("M30", "2026.06.28 10:30:00", low=2290.0, high=2300.0, levels=levels))
+            state.data["key_level_alerts"]["GOLD"]["2280.00000"]["events"]["KEY_LEVEL_REJECTION_UP"] -= 6 * 60 * 60
             notifications = state.update(
-                snapshot("M5", "2026.06.28 10:35:00", open=2285.0, high=2287.0, low=2270.0, close=2282.0, levels=levels)
+                snapshot("M30", "2026.06.28 10:35:00", open=2285.0, high=2287.0, low=2270.0, close=2282.0, levels=levels)
             )
             self.assertEqual(notifications[0]["event_type"], "KEY_LEVEL_REJECTION_UP")
 
@@ -230,11 +230,21 @@ class MarketStateSnapshotTest(unittest.TestCase):
         levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
-            rejection = state.update(snapshot("M5", "2026.06.28 10:00:00", open=2285.0, high=2287.0, low=2278.0, close=2282.0, levels=levels))[0]
+            rejection = state.update(snapshot("M30", "2026.06.28 10:00:00", open=2285.0, high=2287.0, low=2278.0, close=2282.0, levels=levels))[0]
             state.mark_notified(rejection)
-            state.update(snapshot("M5", "2026.06.28 10:05:00", low=2290.0, high=2300.0, levels=levels))
-            broke = state.update(snapshot("M5", "2026.06.28 10:10:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels=levels))
+            state.update(snapshot("M30", "2026.06.28 10:05:00", low=2290.0, high=2300.0, levels=levels))
+            broke = state.update(snapshot("M30", "2026.06.28 10:10:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels=levels))
         self.assertEqual(broke[0]["event_type"], "KEY_LEVEL_BREAK_DOWN")
+
+    def test_key_level_notifications_ignore_m5_and_m15(self):
+        levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            for timeframe in ("M5", "M15"):
+                notifications = state.update(
+                    snapshot(timeframe, "2026.06.28 10:00:00", open=2285.0, high=2287.0, low=2275.0, close=2282.0, levels=levels)
+                )
+                self.assertEqual(notifications, [])
 
     def test_market_state_rejects_snapshot_for_unknown_timeframe(self):
         with tempfile.TemporaryDirectory() as directory:

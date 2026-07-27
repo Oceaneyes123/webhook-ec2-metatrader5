@@ -536,31 +536,6 @@ bool IsTradeSwingLow(ENUM_TIMEFRAMES timeframe, int shift)
    return true;
 }
 
-bool IsNearOpposingKeyLevel(string direction, double currentPrice, string &reason)
-{
-   ENUM_TIMEFRAMES timeframes[] = {PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1};
-   double maximumDistance = KeyLevelProtectionPips * AccountPipSize(_Symbol);
-   for(int index = 0; index < ArraySize(timeframes); index++)
-   {
-      ENUM_TIMEFRAMES timeframe = timeframes[index];
-      int maximumShift = MathMin(KeyLevelLookbackBars, Bars(_Symbol, timeframe) - KeyLevelSwingStrength - 1);
-      for(int shift = KeyLevelSwingStrength + 1; shift <= maximumShift; shift++)
-      {
-         double level = direction == "BUY" ? iHigh(_Symbol, timeframe, shift) : iLow(_Symbol, timeframe, shift);
-         bool opposing = direction == "BUY"
-            ? IsTradeSwingHigh(timeframe, shift) && level >= currentPrice && level - currentPrice <= maximumDistance
-            : IsTradeSwingLow(timeframe, shift) && level <= currentPrice && currentPrice - level <= maximumDistance;
-         if(opposing)
-         {
-            reason = direction == "BUY" ? "Resistance within " : "Support within ";
-            reason += DoubleToString(KeyLevelProtectionPips, 0) + " pips on " + TimeframeToText(timeframe);
-            return true;
-         }
-      }
-   }
-   return false;
-}
-
 string ManualCloseCooldownKey()
 {
    return "Webhook2ManualClose:" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN))
@@ -637,6 +612,87 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
    }
 }
 
+bool IsUntouchedKeyLevel(ENUM_TIMEFRAMES timeframe, int shift, double price, bool resistance)
+{
+   for(int newerShift = shift - 1; newerShift >= 0; newerShift--)
+   {
+      double reachedPrice = resistance
+         ? iHigh(_Symbol, timeframe, newerShift)
+         : iLow(_Symbol, timeframe, newerShift);
+      if((resistance && reachedPrice >= price) || (!resistance && reachedPrice <= price))
+         return false;
+   }
+   return true;
+}
+
+bool HasKeyLevelPendingOrder(ENUM_ORDER_TYPE type, double price)
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) == _Symbol
+         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type
+         && StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level") == 0
+         && MathAbs(OrderGetDouble(ORDER_PRICE_OPEN) - price) < point / 2.0)
+         return true;
+   }
+   return false;
+}
+
+void MaintainKeyLevelOrder(ENUM_ORDER_TYPE type, double price)
+{
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double minimumDistance = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
+   price = NormalizeDouble(price, digits);
+   if(HasKeyLevelPendingOrder(type, price))
+      return;
+
+   if((type == ORDER_TYPE_BUY_LIMIT && price >= SymbolInfoDouble(_Symbol, SYMBOL_ASK) - minimumDistance)
+      || (type == ORDER_TYPE_SELL_LIMIT && price <= SymbolInfoDouble(_Symbol, SYMBOL_BID) + minimumDistance))
+      return;
+
+   bool placed = type == ORDER_TYPE_BUY_LIMIT
+      ? trade.BuyLimit(KeyLevelLotSize, price, _Symbol, 0, 0, ORDER_TIME_GTC, 0, "Hermes key level")
+      : trade.SellLimit(KeyLevelLotSize, price, _Symbol, 0, 0, ORDER_TIME_GTC, 0, "Hermes key level");
+   if(!placed)
+      SendEaIssue(type == ORDER_TYPE_BUY_LIMIT ? "Key-level BuyLimit failed" : "Key-level SellLimit failed", TradeResultText());
+}
+
+void MaintainUntouchedKeyLevelOrders()
+{
+   ENUM_TIMEFRAMES timeframes[] = {PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1};
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(bid <= 0 || ask <= 0)
+      return;
+   double currentPrice = (bid + ask) / 2.0;
+   for(int index = 0; index < ArraySize(timeframes); index++)
+   {
+      ENUM_TIMEFRAMES timeframe = timeframes[index];
+      int maximumShift = MathMin(KeyLevelLookbackBars, Bars(_Symbol, timeframe) - KeyLevelSwingStrength - 1);
+      for(int shift = KeyLevelSwingStrength + 1; shift <= maximumShift; shift++)
+      {
+         if(IsTradeSwingHigh(timeframe, shift))
+         {
+            double resistance = iHigh(_Symbol, timeframe, shift);
+            if(resistance > currentPrice && IsUntouchedKeyLevel(timeframe, shift, resistance, true))
+               MaintainKeyLevelOrder(ORDER_TYPE_SELL_LIMIT, resistance);
+         }
+         if(IsTradeSwingLow(timeframe, shift))
+         {
+            double support = iLow(_Symbol, timeframe, shift);
+            if(support < currentPrice && IsUntouchedKeyLevel(timeframe, shift, support, false))
+               MaintainKeyLevelOrder(ORDER_TYPE_BUY_LIMIT, support);
+         }
+      }
+   }
+}
+
 void NotifyFilledEaPositions()
 {
    for(int index = PositionsTotal() - 1; index >= 0; index--)
@@ -687,6 +743,7 @@ void ManageTrading()
    if(config.mode == "BUY")
    {
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       string reason = "";
       if(!BuyConfluence(reason))
       {
@@ -715,6 +772,7 @@ void ManageTrading()
    if(config.mode == "SELL")
    {
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       string reason = "";
       if(!SellConfluence(reason))
       {
@@ -742,60 +800,10 @@ void ManageTrading()
 
    if(config.mode == "AUTO")
    {
-      string reason = "";
-      if(BuyConfluence(reason))
-      {
-         DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
-         if(IsNearOpposingKeyLevel("BUY", SymbolInfoDouble(_Symbol, SYMBOL_ASK), reason))
-         {
-            SendEntryDecision("BUY", "FAIL", reason);
-            DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-            return;
-         }
-         double ema20 = 0, ema50 = 0;
-         if(!ReadTradeEmaValues(0, ema20, ema50))
-         {
-            SendEntryDecision("BUY", "FAIL", "M1 EMA data unavailable");
-            return;
-         }
-         double price = ema20 - config.trailPips * PipSize();
-         if(price < SymbolInfoDouble(_Symbol, SYMBOL_ASK))
-         {
-            SendEntryDecision("BUY", "PASS", "AUTO confluence passed; maintaining BUY_LIMIT");
-            TrailPendingOrder(ORDER_TYPE_BUY_LIMIT, config.lotSize, price);
-         }
-         else SendEntryDecision("BUY", "FAIL", "Buy limit price is not below ask");
-         return;
-      }
-      if(SellConfluence(reason))
-      {
-         DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-         if(IsNearOpposingKeyLevel("SELL", SymbolInfoDouble(_Symbol, SYMBOL_BID), reason))
-         {
-            SendEntryDecision("SELL", "FAIL", reason);
-            DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
-            return;
-         }
-         double ema20 = 0, ema50 = 0;
-         if(!ReadTradeEmaValues(0, ema20, ema50))
-         {
-            SendEntryDecision("SELL", "FAIL", "M1 EMA data unavailable");
-            return;
-         }
-         double price = ema20 + config.trailPips * PipSize();
-         if(price > SymbolInfoDouble(_Symbol, SYMBOL_BID))
-         {
-            SendEntryDecision("SELL", "PASS", "AUTO confluence passed; maintaining SELL_LIMIT");
-            TrailPendingOrder(ORDER_TYPE_SELL_LIMIT, config.lotSize, price);
-         }
-         else SendEntryDecision("SELL", "FAIL", "Sell limit price is not above bid");
-         return;
-      }
-      SendEntryDecision("AUTO", "FAIL", "No BUY or SELL confluence");
-      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
-      return;
-   }
+       SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");
+       MaintainUntouchedKeyLevelOrders();
+       return;
+    }
 
    if(config.mode == "NOTRADE")
    {

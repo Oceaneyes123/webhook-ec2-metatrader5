@@ -208,15 +208,15 @@ class EaContentTest(unittest.TestCase):
         self.assertNotIn("Refreshed trade config", manager)
         self.assertIn("stale-but-allowed fallback", manager)
 
-    def test_auto_mode_uses_confluence_and_cancels_near_opposing_levels(self):
+    def test_auto_mode_maintains_untouched_key_level_limits(self):
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn("input double KeyLevelProtectionPips = 50;", ea)
+        self.assertIn("input double KeyLevelLotSize = 0.1;", ea)
         self.assertIn('config.mode == "AUTO"', manager)
-        self.assertIn("IsNearOpposingKeyLevel", manager)
+        self.assertIn("MaintainUntouchedKeyLevelOrders();", manager)
         self.assertIn(
             "{PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}", manager
         )
@@ -224,11 +224,7 @@ class EaContentTest(unittest.TestCase):
             "{PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}",
             manager,
         )
-        self.assertIn('IsNearOpposingKeyLevel("BUY"', manager)
-        self.assertIn('IsNearOpposingKeyLevel("SELL"', manager)
-        self.assertIn(
-            "KeyLevelProtectionPips * AccountPipSize(_Symbol)", manager
-        )
+        self.assertNotIn("IsNearOpposingKeyLevel", manager)
         self.assertIn("DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);", manager)
         self.assertIn("DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);", manager)
 
@@ -263,6 +259,19 @@ class EaContentTest(unittest.TestCase):
 
         self.assertIn("NotifyFilledEaPositions", manager)
         self.assertIn('"webhook2"', manager)
+
+    def test_trade_manager_maintains_untouched_m30_to_d1_key_level_limits(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("MaintainUntouchedKeyLevelOrders", manager)
+        self.assertIn("IsUntouchedKeyLevel", manager)
+        self.assertIn("PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1", manager)
+        self.assertIn("ORDER_TYPE_SELL_LIMIT, resistance", manager)
+        self.assertIn("ORDER_TYPE_BUY_LIMIT, support", manager)
+        self.assertIn("input double KeyLevelLotSize = 0.1;", ea)
 
     def test_webhook_common_has_send_trade_open(self):
         common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(

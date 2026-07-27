@@ -363,7 +363,7 @@ class EaErrorTest(unittest.TestCase):
         payload = {
             "event_type": "TIMEFRAME_SNAPSHOT",
             "symbol": "GOLDmicro",
-            "timeframe": "M5",
+            "timeframe": "M30",
             "candle_time": "2026.06.28 10:01:00",
             "open": 2285.0,
             "high": 2285.0,
@@ -373,11 +373,11 @@ class EaErrorTest(unittest.TestCase):
         notification = {
             "event_type": "KEY_LEVEL_REJECTION_UP",
             "symbol": "GOLD",
-            "timeframe": "M15",
+            "timeframe": "H1",
             "candle_time": payload["candle_time"],
             "key_level_price": 2280.0,
             "key_level_label": "Support",
-            "coincident_timeframes": ["M5"],
+            "coincident_timeframes": ["M30"],
             "digits": 2,
         }
         with patch.object(webhook.MARKET_STATE, "update", return_value=[notification]), \
@@ -388,8 +388,8 @@ class EaErrorTest(unittest.TestCase):
 
         message = send.call_args.args[0]
         self.assertIn("Key Level Rejection Up", message)
-        self.assertIn("M15 Support", message)
-        self.assertIn("Also coincides with M5 timeframe key level.", message)
+        self.assertIn("H1 Support", message)
+        self.assertIn("Also coincides with M30 timeframe key level.", message)
 
 
 # ── Trade state / config ──────────────────────────────────────────────
