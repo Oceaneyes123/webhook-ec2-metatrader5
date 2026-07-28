@@ -625,6 +625,13 @@ bool IsUntouchedKeyLevel(ENUM_TIMEFRAMES timeframe, int shift, double price, boo
    return true;
 }
 
+bool IsKeyLevelPendingOrder()
+{
+   return OrderGetString(ORDER_SYMBOL) == _Symbol
+      && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+      && StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level") == 0;
+}
+
 bool HasKeyLevelPendingOrder(ENUM_ORDER_TYPE type, double price)
 {
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
@@ -633,14 +640,63 @@ bool HasKeyLevelPendingOrder(ENUM_ORDER_TYPE type, double price)
       ulong ticket = OrderGetTicket(index);
       if(ticket == 0 || !OrderSelect(ticket))
          continue;
-      if(OrderGetString(ORDER_SYMBOL) == _Symbol
-         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+      if(IsKeyLevelPendingOrder()
          && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type
-         && StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level") == 0
          && MathAbs(OrderGetDouble(ORDER_PRICE_OPEN) - price) < point / 2.0)
          return true;
    }
    return false;
+}
+
+bool HasBetterNearbyKeyLevelOrder(ENUM_ORDER_TYPE type, double price)
+{
+   double maximumDistance = KeyLevelClusterPips * AccountPipSize(_Symbol);
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket) || !IsKeyLevelPendingOrder()
+         || (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) != type)
+         continue;
+      double existing = OrderGetDouble(ORDER_PRICE_OPEN);
+      if(MathAbs(existing - price) <= maximumDistance
+         && ((type == ORDER_TYPE_BUY_LIMIT && existing < price)
+            || (type == ORDER_TYPE_SELL_LIMIT && existing > price)))
+         return true;
+   }
+   return false;
+}
+
+void CancelWorseNearbyKeyLevelOrders(ENUM_ORDER_TYPE type, double price)
+{
+   double maximumDistance = KeyLevelClusterPips * AccountPipSize(_Symbol);
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket) || !IsKeyLevelPendingOrder()
+         || (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) != type)
+         continue;
+      double existing = OrderGetDouble(ORDER_PRICE_OPEN);
+      if(MathAbs(existing - price) <= maximumDistance
+         && ((type == ORDER_TYPE_BUY_LIMIT && existing > price)
+            || (type == ORDER_TYPE_SELL_LIMIT && existing < price))
+         && !trade.OrderDelete(ticket))
+         SendEaIssue("Key-level cluster OrderDelete failed", TradeResultText());
+   }
+}
+
+void PruneNearbyKeyLevelOrders()
+{
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket) || !IsKeyLevelPendingOrder())
+         continue;
+      ENUM_ORDER_TYPE type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+      if((type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_SELL_LIMIT)
+         && HasBetterNearbyKeyLevelOrder(type, OrderGetDouble(ORDER_PRICE_OPEN))
+         && !trade.OrderDelete(ticket))
+         SendEaIssue("Key-level cluster OrderDelete failed", TradeResultText());
+   }
 }
 
 datetime UtcDateTime(int year, int month, int day, int hour)
@@ -726,9 +782,7 @@ void CancelNearbyKeyLevelOrdersForSession()
       ulong ticket = OrderGetTicket(index);
       if(ticket == 0 || !OrderSelect(ticket))
          continue;
-      if(OrderGetString(ORDER_SYMBOL) == _Symbol
-         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
-         && StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level") == 0
+      if(IsKeyLevelPendingOrder()
          && IsNearCurrentPrice(OrderGetDouble(ORDER_PRICE_OPEN))
          && !trade.OrderDelete(ticket))
          SendEaIssue("Session-safety key-level OrderDelete failed", TradeResultText());
@@ -749,11 +803,15 @@ void MaintainKeyLevelOrder(ENUM_ORDER_TYPE type, double price)
    if((type == ORDER_TYPE_BUY_LIMIT && price >= SymbolInfoDouble(_Symbol, SYMBOL_ASK) - minimumDistance)
       || (type == ORDER_TYPE_SELL_LIMIT && price <= SymbolInfoDouble(_Symbol, SYMBOL_BID) + minimumDistance))
       return;
+   if(HasBetterNearbyKeyLevelOrder(type, price))
+      return;
 
    bool placed = type == ORDER_TYPE_BUY_LIMIT
       ? trade.BuyLimit(KeyLevelLotSize, price, _Symbol, 0, 0, ORDER_TIME_GTC, 0, "Hermes key level")
       : trade.SellLimit(KeyLevelLotSize, price, _Symbol, 0, 0, ORDER_TIME_GTC, 0, "Hermes key level");
-   if(!placed)
+   if(placed)
+      CancelWorseNearbyKeyLevelOrders(type, price);
+   else
       SendEaIssue(type == ORDER_TYPE_BUY_LIMIT ? "Key-level BuyLimit failed" : "Key-level SellLimit failed", TradeResultText());
 }
 
@@ -895,6 +953,7 @@ void ManageTrading()
    if(config.mode == "AUTO")
    {
       CancelNearbyKeyLevelOrdersForSession();
+      PruneNearbyKeyLevelOrders();
       SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");
       MaintainUntouchedKeyLevelOrders();
       return;

@@ -25,6 +25,7 @@ input int KeyLevelSwingStrength = 2;
 input double KeyLevelLotSize = 0.1;
 input int KeyLevelSessionSafetyMinutes = 30;
 input double KeyLevelSessionSafetyPips = 200;
+input double KeyLevelClusterPips = 30;
 
 #define TRADE_TF_COUNT 3
 
@@ -58,7 +59,8 @@ int OnInit()
        || KeyLevelSwingStrength < 1
        || KeyLevelLotSize <= 0
        || KeyLevelSessionSafetyMinutes < 0
-       || KeyLevelSessionSafetyPips < 0)
+       || KeyLevelSessionSafetyPips < 0
+       || KeyLevelClusterPips < 0)
    {
       Print("Invalid Webhook2 inputs.");
       SendEaIssue("Invalid Webhook2 inputs",

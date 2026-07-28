@@ -285,6 +285,18 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("input int KeyLevelSessionSafetyMinutes = 30;", ea)
         self.assertIn("input double KeyLevelSessionSafetyPips = 200;", ea)
 
+    def test_key_level_order_clusters_keep_the_better_price(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
+            encoding="utf-8"
+        )
+        ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("PruneNearbyKeyLevelOrders();", manager)
+        self.assertIn("HasBetterNearbyKeyLevelOrder", manager)
+        self.assertIn("type == ORDER_TYPE_BUY_LIMIT && existing < price", manager)
+        self.assertIn("type == ORDER_TYPE_SELL_LIMIT && existing > price", manager)
+        self.assertIn("input double KeyLevelClusterPips = 30;", ea)
+
     def test_webhook_common_has_send_trade_open(self):
         common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
             encoding="utf-8"
