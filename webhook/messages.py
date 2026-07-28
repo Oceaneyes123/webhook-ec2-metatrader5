@@ -101,7 +101,7 @@ def strong_rsi_message(payload):
     symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
     timeframe = str(payload.get("timeframe", "")).upper() or "?"
     rsi = float(payload.get("rsi14", 0))
-    direction = "🔴 Overbought / SELL" if rsi >= 70 else "🟢 Oversold / BUY"
+    direction = "🟢 Overbought / BUY" if rsi >= 70 else "🔴 Oversold / SELL"
     return (
         f"⚡ <b>Strong RSI(14)</b>\n"
         f"Symbol: {symbol}\n"

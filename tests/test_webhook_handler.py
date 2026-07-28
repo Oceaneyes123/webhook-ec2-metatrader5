@@ -357,7 +357,13 @@ class EaErrorTest(unittest.TestCase):
         message = send.call_args.args[0]
         self.assertIn("Strong RSI(14)", message)
         self.assertIn("71.50", message)
-        self.assertIn("Overbought / SELL", message)
+        self.assertIn("🟢 Overbought / BUY", message)
+
+    def test_strong_rsi_message_uses_continuation_signals(self):
+        self.assertIn(
+            "🔴 Oversold / SELL",
+            webhook.strong_rsi_message({"rsi14": 28}),
+        )
 
     def test_key_level_snapshot_sends_higher_timeframe_notification(self):
         payload = {
