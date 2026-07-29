@@ -78,6 +78,29 @@ $env:EVENT_DELAY_SECONDS = "60"
 # Optional DST-aware session overrides: Name|IANA zone|start|end, comma-separated
 $env:REPORT_SESSIONS = "Asian|Asia/Tokyo|09:00|18:00,London|Europe/London|08:00|17:00,New York|America/New_York|08:00|17:00"
 $env:SESSION_LONDON_ENABLED = "true"
+# Optional selective closed-candle thresholds
+$env:MARKET_STRICTNESS = "balanced" # conservative, balanced, aggressive
+$env:STRUCTURE_SWING_BARS_M30 = "2"
+$env:STRUCTURE_SWING_BARS_H1 = "2"
+$env:STRUCTURE_SWING_BARS_H4 = "2"
+$env:STRUCTURE_SWING_BARS_D1 = "2"
+$env:STRUCTURE_MIN_PROMINENCE_ATR = "0.35"
+$env:STRUCTURE_BREAK_ATR_BUFFER = "0.12"
+$env:STRUCTURE_MIN_BODY_RATIO = "0.5"
+$env:STRUCTURE_MIN_CLOSE_LOCATION = "0.65"
+$env:LEVEL_REJECTION_WICK_RATIO = "1.2"
+$env:LEVEL_REJECTION_MIN_BODY_RATIO = "0.25"
+$env:LEVEL_SWEEP_PENETRATION_ATR = "0.15"
+$env:LEVEL_SWEEP_MIN_BODY_RATIO = "0.35"
+$env:LEVEL_REARM_DISTANCE_ATR = "0.5"
+$env:LEVEL_COOLDOWN_MULTIPLIER = "5" # source timeframe minutes × multiplier
+$env:LEVEL_STALE_UPDATES = "20"
+$env:LEVEL_COINCIDENCE_ATR = "0.25"
+$env:LEVEL_MIN_STRENGTH = "0.75"
+$env:LEVEL_RETENTION = "200"
+$env:LEVEL_ENABLED_TYPES = "" # empty enables all supported types
+$env:LEVEL_ENABLED_EVENTS = "" # empty enables all supported events
+$env:MARKET_DEBUG_LOGGING = "false"
 ```
 
 PowerShell variables apply only to the current terminal. Start `webhook.py`
@@ -115,6 +138,24 @@ webhook and Telegram bot.
 
 All EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
 Telegram chat.
+
+### Structure and key-level alerts
+
+Only confirmed external swings on closed M30, H1, H4, and D1 candles can
+produce BOS or CHoCH. A BOS continues an established trend; a CHoCH breaks its
+protected swing and moves the structure to ranging until a new sequence forms.
+Support, resistance, Fibonacci, FVG, and previous-day levels remain separate
+key-level objects and can produce breaks, rejections, sweeps, reclaims, and
+retests, but they cannot change market structure. Key-level alerts use the
+source timeframe and level type in their persisted identity, group coincident
+levels, and require ATR-relative candle confirmation. M5 and M15 remain
+available to `/levels` but do not send break/rejection alerts. Repeatable
+touch/rejection/sweep alerts require both meaningful separation and the
+persisted source-timeframe ×5 cooldown; distinct break, retest, and reclaim
+transitions remain eligible immediately so the lifecycle can progress.
+Present levels do not age toward expiry. Objects absent from source snapshots
+are retired after `LEVEL_STALE_UPDATES`, and bounded retention prunes their
+alert state too.
 
 Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
 `Webhook2.mq5` are symlinks to the live MetaTrader Experts files.

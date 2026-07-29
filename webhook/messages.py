@@ -147,7 +147,25 @@ def key_level_message(payload):
         f"Symbol: {symbol}",
         f"Primary: <b>{timeframe} {label}</b>",
         f"Key level: <code>{price}</code>",
+        f"Close: <code>{html.escape(str(payload.get('close_price', '?')))}</code>",
     ]
+    if payload.get("lifecycle"):
+        lines.append(f"Lifecycle: <b>{html.escape(str(payload['lifecycle']))}</b>")
+    if payload.get("strength") is not None:
+        lines.append(f"Strength: <code>{float(payload['strength']):.2f}</code>")
+    if payload.get("confirmation_reason"):
+        lines.append(f"Confirmed by: {html.escape(str(payload['confirmation_reason']))}")
+    if payload.get("structure_event_type"):
+        lines.append(
+            f"Structure: <b>{html.escape(str(payload['structure_event_type']))}</b> "
+            f"({html.escape(str(payload.get('broken_swing_type', 'swing')))} broken)"
+        )
+        if payload.get("protected_level") is not None:
+            lines.append(f"Protected level: <code>{payload['protected_level']}</code>")
+        if payload.get("broken_swing_time"):
+            lines.append(f"Swing time: {html.escape(str(payload['broken_swing_time']))}")
+        if payload.get("atr_displacement") is not None:
+            lines.append(f"ATR displacement: <code>{float(payload['atr_displacement']):.2f}</code>")
     source = payload.get("source_timeframe")
     if source and source != timeframe:
         lines.append(f"Source level timeframe: <b>{html.escape(str(source))}</b>")
