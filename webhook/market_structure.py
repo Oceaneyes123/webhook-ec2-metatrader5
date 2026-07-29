@@ -194,9 +194,9 @@ def classify_level(candle, previous_close, value, is_zone, volatility, previous_
     up_break = previous_close <= upper and candle_quality(candle, upper, "UP", volatility)
     down_break = previous_close >= lower and candle_quality(candle, lower, "DOWN", volatility)
     lifecycle = previous_state.get("lifecycle", "active")
-    if lifecycle in {"retest_failed", "reclaimed"} and up_break:
+    if lifecycle == "retest_failed" and up_break:
         return "KEY_LEVEL_RECLAIM_UP"
-    if lifecycle in {"retest_failed", "reclaimed"} and down_break:
+    if lifecycle == "retest_failed" and down_break:
         return "KEY_LEVEL_RECLAIM_DOWN"
     kind = str(level_kind).lower()
     support = any(token in kind for token in ("support", "previous day low"))
@@ -218,9 +218,9 @@ def classify_level(candle, previous_close, value, is_zone, volatility, previous_
             if close > upper + buffer:
                 return "KEY_LEVEL_RETEST_HOLD_UP"
     # A sweep/rejection is an interaction with the level side, not a break of it.
-    if support and previous_close >= upper and low <= lower - penetration and close >= upper + buffer and body / span >= SWEEP_MIN_BODY_RATIO:
+    if (support or not resistance) and previous_close >= upper and low <= lower - penetration and close >= upper + buffer and body / span >= SWEEP_MIN_BODY_RATIO:
         return "KEY_LEVEL_SWEEP_UP"
-    if resistance and previous_close <= lower and high >= upper + penetration and close <= lower - buffer and body / span >= SWEEP_MIN_BODY_RATIO:
+    if (resistance or not support) and previous_close <= lower and high >= upper + penetration and close <= lower - buffer and body / span >= SWEEP_MIN_BODY_RATIO:
         return "KEY_LEVEL_SWEEP_DOWN"
     if (support or not resistance) and low <= lower and close >= upper + buffer and (min(opening, close) - low) / max(body, 10 ** -6) >= REJECTION_WICK_RATIO and body / span >= REJECTION_MIN_BODY_RATIO:
         return "KEY_LEVEL_REJECTION_UP"

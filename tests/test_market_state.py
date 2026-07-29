@@ -420,6 +420,47 @@ class MarketStateSnapshotTest(unittest.TestCase):
         second = level_id("GOLD", "H1", "Support", 2300, False, "candle-2", "swing", "support")
         self.assertNotEqual(first, second)
 
+    def test_new_format_level_state_is_not_migrated_to_a_second_level(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            first, _ = state._persistent_level("GOLD", "H1", "Support", 2280, False, {
+                "candle_time": "1", "candle_history": [],
+                "levels": {"support": {"price": 2280, "origin_time": "pivot-1"}},
+            })
+            state.data["key_level_alerts"]["GOLD"][first["id"]]["lifecycle"] = "broken_down"
+            second, second_state = state._persistent_level("GOLD", "H1", "Support", 2400, False, {
+                "candle_time": "2", "candle_history": [],
+                "levels": {"support": {"price": 2400, "origin_time": "pivot-2"}},
+            })
+        self.assertEqual(state.data["key_level_alerts"]["GOLD"][first["id"]]["lifecycle"], "broken_down")
+        self.assertEqual(second_state["lifecycle"], "created")
+        self.assertNotEqual(first["id"], second["id"])
+
+    def test_reclaimed_level_returns_to_normal_break_classification(self):
+        candle = {"open": 2300, "high": 2302, "low": 2288, "close": 2290}
+        self.assertEqual(
+            classify_level(candle, 2305, 2300, False, 10, {"lifecycle": "reclaim_up"}, "Support"),
+            "KEY_LEVEL_BREAK_DOWN",
+        )
+
+    def test_reclaim_transition_is_delivered_while_level_is_disarmed(self):
+        levels = {"support": 2300.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(snapshot("M30", "1", open=2290, high=2300, low=2280, close=2290, levels=levels))
+            entry = next(iter(state.data["key_level_alerts"]["GOLD"].values()))
+            entry.update({"lifecycle": "broken_down", "retest_held": True, "armed": False, "last_candle": "1"})
+            result = state.update(snapshot("M30", "2", open=2290, high=2310, low=2288, close=2305, levels=levels))
+        self.assertEqual(result[0]["event_type"], "KEY_LEVEL_RECLAIM_UP")
+
+    def test_fib_and_fvg_levels_classify_sweeps(self):
+        up = {"open": 2302, "high": 2310, "low": 2290, "close": 2309}
+        down = {"open": 2302, "high": 2320, "low": 2290, "close": 2290}
+        for label in ("Fib 61.8", "Bullish FVG", "Bearish FVG"):
+            with self.subTest(label=label):
+                self.assertEqual(classify_level(up, 2305, 2300, False, 10, {}, label), "KEY_LEVEL_SWEEP_UP")
+                self.assertEqual(classify_level(down, 2295, 2300, False, 10, {}, label), "KEY_LEVEL_SWEEP_DOWN")
+
     def test_level_objects_are_stable_across_small_drift_and_reload(self):
         levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
         with tempfile.TemporaryDirectory() as directory:

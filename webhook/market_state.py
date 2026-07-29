@@ -537,7 +537,7 @@ class MarketState:
                         state["awaiting_retest"] = True
                         state["retest_held"] = False
                     elif event_type.startswith("KEY_LEVEL_RECLAIM_"):
-                        state["lifecycle"] = "reclaimed"
+                        state["lifecycle"] = event_type.removeprefix("KEY_LEVEL_").lower()
                         state["awaiting_retest"] = False
                     elif event_type.startswith("KEY_LEVEL_RETEST_HOLD_"):
                         state["retest_held"] = True
@@ -702,7 +702,10 @@ class MarketState:
         state = alerts.get(object_id)
         if not isinstance(state, dict):
             legacy_prefix = "%s|%s|%s|" % (symbol, source_timeframe, label)
-            legacy_key = next((key for key in alerts if str(key).startswith(legacy_prefix)), None)
+            legacy_key = next((
+                key for key in alerts
+                if str(key).startswith(legacy_prefix) and str(key).count("|") == 3
+            ), None)
             state = alerts.pop(legacy_key) if legacy_key else {}
             alerts[object_id] = state
         state.update({"level_id": object_id, "source_timeframe": source_timeframe, "level_type": label})
@@ -812,7 +815,8 @@ class MarketState:
                         logger.debug("Suppressed key level %s: strength %.2f below threshold", key, state.get("strength", 0))
                     continue
                 retest_pending = state.get("awaiting_retest") and event_type.startswith("KEY_LEVEL_RETEST_")
-                if state.get("last_candle") == payload.get("candle_time") or (not state.get("armed", True) and not retest_pending):
+                lifecycle_transition = retest_pending or event_type.startswith("KEY_LEVEL_RECLAIM_")
+                if state.get("last_candle") == payload.get("candle_time") or (not state.get("armed", True) and not lifecycle_transition):
                     if LEVEL_DEBUG:
                         logger.debug("Suppressed key level %s: duplicate candle or not rearmed", key)
                     continue
