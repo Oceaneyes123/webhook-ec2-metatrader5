@@ -129,6 +129,7 @@ class AccountStore:
             db.execute("DELETE FROM cooldowns WHERE key=?", (key,))
 
     def reconcile(self, positions, account=None):
+        positions = [position for position in positions if isinstance(position, dict)]
         with self.lock, self._connect() as db:
             db.execute("DELETE FROM positions")
             for position in positions:
@@ -139,6 +140,8 @@ class AccountStore:
                 db.execute("INSERT INTO account_snapshots VALUES (?,?)", (time.time(), json.dumps(account)))
                 db.execute("DELETE FROM pending_orders")
                 for order in account.get("pending_orders", []):
+                    if not isinstance(order, dict):
+                        continue
                     ticket = str(order.get("order_ticket") or order.get("ticket") or "")
                     if ticket:
                         db.execute("INSERT OR REPLACE INTO pending_orders VALUES (?,?,?)", (ticket, json.dumps(order), time.time()))

@@ -72,6 +72,13 @@ class AccountFeatureTest(unittest.TestCase):
             store.reconcile([{"position_ticket": "2"}])
             self.assertEqual(store.positions(), [{"position_ticket": "2"}])
 
+    def test_reconciliation_ignores_non_object_positions_and_orders(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = AccountStore(Path(directory) / "account.db")
+            self.assertEqual(store.reconcile(["bad", {"position_ticket": "2"}], {"pending_orders": ["bad", {"order_ticket": "3"}]}), [{"position_ticket": "2"}])
+            with store._connect() as db:
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM pending_orders").fetchone()[0], 1)
+
     def test_daily_report_is_due_at_six_am_manila(self):
         reports = due_reports(datetime(2026, 7, 1, 6, 0, tzinfo=__import__("zoneinfo").ZoneInfo("Asia/Manila")))
         self.assertTrue(any(name == "Daily 24-hour Report" for name, _, _ in reports))
