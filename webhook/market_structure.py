@@ -235,7 +235,7 @@ def classify_level(candle, previous_close, value, is_zone, volatility, previous_
 
 def level_tolerance(value, volatility):
     """ATR/zone-aware tolerance used for coincidence grouping."""
-    lower, upper = value if isinstance(value, tuple) else (value, value)
+    lower, upper = value if isinstance(value, (tuple, list)) else (value, value)
     return max(volatility * COINCIDENCE_ATR, (upper - lower) * 0.5)
 
 

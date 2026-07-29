@@ -99,6 +99,8 @@ def validate_snapshot(payload):
     patterns = payload.get("patterns", payload.get("retained_patterns", []))
     if isinstance(patterns, list):
         for pattern in patterns:
+            if not isinstance(pattern, dict):
+                continue
             event_type = pattern.get("event_type")
             if event_type not in SUPPORTED_EVENTS:
                 raise ValueError(f"unsupported pattern event_type: {event_type}")

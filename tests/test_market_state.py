@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from webhook import market_analyzer, market_state
-from webhook.market_structure import classify_level, confirm_structure, level_id
+from webhook.market_structure import classify_level, confirm_structure, level_id, level_tolerance
 from tests.test_helpers import snapshot
 
 
@@ -18,6 +18,9 @@ class MarketStateModuleTest(unittest.TestCase):
 
     def test_market_state_module_is_available(self):
         self.assertIsNotNone(importlib.util.find_spec("webhook.market_state"))
+
+    def test_level_tolerance_accepts_deserialized_zone_list(self):
+        self.assertEqual(level_tolerance([100.0, 101.0], 1.0), 0.5)
 
 
 class MarketStateSnapshotTest(unittest.TestCase):
@@ -719,6 +722,11 @@ class MarketStatePatternsTest(unittest.TestCase):
             duplicate = state.update(payload)
         self.assertEqual(first, [])
         self.assertEqual(duplicate, [])
+
+    def test_market_state_ignores_non_object_pattern_entries(self):
+        payload = snapshot("M15", "2026.06.28 12:15:00", patterns=["ENGULFING_CANDLE"])
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(market_state.MarketState(Path(directory) / "state.json").update(payload), [])
 
     def test_market_state_notifies_patterns_sent_by_the_ea(self):
         payload = snapshot(
