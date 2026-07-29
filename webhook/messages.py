@@ -148,13 +148,14 @@ def key_level_message(payload):
         f"Primary: <b>{timeframe} {label}</b>",
         f"Key level: <code>{price}</code>",
     ]
-    coincident = payload.get("coincident_timeframes", [])
+    source = payload.get("source_timeframe")
+    if source and source != timeframe:
+        lines.append(f"Source level timeframe: <b>{html.escape(str(source))}</b>")
+    coincident = payload.get("coincident_levels", [])
     if coincident:
-        lines.append(
-            "Also coincides with "
-            + ", ".join(f"{html.escape(str(tf))} timeframe key level" for tf in coincident)
-            + "."
-        )
+        lines.append("Also coincides with " + ", ".join(f"{html.escape(str(item.get('timeframe')))} timeframe {html.escape(str(item.get('label')))}" for item in coincident) + ".")
+    elif payload.get("coincident_timeframes"):
+        lines.append("Also coincides with " + ", ".join(f"{html.escape(str(tf))} timeframe key level" for tf in payload["coincident_timeframes"]) + ".")
     lines.append(f"🕒 {html.escape(display_time(payload.get('candle_time')) or '?')} PHT")
     return "\n".join(lines)
 

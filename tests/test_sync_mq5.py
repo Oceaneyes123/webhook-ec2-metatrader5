@@ -81,6 +81,8 @@ class EaContentTest(unittest.TestCase):
         self.assertIn('\\"source\\":\\"webhook1\\"', market)
         self.assertIn('\\"candles\\":', market)
         self.assertIn("BuildCandlesJson", market)
+        self.assertIn("tickVolume", market)
+        self.assertIn("tick_volume", market)
         self.assertIn(
             "for(int shift = ChartHistoryBars; shift >= 1; shift--)",
             market,

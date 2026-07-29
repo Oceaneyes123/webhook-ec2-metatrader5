@@ -449,6 +449,7 @@ string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits, int rsiHandle)
       double high = iHigh(_Symbol, timeframe, shift);
       double low = iLow(_Symbol, timeframe, shift);
       double close = iClose(_Symbol, timeframe, shift);
+      long tickVolume = iVolume(_Symbol, timeframe, shift);
       if(candleTime <= 0
          || open <= 0
          || high <= 0
@@ -468,6 +469,7 @@ string BuildCandlesJson(ENUM_TIMEFRAMES timeframe, int digits, int rsiHandle)
          + ",\"high\":" + DoubleToString(high, digits)
          + ",\"low\":" + DoubleToString(low, digits)
          + ",\"close\":" + DoubleToString(close, digits)
+         + (tickVolume > 0 ? ",\"tick_volume\":" + DoubleToString(tickVolume, 0) : "")
          + (hasRsi ? ",\"rsi14\":" + DoubleToString(rsiBuffer[0], 2) : "")
          + "}";
    }

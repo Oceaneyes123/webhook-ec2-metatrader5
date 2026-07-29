@@ -15,6 +15,7 @@ logger = get_logger()
 # Defined here so handlers can access it; the canonical constant lives in
 # market_state and is re-exported through __init__.
 from .market_state import PATTERN_TIMEFRAMES  # noqa: E402
+from .candle_patterns import enabled_pattern_timeframes
 
 
 # === Event Dispatcher ===
@@ -184,7 +185,7 @@ def _handle_tf_snapshot(payload, server):
                    "SHOOTING_STAR_CANDLE", "INVERTED_HAMMER_CANDLE",
                    "MORNING_STAR", "EVENING_STAR", "INSIDE_BAR_BREAKOUT")
 def _handle_candle_pattern(payload, server):
-    if str(payload.get("timeframe", "")).upper() not in PATTERN_TIMEFRAMES:
+    if str(payload.get("timeframe", "")).upper() not in enabled_pattern_timeframes():
         logger.info("Ignored candle pattern outside M15-H4")
         server.write_text(200, "ignored")
         return
@@ -193,6 +194,20 @@ def _handle_candle_pattern(payload, server):
         server.send_response(200)
         server.end_headers()
         server.wfile.write(b"paused")
+        return
+    if "qualified" not in payload:
+        payload = {
+            **payload,
+            "qualified": False,
+            "score": 0,
+            "confidence": "Informational",
+            "confirmation_status": "Awaiting context",
+            "reasons_reduced": ["Raw event has no snapshot context; awaiting closed-candle evaluation"],
+        }
+    if not payload.get("qualified"):
+        logger.info("Suppressed candle pattern: %s", payload.get("reasons_reduced", []))
+        _tg.send_telegram_message(candle_alert_message(payload))
+        server.write_text(200, "ok")
         return
     message = candle_alert_message(payload)
     logger.info("Sending Telegram message=%r", message)
