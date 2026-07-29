@@ -725,6 +725,9 @@ class MarketState:
     def _retain_level_objects(self, symbol, seen_ids):
         objects = self.data.setdefault("level_objects", {}).setdefault(symbol, {})
         alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
+        for alert_id, state in list(alerts.items()):
+            if not isinstance(state, dict):
+                alerts.pop(alert_id, None)
         for object_id, item in list(objects.items()):
             if object_id in seen_ids:
                 item["presence_misses"] = 0

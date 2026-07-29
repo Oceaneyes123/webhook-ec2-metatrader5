@@ -614,6 +614,13 @@ class MarketStateSnapshotTest(unittest.TestCase):
             finally:
                 market_state.LEVEL_RETENTION = old_limit
 
+    def test_retain_level_objects_removes_malformed_legacy_alerts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.data["key_level_alerts"]["GOLD"] = {"legacy": "UP"}
+            state._retain_level_objects("GOLD", set())
+        self.assertEqual(state.data["key_level_alerts"]["GOLD"], {})
+
     def test_present_level_does_not_expire_but_absent_level_is_retired(self):
         levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
         with tempfile.TemporaryDirectory() as directory:
