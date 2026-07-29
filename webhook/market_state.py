@@ -14,7 +14,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from .app_logger import get_logger
 from .json_data_parser import SUPPORTED_EVENTS, display_symbol
-from .market_structure import TIMEFRAME_RANK, atr, classify_level, confirm_structure, level_id
+from .market_structure import (
+    TIMEFRAME_RANK, atr, classify_level, confirm_structure, level_id,
+    level_strength, level_tolerance, LEVEL_MIN_STRENGTH,
+)
 from .candle_patterns import (
     confirmation_result, debug_logging_enabled, enabled_pattern_timeframes,
     enabled_pattern_types, evaluate, invalidation_alerts_enabled,
@@ -37,6 +40,13 @@ CHART_CANDLE_LOOKBACK = 60  # candles in levels chart
 DIVERGENCE_HISTORY = 200
 PATTERN_MAX_AGE_CANDLES = int(os.environ.get("PATTERN_MAX_AGE_CANDLES", "8"))
 PATTERN_RETENTION_CANDLES = int(os.environ.get("PATTERN_RETENTION_CANDLES", "32"))
+LEVEL_RETENTION = int(os.environ.get("LEVEL_RETENTION", "200"))
+LEVEL_REARM_ATR = float(os.environ.get("LEVEL_REARM_DISTANCE_ATR", "0.5"))
+LEVEL_STALE_UPDATES = int(os.environ.get("LEVEL_STALE_UPDATES", "20"))
+LEVEL_COOLDOWN_MULTIPLIER = int(os.environ.get("LEVEL_COOLDOWN_MULTIPLIER", "5"))
+LEVEL_DEBUG = os.environ.get("MARKET_DEBUG_LOGGING", "false").lower() in {"1", "true", "yes"}
+ENABLED_LEVEL_TYPES = {item.strip() for item in os.environ.get("LEVEL_ENABLED_TYPES", "").split(",") if item.strip()}
+ENABLED_LEVEL_EVENTS = {item.strip() for item in os.environ.get("LEVEL_ENABLED_EVENTS", "").split(",") if item.strip()}
 
 # Default path used when none is supplied.
 DEFAULT_PATH = Path("market_state.json")
@@ -100,7 +110,7 @@ class MarketState:
     def __init__(self, path=None):
         self.path = Path(path) if path else DEFAULT_PATH
         self.lock = threading.RLock()
-        self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}, "divergence_alerts": {}}
+        self.data = {"symbols": {}, "key_level_alerts": {}, "level_objects": {}, "market_structure": {}, "divergence_alerts": {}}
         self._load()
 
     # ------------------------------------------------------------------
@@ -114,10 +124,11 @@ class MarketState:
             if "symbols" not in self.data:
                 self.data = {"symbols": {}}
             self.data.setdefault("key_level_alerts", {})
+            self.data.setdefault("level_objects", {})
             self.data.setdefault("market_structure", {})
             self.data.setdefault("divergence_alerts", {})
         except (FileNotFoundError, json.JSONDecodeError, ValueError):
-            self.data = {"symbols": {}, "key_level_alerts": {}, "market_structure": {}, "divergence_alerts": {}}
+            self.data = {"symbols": {}, "key_level_alerts": {}, "level_objects": {}, "market_structure": {}, "divergence_alerts": {}}
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,6 +162,9 @@ class MarketState:
         'candle_time', plus the snapshot fields (open/high/low/close, etc).
         """
         validate_snapshot(payload)
+        if any(payload.get(key) is False for key in ("closed", "candle_closed", "is_closed")):
+            logger.debug("Ignored unfinished candle symbol=%s timeframe=%s", payload.get("symbol"), payload.get("timeframe"))
+            return []
         timeframe = str(payload.get("timeframe", "")).upper()
         symbol = display_symbol(payload.get("symbol", "")).upper()
 
@@ -310,10 +324,18 @@ class MarketState:
                     notifications.append({
                         "event_type": "KEY_LEVEL_%s_%s" % (event["type"], event["direction"]),
                         "symbol": symbol, "timeframe": timeframe,
+                        "source_timeframe": timeframe,
                         "candle_time": event["candle_time"], "signal": "BUY" if event["direction"] == "UP" else "SELL",
                         "key_level_key": swing["id"], "key_level_price": swing["price"],
                         "key_level_label": "External swing %s" % swing["type"],
-                        "structure_event": True, "structure_before": snapshot.get("structure_before", "unknown"),
+                        "structure_event_type": event["type"], "broken_swing_type": swing["type"],
+                        "broken_swing_time": swing.get("time"), "protected_level": event.get("protected_level"),
+                        "break_distance": event.get("break_distance"), "atr_displacement": event.get("atr_displacement"),
+                        "structure_after": event.get("structure_after"), "external": event.get("external", True),
+                        "close_price": payload.get("close"), "lifecycle": "confirmed",
+                        "strength": swing.get("atr_relative"),
+                        "confirmation_reason": "confirmed external swing and ATR/body close",
+                        "structure_event": True, "structure_before": event.get("structure_before", "unknown"),
                         "event_id": "%s:%s:%s:%s" % (symbol, timeframe, event["type"], swing["id"]),
                         "digits": payload.get("digits", 5),
                     })
@@ -482,6 +504,16 @@ class MarketState:
             symbol = display_symbol(notification.get("symbol", "")).upper()
             timeframe = notification.get("timeframe", "")
             key = self._pattern_key(notification)
+            if notification.get("structure_event"):
+                structure = self.data.setdefault("market_structure", {}).setdefault(symbol, {}).setdefault(timeframe, {})
+                event_id = notification.get("event_id")
+                history = structure.setdefault("notified_event_ids", [])
+                if event_id and event_id not in history:
+                    history.append(event_id)
+                    del history[:-100]
+                structure["last_notified_event_id"] = event_id
+                self._save()
+                return
             if notification.get("event_type", "").startswith("KEY_LEVEL_"):
                 alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
                 for level_key in [notification["key_level_key"], *notification.get("coincident_keys", [])]:
@@ -490,15 +522,32 @@ class MarketState:
                         state = {}
                     state["armed"] = False
                     state["last_candle"] = notification.get("candle_time")
+                    state["age_candles"] = 0
+                    state["cooldown_until"] = time.time() + self._level_cooldown_seconds(
+                        notification.get("cooldown_source_timeframe", notification.get("source_timeframe", timeframe))
+                    )
                     state.setdefault("events", {})[notification["event_type"]] = time.time()
-                    if notification["event_type"] == "KEY_LEVEL_BREAK_UP":
+                    event_type = notification["event_type"]
+                    if event_type == "KEY_LEVEL_BREAK_UP":
                         state["lifecycle"] = "broken_up"
-                    elif notification["event_type"] == "KEY_LEVEL_BREAK_DOWN":
+                        state["awaiting_retest"] = True
+                        state["retest_held"] = False
+                    elif event_type == "KEY_LEVEL_BREAK_DOWN":
                         state["lifecycle"] = "broken_down"
-                    elif notification["event_type"].startswith("KEY_LEVEL_RECLAIM_"):
+                        state["awaiting_retest"] = True
+                        state["retest_held"] = False
+                    elif event_type.startswith("KEY_LEVEL_RECLAIM_"):
                         state["lifecycle"] = "reclaimed"
+                        state["awaiting_retest"] = False
+                    elif event_type.startswith("KEY_LEVEL_RETEST_HOLD_"):
+                        state["retest_held"] = True
+                        state["awaiting_retest"] = False
+                    elif event_type.startswith("KEY_LEVEL_RETEST_FAILURE_"):
+                        state["failure_count"] = int(state.get("failure_count", 0)) + 1
+                        state["lifecycle"] = "invalidated" if state["failure_count"] >= 2 else "retest_failed"
+                        state["awaiting_retest"] = False
                     elif not str(state.get("lifecycle", "")).startswith("broken_"):
-                        state["lifecycle"] = notification["event_type"].replace("KEY_LEVEL_", "").lower()
+                        state["lifecycle"] = event_type.replace("KEY_LEVEL_", "").lower()
                     state.pop("pending", None)
                     alerts[level_key] = state
                 direction = notification.get("structure_direction")
@@ -590,6 +639,123 @@ class MarketState:
         _, level_timeframe, label, level_price = min(matches)
         return {"timeframe": level_timeframe, "label": label, "price": level_price}
 
+    @staticmethod
+    def _level_metadata(levels, label):
+        keys = {
+            "Support": "support", "Resistance": "resistance", "Fib 61.8": "fib",
+            "Bullish FVG": "bullish_fvg", "Bearish FVG": "bearish_fvg",
+            "Previous Day High": "previous_day_high", "Previous Day Low": "previous_day_low",
+        }
+        raw = levels.get(keys.get(label, ""))
+        if label == "Fib 61.8" and isinstance(raw, dict):
+            raw = raw.get("61.8")
+        return raw if isinstance(raw, dict) else {}
+
+    def _persistent_level(self, symbol, source_timeframe, label, value, is_zone, snapshot):
+        """Resolve a drifting feed level to one durable object and alert state."""
+        objects = self.data.setdefault("level_objects", {}).setdefault(symbol, {})
+        current = (sum(value) / 2) if is_zone else value
+        volatility = atr(snapshot.get("candle_history", []))
+        metadata = self._level_metadata(snapshot.get("levels", {}), label)
+        requested_origin = metadata.get("origin_time") or metadata.get("origin_candle")
+        requested_reason = metadata.get("reason") or metadata.get("creation_reason")
+        requested_direction = metadata.get("direction")
+        tolerance = level_tolerance(value, volatility)
+        object_id, item = None, None
+        for candidate_id, candidate in objects.items():
+            if candidate.get("source_timeframe") != source_timeframe or candidate.get("label") != label:
+                continue
+            if requested_origin:
+                if str(candidate.get("origin_time")) != str(requested_origin):
+                    continue
+                if requested_reason and str(candidate.get("creation_reason")) != str(requested_reason):
+                    continue
+                if requested_direction and str(candidate.get("direction")) != str(requested_direction):
+                    continue
+                object_id, item = candidate_id, candidate
+                break
+            old = candidate.get("value", current)
+            old_center = sum(old) / 2 if isinstance(old, list) else old
+            if abs(float(old_center) - float(current)) <= max(tolerance, candidate.get("zone_width", 0) * 0.5):
+                object_id, item = candidate_id, candidate
+                break
+        if item is None:
+            origin = metadata.get("origin_time") or metadata.get("origin_candle") or snapshot.get("candle_time")
+            reason = metadata.get("reason") or metadata.get("creation_reason") or "configured"
+            direction = metadata.get("direction") or ("support" if "support" in label.lower() or "low" in label.lower() else "resistance" if "resistance" in label.lower() or "high" in label.lower() else "neutral")
+            object_id = level_id(symbol, source_timeframe, label, value, is_zone, origin, reason, direction)
+            item = {
+                "id": object_id, "symbol": symbol, "source_timeframe": source_timeframe,
+                "label": label, "value": list(value) if is_zone else value, "is_zone": is_zone,
+                "origin_time": origin, "creation_reason": reason, "direction": direction,
+                "created_at": snapshot.get("candle_time"), "last_seen": snapshot.get("candle_time"),
+                "zone_width": (value[1] - value[0]) if is_zone else 0,
+            }
+            objects[object_id] = item
+        else:
+            item["value"] = list(value) if is_zone else value
+            item["last_seen"] = snapshot.get("candle_time")
+        item.setdefault("strength", level_strength(source_timeframe, metadata))
+        item.setdefault("interactions", 0)
+        item.setdefault("lifecycle", "created")
+        alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
+        state = alerts.get(object_id)
+        if not isinstance(state, dict):
+            legacy_prefix = "%s|%s|%s|" % (symbol, source_timeframe, label)
+            legacy_key = next((key for key in alerts if str(key).startswith(legacy_prefix)), None)
+            state = alerts.pop(legacy_key) if legacy_key else {}
+            alerts[object_id] = state
+        state.update({"level_id": object_id, "source_timeframe": source_timeframe, "level_type": label})
+        state.setdefault("armed", True)
+        state.setdefault("events", {})
+        state.setdefault("lifecycle", item.get("lifecycle", "created"))
+        state.setdefault("interaction_count", 0)
+        state.setdefault("interaction_cycle", 0)
+        state.setdefault("strength", item["strength"])
+        state.setdefault("age_candles", 0)
+        state.setdefault("touch_count", 0)
+        state["presence_misses"] = 0
+        return item, state
+
+    def _retain_level_objects(self, symbol, seen_ids):
+        objects = self.data.setdefault("level_objects", {}).setdefault(symbol, {})
+        alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
+        for object_id, item in list(objects.items()):
+            if object_id in seen_ids:
+                item["presence_misses"] = 0
+                continue
+            item["presence_misses"] = int(item.get("presence_misses", 0)) + 1
+            if item["presence_misses"] >= LEVEL_STALE_UPDATES and not alerts.get(object_id, {}).get("pending"):
+                objects.pop(object_id, None)
+                alerts.pop(object_id, None)
+        if len(objects) > LEVEL_RETENTION:
+            keep = sorted(objects.items(), key=lambda pair: pair[1].get("last_seen", ""), reverse=True)[:LEVEL_RETENTION]
+            keep_ids = {key for key, _ in keep}
+            for object_id in list(objects):
+                if object_id in keep_ids or alerts.get(object_id, {}).get("pending"):
+                    continue
+                objects.pop(object_id, None)
+                alerts.pop(object_id, None)
+        for alert_id in list(alerts):
+            if alert_id not in objects and not alerts[alert_id].get("pending"):
+                alerts.pop(alert_id, None)
+
+    @staticmethod
+    def _level_cooldown_seconds(timeframe):
+        value = str(timeframe).upper()
+        minutes = int(value[1:]) * {"M": 1, "H": 60, "D": 1440}[value[0]]
+        return minutes * 60 * LEVEL_COOLDOWN_MULTIPLIER
+
+    @staticmethod
+    def _is_sequence_event(event_type):
+        return any(token in event_type for token in ("_BREAK_", "_RETEST_", "_RECLAIM_"))
+
+    def _level_cooldown_active(self, state, timeframe):
+        events = state.get("events", {})
+        latest = max((float(value) for value in events.values()), default=0.0)
+        until = latest + self._level_cooldown_seconds(timeframe) if latest else float(state.get("cooldown_until", 0))
+        return time.time() < until
+
     def _key_level_notifications(self, symbol, timeframe, timeframes, snapshot, payload):
         if timeframe not in KEY_LEVEL_ALERT_TIMEFRAMES:
             return []
@@ -611,29 +777,63 @@ class MarketState:
         previous_close = timeframes.get(timeframe, {}).get("close", payload.get("open"))
         volatility = atr(snapshot.get("candle_history", []))
         matches = []
+        seen_ids = set()
         for source_timeframe in KEY_LEVEL_ALERT_TIMEFRAMES:
             for label, value, is_zone in self._key_level_values(frames.get(source_timeframe, {}).get("levels", {})):
-                key = level_id(symbol, source_timeframe, label, value, is_zone)
-                state = self._key_level_alert_state(symbol, key)
-                event_type = classify_level(payload, previous_close, value, is_zone, volatility, state)
+                if ENABLED_LEVEL_TYPES and label not in ENABLED_LEVEL_TYPES:
+                    continue
+                level, state = self._persistent_level(symbol, source_timeframe, label, value, is_zone, frames[source_timeframe])
+                key = level["id"]
+                seen_ids.add(key)
+                event_type = classify_level(payload, previous_close, value, is_zone, volatility, state, label)
                 lower, upper = value if is_zone else (value, value)
                 distance = min(abs(float(payload["close"]) - lower), abs(float(payload["close"]) - upper))
                 if event_type is None:
+                    touched = float(payload["high"]) >= lower and float(payload["low"]) <= upper
+                    if touched:
+                        state["touch_count"] += 1
+                        state["interaction_count"] += 1
+                        state["interaction_cycle"] += 1 if state.get("armed", True) else 0
+                        state["strength"] = max(0.0, float(state.get("strength", level["strength"])) - 0.05)
+                        if state.get("lifecycle") not in {"broken_up", "broken_down", "invalidated", "expired"}:
+                            state["lifecycle"] = "touched"
                     # Rearm only after meaningful ATR-relative separation, not one quiet candle.
-                    if distance >= volatility * 0.5:
+                    if distance >= volatility * LEVEL_REARM_ATR and state.get("lifecycle") not in {"invalidated", "expired"}:
                         state["armed"] = True
+                    if LEVEL_DEBUG and not touched:
+                        logger.debug("Suppressed key level %s: no confirmed interaction", key)
                     continue
-                if state.get("last_candle") == payload.get("candle_time") or not state.get("armed", True):
+                if ENABLED_LEVEL_EVENTS and event_type not in ENABLED_LEVEL_EVENTS:
+                    if LEVEL_DEBUG:
+                        logger.debug("Suppressed key level %s: event type disabled (%s)", key, event_type)
+                    continue
+                if float(state.get("strength", level["strength"])) < LEVEL_MIN_STRENGTH:
+                    if LEVEL_DEBUG:
+                        logger.debug("Suppressed key level %s: strength %.2f below threshold", key, state.get("strength", 0))
+                    continue
+                retest_pending = state.get("awaiting_retest") and event_type.startswith("KEY_LEVEL_RETEST_")
+                if state.get("last_candle") == payload.get("candle_time") or (not state.get("armed", True) and not retest_pending):
+                    if LEVEL_DEBUG:
+                        logger.debug("Suppressed key level %s: duplicate candle or not rearmed", key)
                     continue
                 price = (lower + upper) / 2
-                matches.append((price, event_type, source_timeframe, label, key, state))
+                matches.append((price, event_type, source_timeframe, label, key, state, level))
 
         grouped = {}
         for match in matches:
-            grouped.setdefault((round(match[0], 5), match[1]), []).append(match)
+            placed = False
+            for group_key, group in grouped.items():
+                if group_key[1] == match[1] and abs(group[0][0] - match[0]) <= max(level_tolerance(group[0][6].get("value", group[0][0]), volatility), level_tolerance(match[6].get("value", match[0]), volatility)):
+                    group.append(match)
+                    placed = True
+                    break
+            if not placed:
+                grouped[(match[0], match[1])] = [match]
         notifications = []
         for (_, event_type), group in grouped.items():
-            price, _, source_timeframe, label, key, state = max(group, key=lambda item: TIMEFRAME_RANK[item[2]])
+            price, _, source_timeframe, label, key, state, level = max(group, key=lambda item: TIMEFRAME_RANK[item[2]])
+            if self._level_cooldown_active(state, source_timeframe) and not self._is_sequence_event(event_type):
+                continue
             notification = {
                 "event_type": event_type, "symbol": symbol, "timeframe": timeframe,
                 "source_timeframe": source_timeframe, "candle_time": payload.get("candle_time"),
@@ -642,9 +842,13 @@ class MarketState:
                 "coincident_keys": [item[4] for item in group if item[4] != key],
                 "digits": payload.get("digits", 5),
                 "event_id": "%s:%s:%s" % (key, event_type, payload.get("candle_time")),
+                "close_price": payload.get("close"), "strength": state.get("strength"),
+                "lifecycle": state.get("lifecycle"), "confirmation_reason": "closed candle with ATR/body confirmation",
+                "cooldown_source_timeframe": source_timeframe,
             }
             state["pending"] = notification
             notifications.append(notification)
+        self._retain_level_objects(symbol, seen_ids)
         return notifications
 
     def _key_level_alert_state(self, symbol, key):
@@ -676,7 +880,7 @@ class MarketState:
                 if is_zone and isinstance(value, dict):
                     result.append((label, (float(value["low"]), float(value["high"])), True))
                 elif not is_zone and value is not None:
-                    result.append((label, float(value), False))
+                    result.append((label, float(value.get("price", value.get("value"))) if isinstance(value, dict) else float(value), False))
             except (KeyError, TypeError, ValueError):
                 continue
         return result
