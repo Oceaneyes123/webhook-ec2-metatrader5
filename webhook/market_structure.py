@@ -48,6 +48,7 @@ def confirm_structure(structure, symbol, timeframe, candles):
     right = SWING_BARS.get(timeframe, 2)
     pivot_index = len(candles) - right - 1
     pivot = candles[pivot_index]
+    swing_added = False
     before, after = candles[pivot_index - right:pivot_index], candles[pivot_index + 1:pivot_index + right + 1]
     if len(before) == len(after) == right:
         high, low = _number(pivot.get("high")), _number(pivot.get("low"))
@@ -57,10 +58,16 @@ def confirm_structure(structure, symbol, timeframe, candles):
                 swing_id = "%s:%s:%s:%s" % (symbol, timeframe, kind, pivot.get("candle_time"))
                 if not any(item["id"] == swing_id for item in state["swings"]):
                     state["swings"].append({"id": swing_id, "type": kind, "price": price, "time": pivot.get("candle_time"), "prominence": prominent, "broken": False})
+                    swing_added = True
     state["swings"] = state["swings"][-MAX_SWINGS:]
     highs = [item for item in state["swings"] if item["type"] == "high"]
     lows = [item for item in state["swings"] if item["type"] == "low"]
-    if len(highs) >= 2 and len(lows) >= 2:
+    old_swing_ids = set(state.get("ranging_swing_ids", []))
+    new_swings = [item for item in state["swings"] if item["id"] not in old_swing_ids]
+    structure_ready = state.get("trend") != "ranging" or (
+        swing_added and {item["type"] for item in new_swings} == {"high", "low"}
+    )
+    if structure_ready and len(highs) >= 2 and len(lows) >= 2:
         if highs[-1]["price"] > highs[-2]["price"] and lows[-1]["price"] > lows[-2]["price"]:
             state["trend"] = "bullish"
             state["protected_low"] = lows[-1]
@@ -83,6 +90,7 @@ def confirm_structure(structure, symbol, timeframe, candles):
         swing["broken"] = True
         if is_choch:
             state["trend"] = "ranging"  # wait for a new HH/HL or LH/LL before a BOS
+            state["ranging_swing_ids"] = [item["id"] for item in state["swings"]]
         state["last_event"] = {"type": "CHOCH" if is_choch else "BOS", "direction": direction, "swing": swing, "candle_time": candle.get("candle_time")}
         events.append(state["last_event"])
     return events

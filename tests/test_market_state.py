@@ -262,6 +262,32 @@ class MarketStateSnapshotTest(unittest.TestCase):
         self.assertTrue(any("H1|Support" in key for key in keys))
         self.assertTrue(any("M30|Fib 61.8" in key for key in keys))
 
+    def test_key_level_state_advances_only_after_delivery_for_all_coincident_levels(self):
+        levels = {"support": 2280.0, "resistance": None, "fib": {"61.8": 2280.0}, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            notification = state.update(snapshot("M30", "1", open=2285, high=2286, low=2275, close=2278, levels=levels))[0]
+            keys = [notification["key_level_key"], *notification["coincident_keys"]]
+            self.assertTrue(all("last_candle" not in state.data["key_level_alerts"]["GOLD"][key] for key in keys))
+            self.assertEqual(state.update(snapshot("M30", "1", open=2285, high=2286, low=2275, close=2278, levels=levels)), [notification])
+            state.mark_notified(notification)
+            self.assertTrue(all(state.data["key_level_alerts"]["GOLD"][key]["lifecycle"] == "broken_down" for key in keys))
+            self.assertTrue(all(state.data["key_level_alerts"]["GOLD"][key]["last_candle"] == "1" for key in keys))
+
+    def test_retest_keeps_broken_lifecycle_for_later_reclaim(self):
+        levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            broke = state.update(snapshot("M30", "1", open=2285, high=2286, low=2275, close=2278, levels=levels))[0]
+            state.mark_notified(broke)
+            state.update(snapshot("M30", "2", open=2265, high=2270, low=2255, close=2260, levels=levels))
+            retest = state.update(snapshot("M30", "3", open=2275, high=2282, low=2270, close=2276, levels=levels))[0]
+            state.mark_notified(retest)
+            self.assertEqual(state.data["key_level_alerts"]["GOLD"][retest["key_level_key"]]["lifecycle"], "broken_down")
+            state.update(snapshot("M30", "4", open=2270, high=2275, low=2265, close=2270, levels=levels))
+            reclaimed = state.update(snapshot("M30", "5", open=2275, high=2295, low=2274, close=2290, levels=levels))[0]
+        self.assertEqual(reclaimed["event_type"], "KEY_LEVEL_RECLAIM_UP")
+
     def test_key_level_notifications_ignore_m5_and_m15(self):
         levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
         with tempfile.TemporaryDirectory() as directory:

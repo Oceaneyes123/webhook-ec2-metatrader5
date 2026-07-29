@@ -442,8 +442,8 @@ class MarketState:
                 trend = structure.get("trend") if isinstance(structure, dict) else None
                 updated["structure_confirmed"] = bool(
                     updated.get("structure_confirmed")
-                    or (updated.get("signal") == "BUY" and trend == "UP")
-                    or (updated.get("signal") == "SELL" and trend == "DOWN")
+                    or (updated.get("signal") == "BUY" and trend == "bullish")
+                    or (updated.get("signal") == "SELL" and trend == "bearish")
                 )
             confirmation = confirmation_result(updated, history or [])
             if confirmation == "confirmed":
@@ -484,17 +484,23 @@ class MarketState:
             key = self._pattern_key(notification)
             if notification.get("event_type", "").startswith("KEY_LEVEL_"):
                 alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
-                state = alerts.get(notification["key_level_key"], {})
-                if not isinstance(state, dict):
-                    state = {}
-                state["armed"] = False
-                state.setdefault("events", {})[notification["event_type"]] = time.time()
-                alerts[notification["key_level_key"]] = state
-                for coincident_key in notification.get("coincident_keys", []):
-                    other = alerts.get(coincident_key)
-                    if isinstance(other, dict):
-                        other["armed"] = False
-                        other.setdefault("events", {})[notification["event_type"]] = time.time()
+                for level_key in [notification["key_level_key"], *notification.get("coincident_keys", [])]:
+                    state = alerts.get(level_key, {})
+                    if not isinstance(state, dict):
+                        state = {}
+                    state["armed"] = False
+                    state["last_candle"] = notification.get("candle_time")
+                    state.setdefault("events", {})[notification["event_type"]] = time.time()
+                    if notification["event_type"] == "KEY_LEVEL_BREAK_UP":
+                        state["lifecycle"] = "broken_up"
+                    elif notification["event_type"] == "KEY_LEVEL_BREAK_DOWN":
+                        state["lifecycle"] = "broken_down"
+                    elif notification["event_type"].startswith("KEY_LEVEL_RECLAIM_"):
+                        state["lifecycle"] = "reclaimed"
+                    elif not str(state.get("lifecycle", "")).startswith("broken_"):
+                        state["lifecycle"] = notification["event_type"].replace("KEY_LEVEL_", "").lower()
+                    state.pop("pending", None)
+                    alerts[level_key] = state
                 direction = notification.get("structure_direction")
                 if direction:
                     self.data.setdefault("market_structure", {}).setdefault(symbol, {})[
@@ -588,6 +594,18 @@ class MarketState:
         if timeframe not in KEY_LEVEL_ALERT_TIMEFRAMES:
             return []
 
+        pending = {}
+        for state in self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {}).values():
+            notification = state.get("pending") if isinstance(state, dict) else None
+            if (
+                notification
+                and notification.get("timeframe") == timeframe
+                and notification.get("candle_time") == payload.get("candle_time")
+            ):
+                pending[notification["event_id"]] = notification
+        if pending:
+            return list(pending.values())
+
         frames = dict(timeframes)
         frames[timeframe] = snapshot
         previous_close = timeframes.get(timeframe, {}).get("close", payload.get("open"))
@@ -616,20 +634,17 @@ class MarketState:
         notifications = []
         for (_, event_type), group in grouped.items():
             price, _, source_timeframe, label, key, state = max(group, key=lambda item: TIMEFRAME_RANK[item[2]])
-            state["last_candle"] = payload.get("candle_time")
-            state["lifecycle"] = {
-                "KEY_LEVEL_BREAK_UP": "broken_up", "KEY_LEVEL_BREAK_DOWN": "broken_down",
-                "KEY_LEVEL_RECLAIM_UP": "reclaimed", "KEY_LEVEL_RECLAIM_DOWN": "reclaimed",
-            }.get(event_type, event_type.replace("KEY_LEVEL_", "").lower())
-            notifications.append({
+            notification = {
                 "event_type": event_type, "symbol": symbol, "timeframe": timeframe,
                 "source_timeframe": source_timeframe, "candle_time": payload.get("candle_time"),
                 "key_level_key": key, "key_level_price": price, "key_level_label": label,
                 "coincident_levels": [{"timeframe": item[2], "label": item[3]} for item in group if item[4] != key],
                 "coincident_keys": [item[4] for item in group if item[4] != key],
                 "digits": payload.get("digits", 5),
-                "event_id": "%s:%s:%s:%s" % (key, event_type, payload.get("candle_time"), state.get("lifecycle")),
-            })
+                "event_id": "%s:%s:%s" % (key, event_type, payload.get("candle_time")),
+            }
+            state["pending"] = notification
+            notifications.append(notification)
         return notifications
 
     def _key_level_alert_state(self, symbol, key):

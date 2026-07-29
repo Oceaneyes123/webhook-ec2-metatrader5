@@ -544,7 +544,7 @@ string BuildSnapshotPayload(
       payload +=
          ",\"ema20\":" + DoubleToString(ema20, digits)
          + ",\"ema50\":" + DoubleToString(ema50, digits);
-   else
+   if(patternsJson != "")
       payload +=
          ",\"patterns\":[" + patternsJson + "]";
    if(hasLevels)
@@ -568,7 +568,7 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
    LevelResult levels;
    ResetLevels(levels);
    string patternsJson = "";
-   bool hasEma = index < 2;
+   bool hasEma = true;
    bool hasLevels = index >= 1;
    double ema20 = 0;
    double ema50 = 0;
@@ -577,12 +577,9 @@ bool SendTimeframeSnapshot(int index, bool notifyPatterns)
    bool hasRsi = ReadRsiValue(index, rsi14);
    bool hasVwap = SessionVwap(vwap);
 
-   if(hasEma)
-   {
-      if(!ReadEmaValues(index, ema20, ema50))
-         return false;
-   }
-   else
+   if(!ReadEmaValues(index, ema20, ema50))
+      return false;
+   if(index >= 2)
    {
       Candle candle2 = ReadCandle(timeframe, 2);
       Candle candle3 = ReadCandle(timeframe, 3);

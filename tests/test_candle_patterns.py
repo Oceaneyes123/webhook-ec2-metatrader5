@@ -11,6 +11,7 @@ from webhook import events
 from webhook import market_state
 from webhook.json_data_parser import candle_alert_message
 from webhook.market_state import MarketState
+from webhook.market_structure import confirm_structure
 
 
 def candle(time, open_, high, low, close, **extra):
@@ -249,6 +250,36 @@ class CandlePatternTest(unittest.TestCase):
             state.mark_notified(confirmed[0])
             self.assertEqual(state.data["symbols"]["GOLD"]["M15"]["retained_patterns"][0]["lifecycle"], "alerted")
             self.assertEqual(state.update(payload), [])
+
+    def test_structure_confirmation_uses_persisted_trend_vocabulary(self):
+        history = [candle(str(index), 100, 101, 99, 100.5) for index in range(14)]
+        history.append(candle("15", 100.5, 102, 100, 101.5))
+        with tempfile.TemporaryDirectory() as directory:
+            state = MarketState(Path(directory) / "state.json")
+            state.data["market_structure"] = {"GOLD": {"M30": {"trend": "bullish"}}}
+            pending = {
+                "event_type": "HAMMER_CANDLE", "signal": "BUY", "candle_time": "14",
+                "confirmation_mode": "structure_confirmed", "qualified": True,
+                "confirmed": False, "lifecycle": "awaiting_confirmation",
+            }
+            state.data["symbols"] = {"GOLD": {"M30": {"retained_patterns": [pending]}}}
+            notifications = state.update(snapshot("M30", "15", candle_history=history, retained_patterns=[]))
+        self.assertEqual([item["event_type"] for item in notifications], ["HAMMER_CANDLE"])
+
+    def test_choch_ranging_state_is_not_rebuilt_from_old_swings(self):
+        swings = [
+            {"id": "h1", "type": "high", "price": 100, "broken": False},
+            {"id": "l1", "type": "low", "price": 90, "broken": False},
+            {"id": "h2", "type": "high", "price": 110, "broken": False},
+            {"id": "l2", "type": "low", "price": 95, "broken": True},
+        ]
+        structure = {"GOLD": {"M30": {
+            "trend": "ranging", "swings": swings, "broken": ["l2"],
+            "ranging_swing_ids": [item["id"] for item in swings],
+        }}}
+        history = [candle(str(index), 100, 101, 99, 100) for index in range(6)]
+        confirm_structure(structure, "GOLD", "M30", history)
+        self.assertEqual(structure["GOLD"]["M30"]["trend"], "ranging")
 
 
 if __name__ == "__main__":
