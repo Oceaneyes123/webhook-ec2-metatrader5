@@ -13,6 +13,7 @@ SUPPORTED_EVENTS = {
     "MORNING_STAR": "Morning Star",
     "EVENING_STAR": "Evening Star",
     "INSIDE_BAR_BREAKOUT": "Inside Bar Breakout",
+    "PATTERN_INVALIDATED": "Pattern Invalidated",
 }
 
 SYMBOL_ALIASES = {
@@ -130,13 +131,56 @@ def candle_alert_message(payload):
             f"{html.escape(str(payload.get('close', '')))}"
         )
 
-    return (
+    message = (
         f"{direction} {symbol_text}{title} - "
         f"{html.escape(str(payload.get('timeframe', '')))}\n"
         f"Bias: {bias}\n"
         f"🕒 {html.escape(candle_time)}\n"
         f"💰 {price}"
     )
+    if "score" in payload:
+        lines = [
+            message,
+            f"Direction: <b>{html.escape(str(payload.get('signal', 'UNKNOWN')))}</b> | Raw valid: <b>{html.escape(str(payload.get('raw_valid', 'unknown')))}</b>",
+            f"Quality: <b>{html.escape(str(payload.get('confidence', 'Informational')))}</b> ({payload.get('score', 0)}/100)",
+            f"Context: {html.escape(str(payload.get('context_classification', 'Unknown')))}",
+            f"HTF bias: {html.escape(str(payload.get('higher_timeframe_bias', 'unknown')))}",
+        ]
+        if payload.get("nearest_key_level"):
+            level = payload["nearest_key_level"]
+            lines.append(f"Level: {html.escape(str(level.get('timeframe', '?')))} {html.escape(str(level.get('label', '?')))} <code>{level.get('price', '?')}</code> (distance {level.get('distance', '?')})")
+        if payload.get("atr_relative_size") is not None:
+            lines.append(f"ATR size: <code>{float(payload['atr_relative_size']):.2f}x</code>")
+        if payload.get("body_ratio") is not None:
+            lines.append(f"Body/range: <code>{float(payload['body_ratio']):.2f}</code> | Wick/body U/L: <code>{payload.get('upper_wick_ratio', '?')}</code>/<code>{payload.get('lower_wick_ratio', '?')}</code>")
+        if payload.get("tick_volume") is not None or payload.get("tick_volume_ratio") is not None:
+            lines.append(f"Tick volume: <code>{payload.get('tick_volume', '?')}</code> ({payload.get('tick_volume_ratio', '?')}x average)")
+        if payload.get("session"):
+            lines.append(f"Session: <b>{html.escape(str(payload['session']))}</b>")
+        if payload.get("daily_atr") is not None or payload.get("daily_atr_consumed") is not None:
+            lines.append(f"Daily range/ATR: <code>{payload.get('daily_range', '?')}</code>/<code>{payload.get('daily_atr', '?')}</code> ({payload.get('daily_atr_consumed', '?')})")
+        if payload.get("vwap_event") not in (None, "unknown"):
+            lines.append(f"VWAP: <b>{html.escape(str(payload['vwap_event']))}</b>")
+        if payload.get("liquidity_sweep"):
+            lines.append("Liquidity sweep: reclaimed " + html.escape(str(payload["liquidity_sweep"].get("label", "level"))))
+        if payload.get("opposing_level"):
+            lines.append("Warning: opposing level nearby")
+        if payload.get("related_patterns"):
+            lines.append("Grouped with: " + ", ".join(html.escape(str(item)) for item in payload["related_patterns"]))
+        if payload.get("reasons_passed"):
+            lines.append("Pass: " + "; ".join(html.escape(str(item)) for item in payload["reasons_passed"][:2]))
+        if payload.get("reasons_reduced"):
+            lines.append("Warnings: " + "; ".join(html.escape(str(item)) for item in payload["reasons_reduced"][:2]))
+        if payload.get("event_type") == "PATTERN_INVALIDATED":
+            lines.append("Invalidation warning: " + html.escape(str(payload.get("invalidation_reason", "Pattern invalidated"))))
+        lines.append(f"Confirmation: {html.escape(str(payload.get('confirmation_mode', 'immediate')))}")
+        lines.append(f"Status: {html.escape(str(payload.get('confirmation_status', 'Immediate')))}")
+        if payload.get("signal") == "BUY" and payload.get("low") is not None:
+            lines.append(f"Invalidation: <code>{payload['low']}</code>")
+        elif payload.get("signal") == "SELL" and payload.get("high") is not None:
+            lines.append(f"Invalidation: <code>{payload['high']}</code>")
+        return "\n".join(lines)
+    return message
 
 
 engulfing_candle_message = candle_alert_message

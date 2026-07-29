@@ -359,6 +359,49 @@ the TPSL EA is attached, running, and configured to manage Webhook2 trades.
 M1 and M5 snapshots use EMA20/EMA50 only. M15, M30, H1, and H4 snapshots
 include candle patterns and key levels.
 
+### Context-aware candle patterns
+
+MT5 reports raw patterns from closed candles. Python then checks the available
+closed-candle history before sending a normal alert: body/wick geometry, ATR
+size, nearby M30-D1 levels, EMA alignment, countertrend risk, and extreme-candle
+exhaustion. A raw match alone is not a strong signal. Qualified alerts include
+their score, classification, context, nearest level, ATR-relative size, and
+pass/warning reasons; the stable pattern ID is symbol, timeframe, event,
+direction, and candle close time, so restart does not duplicate the same candle
+event. Persisted lifecycle states are `raw_detected`, `awaiting_confirmation`,
+`confirmed`, `alerted`, `failed`, `invalidated`, and `expired`.
+
+Defaults can be overridden with `PATTERN_MIN_ALERT_SCORE` (60),
+`PATTERN_MIN_BODY_RATIO` (0.10), `PATTERN_MIN_ATR_RATIO` (0.35),
+`PATTERN_LEVEL_ATR_TOLERANCE` (0.50), `PATTERN_MIN_WICK_BODY_RATIO` (2.0),
+`PATTERN_MIN_WICK_RANGE_RATIO` (0.35), `PATTERN_EXTREME_ATR_RATIO` (2.5),
+`PATTERN_INSIDE_BREAKOUT_RATIO` (0.15), `PATTERN_MAX_AGE_CANDLES` (8), and
+`PATTERN_RETENTION_CANDLES` (32). Use
+`PATTERN_<EVENT_TYPE>_CONFIRMATION_MODE=immediate|follow_through|retest|structure_confirmed` for a
+per-pattern override, or `PATTERN_CONFIRMATION_MODE` for the fallback;
+engulfing defaults to immediate while rejection/star/inside-bar patterns wait
+for follow-through. Countertrend immediate confirmation is disabled by default
+and can be explicitly enabled with `PATTERN_COUNTERTREND_IMMEDIATE=true`.
+`PATTERN_ENABLED_TYPES` and `PATTERN_ENABLED_TIMEFRAMES` control the active
+pattern set; `PATTERN_ALERT_GROUPING_ENABLED` groups related same-candle alerts.
+`PATTERN_VOLUME_EXPANSION_RATIO`, `PATTERN_LOW_VOLUME_RATIO`,
+`PATTERN_SESSION_WINDOWS` (JSON), `PATTERN_SESSION_TIMEZONE`, and
+`PATTERN_SESSION_WEIGHT_TOKYO/LONDON/NEW_YORK` control volume/session weighting.
+`PATTERN_CANDLE_TIMEZONE` (default `Asia/Manila`) is the source timezone
+assumption for naive MT5 candle timestamps; timestamps are converted to
+`PATTERN_SESSION_TIMEZONE` before session classification. `PATTERN_SWEEP_MIN_ATR_RATIO`
+(default `0.15`) sets material level penetration for sweep/reclaim scoring.
+`PATTERN_DAILY_ATR_WARNING_RATIO`, `PATTERN_VWAP_SCORE`,
+`PATTERN_SWEEP_SCORE`, `PATTERN_OPPOSING_LEVEL_SCORE`, and their corresponding
+`*_SCORE`/tolerance settings control the remaining context factors.
+`PATTERN_DEBUG_LOGGING` enables suppressed-pattern diagnostics and
+`PATTERN_INVALIDATION_ALERTS` defaults to false. `PATTERN_INVALIDATION_ATR_RATIO`
+(default `0.10`) controls the close-through buffer. `PATTERN_REQUIRE_HTF_ALIGNMENT`,
+`PATTERN_MISSING_HTF_SCORE`, and `PATTERN_COUNTERTREND_STRICTNESS` explicitly
+control higher-timeframe alignment and countertrend scoring. Snapshots with missing history
+are informational-only and cannot alert; missing optional context remains safe
+and is shown as unknown rather than invented.
+
 > **Risk:** `Webhook2` can place, modify, and delete pending orders. Test on a
 > demo account first, confirm the chart symbol, and check Telegram trade mode
 > with `/status Gold` before expecting trades.
@@ -444,6 +487,23 @@ Invoke-RestMethod `
 The response should be `ok`.
 
 ## Tests and Logs
+
+## Market structure and key-level alerts
+
+`KEY_LEVEL_BREAK_*`, rejection, sweep, reclaim, and retest are interactions with
+support/resistance, Fibonacci, FVG, or previous-day levels. They never change
+market structure. BOS/CHoCH are emitted only by the closed-candle external
+swing engine: a BOS continues an already-confirmed HH/HL or LH/LL trend; a
+CHoCH breaks its protected low/high and then waits for a new structure before
+another BOS. The default filters require ATR-relative displacement, a 50% body,
+and a close near the breaking end. Weak wick touches remain silent.
+
+Level state is persistent and keyed by symbol, source timeframe, type, and
+price/zone. Broken levels move to a broken lifecycle; a reclaim/retest is a
+later closed-candle sequence, not a same-candle rejection. Alerts rearm only
+after price separates by 0.5 ATR. The engine retains 80 swings per
+symbol/timeframe; this is deliberately external-only until internal alerts are
+needed.
 
 Run all tests:
 

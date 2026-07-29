@@ -55,7 +55,7 @@ class MarketAnalyzerSummaryTest(unittest.TestCase):
                 snapshot("M5", "2026.06.28 13:05:00", ema20=2290.0, ema50=2300.0)
             )
             self.assertIn(
-                "<b>Suggestion: SELL</b>",
+                "<b>Suggestion: WAIT</b>",
                 market_analyzer.MarketAnalyzer(state).summary("Gold"),
             )
 

@@ -14,6 +14,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from .app_logger import get_logger
 from .json_data_parser import SUPPORTED_EVENTS, display_symbol
+from .market_structure import TIMEFRAME_RANK, atr, classify_level, confirm_structure, level_id
+from .candle_patterns import (
+    confirmation_result, debug_logging_enabled, enabled_pattern_timeframes,
+    enabled_pattern_types, evaluate, invalidation_alerts_enabled,
+    pattern_invalidation,
+)
 
 logger = get_logger()
 
@@ -29,6 +35,8 @@ RSI_STRONG_LOW = 30
 RSI_STRONG_HIGH = 70
 CHART_CANDLE_LOOKBACK = 60  # candles in levels chart
 DIVERGENCE_HISTORY = 200
+PATTERN_MAX_AGE_CANDLES = int(os.environ.get("PATTERN_MAX_AGE_CANDLES", "8"))
+PATTERN_RETENTION_CANDLES = int(os.environ.get("PATTERN_RETENTION_CANDLES", "32"))
 
 # Default path used when none is supplied.
 DEFAULT_PATH = Path("market_state.json")
@@ -173,21 +181,11 @@ class MarketState:
                 "daily_open": payload.get("daily_open"),
                 "daily_high": payload.get("daily_high"),
                 "daily_low": payload.get("daily_low"),
+                "daily_atr": payload.get("daily_atr"),
                 "vwap": payload.get("vwap"),
                 "rsi_notified_at": prev_rsi_notified_at,
                 "received_at": time.time(),
             }
-            # Process patterns, separating notification-worthy from retained
-            _processed = self._process_patterns(payload, symbol, timeframe)
-            _retained = []
-            _pattern_notifications = []
-            for _entry in _processed:
-                if "symbol" in _entry:
-                    _pattern_notifications.append(_entry)
-                else:
-                    _retained.append(_entry)
-            snapshot["retained_patterns"] = _retained
-
             # RSI
             rsi_notification = None
             rsi = payload.get("rsi14")
@@ -219,7 +217,7 @@ class MarketState:
             if candle_history and isinstance(candle_history, list):
                 snapshot["candle_history"] = [
                     {
-                        **{key: candle.get(key) for key in ("open", "high", "low", "close", "rsi14") if key in candle},
+                        **{key: candle.get(key) for key in ("open", "high", "low", "close", "rsi14", "tick_volume", "volume", "session", "daily_atr") if key in candle},
                         "candle_time": candle.get("candle_time", candle.get("time")),
                     }
                     for candle in candle_history
@@ -242,6 +240,9 @@ class MarketState:
                         "low": payload.get("low"),
                         "close": payload.get("close"),
                     }
+                    for optional in ("tick_volume", "volume"):
+                        if payload.get(optional) is not None:
+                            candle_entry[optional] = payload[optional]
                     if rsi is not None:
                         candle_entry["rsi14"] = rsi
                     hist = timeframes.get(timeframe, {}).get("candle_history", [])
@@ -251,6 +252,17 @@ class MarketState:
                     # Cap auto-accumulated candle history
                     hist = hist[-DIVERGENCE_HISTORY:]
                     snapshot["candle_history"] = hist
+
+            # Process raw MT5 pattern events only after closed-candle history is available.
+            _processed = self._process_patterns(payload, symbol, timeframe, snapshot.get("candle_history", []), timeframes)
+            _retained = []
+            _pattern_notifications = []
+            for _entry in _processed:
+                if "symbol" in _entry:
+                    _pattern_notifications.append(_entry)
+                else:
+                    _retained.append(_entry)
+            snapshot["retained_patterns"] = _retained
 
             snapshot["rsi_history"] = [
                 {"candle_time": candle["candle_time"], "rsi14": candle["rsi14"]}
@@ -285,18 +297,32 @@ class MarketState:
                         }
                     )
 
-            notifications.extend(
-                self._key_level_notifications(
-                    symbol, timeframe, timeframes, snapshot, payload
-                )
-            )
+            # Structure is independent of reference levels: only confirmed swings
+            # can produce BOS/CHoCH.  Key-level interactions remain level events.
+            if timeframe in KEY_LEVEL_ALERT_TIMEFRAMES:
+                for event in confirm_structure(
+                    self.data.setdefault("market_structure", {}),
+                    symbol,
+                    timeframe,
+                    snapshot.get("candle_history", []),
+                ):
+                    swing = event["swing"]
+                    notifications.append({
+                        "event_type": "KEY_LEVEL_%s_%s" % (event["type"], event["direction"]),
+                        "symbol": symbol, "timeframe": timeframe,
+                        "candle_time": event["candle_time"], "signal": "BUY" if event["direction"] == "UP" else "SELL",
+                        "key_level_key": swing["id"], "key_level_price": swing["price"],
+                        "key_level_label": "External swing %s" % swing["type"],
+                        "structure_event": True, "structure_before": snapshot.get("structure_before", "unknown"),
+                        "event_id": "%s:%s:%s:%s" % (symbol, timeframe, event["type"], swing["id"]),
+                        "digits": payload.get("digits", 5),
+                    })
+            notifications.extend(self._key_level_notifications(symbol, timeframe, timeframes, snapshot, payload))
             notifications.extend(
                 self._divergence_notifications(symbol, timeframe, timeframes, snapshot)
             )
 
             timeframes[timeframe] = snapshot
-            if timeframe in PATTERN_TIMEFRAMES:
-                self._invalidate_patterns(timeframes, timeframe)
             self._save()
         return notifications
 
@@ -306,10 +332,14 @@ class MarketState:
             return "NEUTRAL"
         return "BULLISH" if ema20 > ema50 else "BEARISH" if ema20 < ema50 else "NEUTRAL"
 
-    def _process_patterns(self, payload, symbol, timeframe):
+    def _process_patterns(self, payload, symbol, timeframe, history=None, timeframes=None):
         raw = payload.get("patterns", payload.get("retained_patterns", []))
         if not isinstance(raw, list):
             return []
+        if timeframe not in enabled_pattern_timeframes():
+            raw = []
+        else:
+            raw = [pattern for pattern in raw if isinstance(pattern, dict) and str(pattern.get("event_type", "")).upper() in enabled_pattern_types()]
         existing = {}
         with self.lock:
             old_snapshot = self.data["symbols"].get(symbol, {}).get(timeframe, {})
@@ -318,16 +348,38 @@ class MarketState:
                 existing[key] = pattern
 
         result = []
+        seen = set()
         for pattern in raw:
             event_type = pattern.get("event_type")
             signal = pattern.get("signal", "")
             candle_time = payload.get("candle_time")
-            key = self._pattern_key(pattern)
+            key = self._pattern_key({**pattern, "candle_time": candle_time})
+            seen.add(key)
 
             is_new = key not in existing
             was_invalidated = existing.get(key, {}).get("invalidated", False) if not is_new else False
 
-            if is_new or was_invalidated:
+            context_snapshots = dict(timeframes or {})
+            context_snapshots[timeframe] = {
+                **self.data["symbols"].get(symbol, {}).get(timeframe, {}),
+                "levels": payload.get("levels", {}),
+                "ema_bias": self._ema_bias(payload.get("ema20"), payload.get("ema50")),
+                "vwap": payload.get("vwap"),
+                "daily_open": payload.get("daily_open"), "daily_high": payload.get("daily_high"),
+                "daily_low": payload.get("daily_low"), "daily_atr": payload.get("daily_atr"),
+            }
+            context = evaluate(event_type, signal, payload, history or [], context_snapshots)
+            event_candle = history[-1] if history and isinstance(history[-1], dict) else payload
+            pattern_state = {
+                "event_type": event_type, "signal": signal, "candle_time": candle_time,
+                "invalidated": False, "pattern_id": "%s:%s:%s:%s:%s" % (symbol, timeframe, event_type, signal, candle_time),
+                "open": event_candle.get("open"), "high": event_candle.get("high"), "low": event_candle.get("low"), "close": event_candle.get("close"),
+                "lifecycle": "confirmed" if context.get("confirmed") else "awaiting_confirmation" if context.get("qualified") else "raw_detected",
+                **context,
+            }
+            if not is_new and not was_invalidated:
+                pattern_state = {**existing[key], **context}
+            if (is_new or was_invalidated) and context.get("confirmed"):
                 result.append(
                     {
                         "event_type": event_type,
@@ -335,27 +387,95 @@ class MarketState:
                         "timeframe": timeframe,
                         "signal": signal,
                         "candle_time": candle_time,
-                        "open": payload.get("open"),
-                        "high": payload.get("high"),
-                        "low": payload.get("low"),
-                        "close": payload.get("close"),
+                        "open": event_candle.get("open"),
+                        "high": event_candle.get("high"),
+                        "low": event_candle.get("low"),
+                        "close": event_candle.get("close"),
                         "ema20": payload.get("ema20"),
                         "ema50": payload.get("ema50"),
                         "digits": payload.get("digits", 5),
+                        **pattern_state,
                     }
                 )
+            result.append(pattern_state)
 
-            result.append(
-                {
-                    "event_type": event_type,
-                    "signal": signal,
-                    "candle_time": candle_time,
-                    "invalidated": False,
-                }
-            )
+        # Advance persisted patterns even when MT5 no longer lists the raw event.
+        for key, previous in existing.items():
+            if key in seen:
+                continue
+            updated = dict(previous)
+            lifecycle = updated.get("lifecycle")
+            invalidation_reason = pattern_invalidation(updated, history or [])
+            if invalidation_reason and not updated.get("invalidated"):
+                updated.update({
+                    "invalidated": True,
+                    "lifecycle": "invalidated",
+                    "invalidated_at": payload.get("candle_time"),
+                    "invalidation_reason": invalidation_reason,
+                    "confirmation_status": "Invalidated",
+                    "age_candles": int(updated.get("age_candles", 0)) + 1,
+                })
+                if invalidation_alerts_enabled() and not updated.get("invalidation_notified"):
+                    result.append({
+                        **updated,
+                        "event_type": "PATTERN_INVALIDATED",
+                        "original_event_type": updated.get("event_type"),
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "candle_time": payload.get("candle_time"),
+                        "open": payload.get("open"), "high": payload.get("high"),
+                        "low": payload.get("low"), "close": payload.get("close"),
+                        "confidence": "Informational", "score": 0,
+                        "confirmation_status": "Invalidated",
+                    })
+                    updated["invalidation_notified"] = True
+                result.append(updated)
+                continue
+            if lifecycle in {"alerted", "failed", "invalidated", "expired"}:
+                updated["age_candles"] = int(updated.get("age_candles", 0)) + 1
+                if updated["age_candles"] >= PATTERN_RETENTION_CANDLES:
+                    continue
+                result.append(updated)
+                continue
+            structure = self.data.get("market_structure", {}).get(symbol, {}).get(timeframe, {})
+            if updated.get("confirmation_mode") == "structure_confirmed":
+                trend = structure.get("trend") if isinstance(structure, dict) else None
+                updated["structure_confirmed"] = bool(
+                    updated.get("structure_confirmed")
+                    or (updated.get("signal") == "BUY" and trend == "bullish")
+                    or (updated.get("signal") == "SELL" and trend == "bearish")
+                )
+            confirmation = confirmation_result(updated, history or [])
+            if confirmation == "confirmed":
+                updated.update({"lifecycle": "confirmed", "confirmed_at": payload.get("candle_time"), "confirmation_status": "Confirmed"})
+                result.append({**updated, "symbol": symbol, "timeframe": timeframe, "open": payload.get("open"), "high": payload.get("high"), "low": payload.get("low"), "close": payload.get("close"), "digits": payload.get("digits", 5)})
+            elif confirmation == "failed":
+                updated.update({"lifecycle": "failed", "invalidated": True, "invalidated_at": payload.get("candle_time"), "confirmation_status": "Failed"})
+            elif confirmation == "expired" or int(updated.get("age_candles", 0)) + 1 >= PATTERN_MAX_AGE_CANDLES:
+                updated.update({"lifecycle": "expired", "expired_at": payload.get("candle_time"), "confirmation_status": "Expired", "age_candles": int(updated.get("age_candles", 0)) + 1})
+            else:
+                updated["age_candles"] = int(updated.get("age_candles", 0)) + 1
+            if updated.get("lifecycle") != "expired" or updated.get("age_candles", 0) < PATTERN_RETENTION_CANDLES:
+                result.append(updated)
 
+        if os.environ.get("PATTERN_ALERT_GROUPING_ENABLED", "true").lower() not in {"0", "false", "no"}:
+            grouped = {}
+            for item in result:
+                if "symbol" in item:
+                    grouped.setdefault((item.get("timeframe"), item.get("candle_time"), item.get("signal")), []).append(item)
+            hidden = set()
+            for group in grouped.values():
+                if len(group) < 2:
+                    continue
+                primary = group[0]
+                primary["related_patterns"] = [item.get("event_type") for item in group[1:]]
+                hidden.update(id(item) for item in group[1:])
+            result = [item for item in result if id(item) not in hidden]
+        if debug_logging_enabled():
+            for item in result:
+                if item.get("lifecycle") == "raw_detected":
+                    logger.debug("Suppressed candle pattern %s: %s", item.get("pattern_id"), item.get("reasons_reduced", []))
         return result
-
     def mark_notified(self, notification):
         """Mark a notification as having been sent, so it won't fire again."""
         with self.lock:
@@ -364,12 +484,23 @@ class MarketState:
             key = self._pattern_key(notification)
             if notification.get("event_type", "").startswith("KEY_LEVEL_"):
                 alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
-                state = alerts.get(notification["key_level_key"], {})
-                if not isinstance(state, dict):
-                    state = {}
-                state["armed"] = False
-                state.setdefault("events", {})[notification["event_type"]] = time.time()
-                alerts[notification["key_level_key"]] = state
+                for level_key in [notification["key_level_key"], *notification.get("coincident_keys", [])]:
+                    state = alerts.get(level_key, {})
+                    if not isinstance(state, dict):
+                        state = {}
+                    state["armed"] = False
+                    state["last_candle"] = notification.get("candle_time")
+                    state.setdefault("events", {})[notification["event_type"]] = time.time()
+                    if notification["event_type"] == "KEY_LEVEL_BREAK_UP":
+                        state["lifecycle"] = "broken_up"
+                    elif notification["event_type"] == "KEY_LEVEL_BREAK_DOWN":
+                        state["lifecycle"] = "broken_down"
+                    elif notification["event_type"].startswith("KEY_LEVEL_RECLAIM_"):
+                        state["lifecycle"] = "reclaimed"
+                    elif not str(state.get("lifecycle", "")).startswith("broken_"):
+                        state["lifecycle"] = notification["event_type"].replace("KEY_LEVEL_", "").lower()
+                    state.pop("pending", None)
+                    alerts[level_key] = state
                 direction = notification.get("structure_direction")
                 if direction:
                     self.data.setdefault("market_structure", {}).setdefault(symbol, {})[
@@ -379,6 +510,12 @@ class MarketState:
                 return
             snapshot = self.data["symbols"].get(symbol, {}).get(timeframe)
             if not snapshot:
+                return
+            if notification.get("event_type") == "PATTERN_INVALIDATED":
+                for pattern in snapshot.get("retained_patterns", []):
+                    if pattern.get("pattern_id") == notification.get("pattern_id"):
+                        pattern["invalidation_notified"] = True
+                self._save()
                 return
             if notification.get("event_type") == "STRONG_RSI":
                 snapshot["rsi_notified_at"] = time.time()
@@ -394,6 +531,8 @@ class MarketState:
             for pattern in patterns:
                 if self._pattern_key(pattern) == key:
                     pattern["notified"] = True
+                    pattern["lifecycle"] = "alerted"
+                    pattern["alerted_at"] = time.time()
             self._save()
 
     @staticmethod
@@ -455,115 +594,70 @@ class MarketState:
         if timeframe not in KEY_LEVEL_ALERT_TIMEFRAMES:
             return []
 
-        levels_by_timeframe = dict(timeframes)
-        levels_by_timeframe[timeframe] = snapshot
-        low = float(payload.get("low"))
-        high = float(payload.get("high"))
-        if timeframe == "D1":
-            low = min(float(payload.get("bid", payload.get("close"))), float(payload.get("ask", payload.get("close"))))
-            high = max(float(payload.get("bid", payload.get("close"))), float(payload.get("ask", payload.get("close"))))
+        pending = {}
+        for state in self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {}).values():
+            notification = state.get("pending") if isinstance(state, dict) else None
+            if (
+                notification
+                and notification.get("timeframe") == timeframe
+                and notification.get("candle_time") == payload.get("candle_time")
+            ):
+                pending[notification["event_id"]] = notification
+        if pending:
+            return list(pending.values())
 
+        frames = dict(timeframes)
+        frames[timeframe] = snapshot
+        previous_close = timeframes.get(timeframe, {}).get("close", payload.get("open"))
+        volatility = atr(snapshot.get("candle_history", []))
         matches = []
-        for level_timeframe in KEY_LEVEL_ALERT_TIMEFRAMES:
-            levels = levels_by_timeframe.get(level_timeframe, {}).get("levels", {})
-            for label, value, is_zone in self._key_level_values(levels):
-                if value is None:
-                    continue
-                level_price = (value[0] + value[1]) / 2 if is_zone else value
-                key = f"{level_price:.5f}"
-                event_type = self._key_level_event(payload, value, is_zone)
-                alert_state = self._key_level_alert_state(symbol, key)
+        for source_timeframe in KEY_LEVEL_ALERT_TIMEFRAMES:
+            for label, value, is_zone in self._key_level_values(frames.get(source_timeframe, {}).get("levels", {})):
+                key = level_id(symbol, source_timeframe, label, value, is_zone)
+                state = self._key_level_alert_state(symbol, key)
+                event_type = classify_level(payload, previous_close, value, is_zone, volatility, state)
+                lower, upper = value if is_zone else (value, value)
+                distance = min(abs(float(payload["close"]) - lower), abs(float(payload["close"]) - upper))
                 if event_type is None:
-                    if not self._key_level_touched(low, high, value, is_zone):
-                        alert_state["armed"] = True
+                    # Rearm only after meaningful ATR-relative separation, not one quiet candle.
+                    if distance >= volatility * 0.5:
+                        state["armed"] = True
                     continue
-                matches.append((key, event_type, level_timeframe, label, level_price, alert_state))
+                if state.get("last_candle") == payload.get("candle_time") or not state.get("armed", True):
+                    continue
+                price = (lower + upper) / 2
+                matches.append((price, event_type, source_timeframe, label, key, state))
 
         grouped = {}
-        for key, event_type, level_timeframe, label, level_price, alert_state in matches:
-            grouped.setdefault((key, event_type), []).append((level_timeframe, label, level_price, alert_state))
-
+        for match in matches:
+            grouped.setdefault((round(match[0], 5), match[1]), []).append(match)
         notifications = []
-        timeframe_rank = {
-            name: index for index, name in enumerate(KEY_LEVEL_ALERT_TIMEFRAMES)
-        }
-        for (key, event_type), group in grouped.items():
-            primary_timeframe, primary_label, level_price, alert_state = max(
-                group, key=lambda item: timeframe_rank[item[0]]
-            )
-            event_type, structure_direction = self._structure_event(
-                symbol, primary_timeframe, event_type
-            )
-            cooldown = self._rsi_cooldown_seconds(primary_timeframe)
-            last_alert_at = float(alert_state.get("events", {}).get(event_type, 0))
-            if not alert_state.get("armed", True) or time.time() - last_alert_at < cooldown:
-                alert_state["armed"] = False
-                continue
-            coincident = sorted({item[0] for item in group if item[0] != primary_timeframe}, key=timeframe_rank.get)
-            notifications.append(
-                {
-                    "event_type": event_type,
-                    "symbol": symbol,
-                    "timeframe": primary_timeframe,
-                    "candle_time": payload.get("candle_time"),
-                    "key_level_key": key,
-                    "key_level_price": level_price,
-                    "key_level_label": primary_label,
-                    "coincident_timeframes": coincident,
-                    "digits": payload.get("digits", 5),
-                    "structure_direction": structure_direction,
-                }
-            )
+        for (_, event_type), group in grouped.items():
+            price, _, source_timeframe, label, key, state = max(group, key=lambda item: TIMEFRAME_RANK[item[2]])
+            notification = {
+                "event_type": event_type, "symbol": symbol, "timeframe": timeframe,
+                "source_timeframe": source_timeframe, "candle_time": payload.get("candle_time"),
+                "key_level_key": key, "key_level_price": price, "key_level_label": label,
+                "coincident_levels": [{"timeframe": item[2], "label": item[3]} for item in group if item[4] != key],
+                "coincident_keys": [item[4] for item in group if item[4] != key],
+                "digits": payload.get("digits", 5),
+                "event_id": "%s:%s:%s" % (key, event_type, payload.get("candle_time")),
+            }
+            state["pending"] = notification
+            notifications.append(notification)
         return notifications
-
-    def _structure_event(self, symbol, timeframe, event_type):
-        if event_type not in ("KEY_LEVEL_BREAK_UP", "KEY_LEVEL_BREAK_DOWN"):
-            return event_type, None
-        direction = "UP" if event_type.endswith("_UP") else "DOWN"
-        previous = self.data.get("market_structure", {}).get(symbol, {}).get(timeframe)
-        kind = "CHOCH" if previous and previous != direction else "BOS"
-        return f"KEY_LEVEL_{kind}_{direction}", direction
 
     def _key_level_alert_state(self, symbol, key):
         alerts = self.data.setdefault("key_level_alerts", {}).setdefault(symbol, {})
         state = alerts.get(key)
         if not isinstance(state, dict):
-            state = {"armed": True, "events": {}}
+            state = {"armed": True, "events": {}, "lifecycle": "active"}
             alerts[key] = state
         state.setdefault("armed", True)
         state.setdefault("events", {})
+        state.setdefault("lifecycle", "active")
         return state
 
-    @staticmethod
-    def _key_level_touched(low, high, value, is_zone):
-        return low <= value[1] and high >= value[0] if is_zone else low <= value <= high
-
-    @staticmethod
-    def _key_level_event(payload, value, is_zone):
-        open_price = float(payload.get("open"))
-        close = float(payload.get("close"))
-        low = float(payload.get("low"))
-        high = float(payload.get("high"))
-        if is_zone:
-            lower, upper = value
-            if open_price >= upper and close < lower:
-                return "KEY_LEVEL_BREAK_DOWN"
-            if open_price <= lower and close > upper:
-                return "KEY_LEVEL_BREAK_UP"
-            if open_price > upper and close > upper and low <= upper:
-                return "KEY_LEVEL_REJECTION_UP"
-            if open_price < lower and close < lower and high >= lower:
-                return "KEY_LEVEL_REJECTION_DOWN"
-            return None
-        if open_price < value < close:
-            return "KEY_LEVEL_BREAK_UP"
-        if open_price > value > close:
-            return "KEY_LEVEL_BREAK_DOWN"
-        if open_price > value and close > value and low <= value:
-            return "KEY_LEVEL_REJECTION_UP"
-        if open_price < value and close < value and high >= value:
-            return "KEY_LEVEL_REJECTION_DOWN"
-        return None
 
     @staticmethod
     def _key_level_values(levels):
@@ -590,16 +684,4 @@ class MarketState:
     @staticmethod
     def _pattern_key(pattern):
         """Unique key for a pattern within a symbol/timeframe."""
-        return (pattern.get("event_type"), pattern.get("signal"))
-
-    def _invalidate_patterns(self, timeframes, updated_timeframe):
-        """Mark retained patterns from other timeframes as invalidated."""
-        for tf in PATTERN_TIMEFRAMES:
-            if tf == updated_timeframe:
-                continue
-            snapshot = timeframes.get(tf)
-            if not snapshot:
-                continue
-            for pattern in snapshot.get("retained_patterns", []):
-                if not pattern.get("invalidated"):
-                    pattern["invalidated"] = True
+        return (pattern.get("event_type"), pattern.get("signal"), pattern.get("candle_time"))

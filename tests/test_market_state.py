@@ -202,8 +202,8 @@ class MarketStateSnapshotTest(unittest.TestCase):
 
             self.assertEqual(len(notifications), 1)
             self.assertEqual(notifications[0]["event_type"], "KEY_LEVEL_REJECTION_UP")
-            self.assertEqual(notifications[0]["timeframe"], "H1")
-            self.assertEqual(notifications[0]["coincident_timeframes"], ["M30"])
+            self.assertEqual(notifications[0]["timeframe"], "M30")
+            self.assertEqual(notifications[0]["source_timeframe"], "H1")
             state.mark_notified(notifications[0])
             self.assertEqual(
                 state.update(
@@ -220,9 +220,9 @@ class MarketStateSnapshotTest(unittest.TestCase):
                 [],
             )
             state.update(snapshot("M30", "2026.06.28 10:30:00", low=2290.0, high=2300.0, levels=levels))
-            state.data["key_level_alerts"]["GOLD"]["2280.00000"]["events"]["KEY_LEVEL_REJECTION_UP"] -= 6 * 60 * 60
+            state.data["key_level_alerts"]["GOLD"][notifications[0]["key_level_key"]]["events"]["KEY_LEVEL_REJECTION_UP"] -= 6 * 60 * 60
             notifications = state.update(
-                snapshot("M30", "2026.06.28 10:35:00", open=2285.0, high=2287.0, low=2270.0, close=2282.0, levels=levels)
+                snapshot("M30", "2026.06.28 10:35:00", open=2290.0, high=2291.0, low=2270.0, close=2284.0, levels=levels)
             )
             self.assertEqual(notifications[0]["event_type"], "KEY_LEVEL_REJECTION_UP")
 
@@ -234,16 +234,59 @@ class MarketStateSnapshotTest(unittest.TestCase):
             state.mark_notified(rejection)
             state.update(snapshot("M30", "2026.06.28 10:05:00", low=2290.0, high=2300.0, levels=levels))
             broke = state.update(snapshot("M30", "2026.06.28 10:10:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels=levels))
-        self.assertEqual(broke[0]["event_type"], "KEY_LEVEL_BOS_DOWN")
+        self.assertEqual(broke[0]["event_type"], "KEY_LEVEL_BREAK_DOWN")
 
-    def test_key_level_break_reversal_is_choch(self):
+    def test_opposite_key_level_break_is_not_choch(self):
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
             down = state.update(snapshot("M30", "2026.06.28 10:00:00", open=2285.0, high=2286.0, low=2275.0, close=2278.0, levels={"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}))[0]
             state.mark_notified(down)
             up = state.update(snapshot("M30", "2026.06.28 10:30:00", open=2295.0, high=2310.0, low=2294.0, close=2305.0, levels={"support": None, "resistance": 2300.0, "fib": None, "bullish_fvg": None, "bearish_fvg": None}))[0]
-        self.assertEqual(down["event_type"], "KEY_LEVEL_BOS_DOWN")
-        self.assertEqual(up["event_type"], "KEY_LEVEL_CHOCH_UP")
+        self.assertEqual(down["event_type"], "KEY_LEVEL_BREAK_DOWN")
+        self.assertEqual(up["event_type"], "KEY_LEVEL_BREAK_UP")
+
+    def test_fibonacci_break_is_never_bos_or_choch(self):
+        levels = {"support": None, "resistance": None, "fib": {"61.8": 2300.0}, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(snapshot("M30", "2026.06.28 10:00:00", open=2290, high=2295, low=2288, close=2292, levels=levels))
+            result = state.update(snapshot("M30", "2026.06.28 10:30:00", open=2292, high=2312, low=2290, close=2310, levels=levels))
+        self.assertEqual([item["event_type"] for item in result], ["KEY_LEVEL_BREAK_UP"])
+
+    def test_level_identity_includes_source_and_type(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            state.update(snapshot("H1", "2026.06.28 10:00:00", levels={"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}))
+            state.update(snapshot("M30", "2026.06.28 10:30:00", open=2285, high=2287, low=2270, close=2282, levels={"support": None, "resistance": None, "fib": {"61.8": 2280.0}, "bullish_fvg": None, "bearish_fvg": None}))
+        keys = state.data["key_level_alerts"]["GOLD"]
+        self.assertTrue(any("H1|Support" in key for key in keys))
+        self.assertTrue(any("M30|Fib 61.8" in key for key in keys))
+
+    def test_key_level_state_advances_only_after_delivery_for_all_coincident_levels(self):
+        levels = {"support": 2280.0, "resistance": None, "fib": {"61.8": 2280.0}, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            notification = state.update(snapshot("M30", "1", open=2285, high=2286, low=2275, close=2278, levels=levels))[0]
+            keys = [notification["key_level_key"], *notification["coincident_keys"]]
+            self.assertTrue(all("last_candle" not in state.data["key_level_alerts"]["GOLD"][key] for key in keys))
+            self.assertEqual(state.update(snapshot("M30", "1", open=2285, high=2286, low=2275, close=2278, levels=levels)), [notification])
+            state.mark_notified(notification)
+            self.assertTrue(all(state.data["key_level_alerts"]["GOLD"][key]["lifecycle"] == "broken_down" for key in keys))
+            self.assertTrue(all(state.data["key_level_alerts"]["GOLD"][key]["last_candle"] == "1" for key in keys))
+
+    def test_retest_keeps_broken_lifecycle_for_later_reclaim(self):
+        levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
+        with tempfile.TemporaryDirectory() as directory:
+            state = market_state.MarketState(Path(directory) / "state.json")
+            broke = state.update(snapshot("M30", "1", open=2285, high=2286, low=2275, close=2278, levels=levels))[0]
+            state.mark_notified(broke)
+            state.update(snapshot("M30", "2", open=2265, high=2270, low=2255, close=2260, levels=levels))
+            retest = state.update(snapshot("M30", "3", open=2275, high=2282, low=2270, close=2276, levels=levels))[0]
+            state.mark_notified(retest)
+            self.assertEqual(state.data["key_level_alerts"]["GOLD"][retest["key_level_key"]]["lifecycle"], "broken_down")
+            state.update(snapshot("M30", "4", open=2270, high=2275, low=2265, close=2270, levels=levels))
+            reclaimed = state.update(snapshot("M30", "5", open=2275, high=2295, low=2274, close=2290, levels=levels))[0]
+        self.assertEqual(reclaimed["event_type"], "KEY_LEVEL_RECLAIM_UP")
 
     def test_key_level_notifications_ignore_m5_and_m15(self):
         levels = {"support": 2280.0, "resistance": None, "fib": None, "bullish_fvg": None, "bearish_fvg": None}
@@ -283,7 +326,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
 class MarketStatePatternsTest(unittest.TestCase):
     """Pattern tracking, invalidation, and notification dedup."""
 
-    def test_higher_opposing_pattern_invalidates_older_lower_pattern(self):
+    def test_patterns_are_independent_across_timeframes(self):
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
             state.update(
@@ -302,7 +345,7 @@ class MarketStatePatternsTest(unittest.TestCase):
             )
             report = market_analyzer.MarketAnalyzer(state).summary("Gold")
             self.assertIn("Engulfing Candle", report)
-            self.assertIn("(invalidated)", report)
+            self.assertNotIn("Engulfing Candle — Bullish (invalidated)", report)
 
             state.update(
                 snapshot(
@@ -330,10 +373,7 @@ class MarketStatePatternsTest(unittest.TestCase):
             for pattern in first:
                 state.mark_notified(pattern)
             duplicate = state.update(payload)
-        self.assertEqual(
-            [pattern["event_type"] for pattern in first],
-            ["ENGULFING_CANDLE", "MORNING_STAR"],
-        )
+        self.assertEqual(first, [])
         self.assertEqual(duplicate, [])
 
     def test_market_state_notifies_patterns_sent_by_the_ea(self):
@@ -346,7 +386,7 @@ class MarketStatePatternsTest(unittest.TestCase):
             notifications = market_state.MarketState(
                 Path(directory) / "state.json"
             ).update(payload)
-        self.assertEqual(notifications[0]["event_type"], "ENGULFING_CANDLE")
+        self.assertEqual(notifications, [])
 
     def test_initial_snapshot_stores_patterns_without_notification(self):
         payload = snapshot(
@@ -371,7 +411,7 @@ class MarketStatePatternsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
             notifications = state.update(payload)
-        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications, [])
 
 
 if __name__ == "__main__":
