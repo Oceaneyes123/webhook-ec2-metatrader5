@@ -1,12 +1,13 @@
 """Tests for sync_mq5 — file copying and source validation."""
+
 from __future__ import annotations
 
 import tempfile
 import unittest
 from pathlib import Path
 
-from webhook import sync_mq5
 from tests.test_helpers import MQ5_RELATIVE_SOURCES, MQ5_SOURCE_DIR, make_mq5_sources
+from webhook import sync_mq5
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -36,6 +37,27 @@ class SyncMq5Test(unittest.TestCase):
                     (live_dir / relative).read_bytes(),
                     (source_dir / relative).read_bytes(),
                 )
+
+    def test_sync_check_reports_only_content_mismatches(self):
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            source_dir = temporary / "mq5"
+            live_dir = temporary / "Experts"
+            make_mq5_sources(source_dir)
+            live_dir.mkdir()
+            sync_mq5.sync_mq5(source_dir=source_dir, live_dir=live_dir)
+
+            self.assertEqual(
+                sync_mq5.check_mq5_sync(source_dir=source_dir, live_dir=live_dir),
+                (),
+            )
+
+            changed = live_dir / MQ5_RELATIVE_SOURCES[0]
+            changed.write_text("different", encoding="utf-8")
+            self.assertEqual(
+                sync_mq5.check_mq5_sync(source_dir=source_dir, live_dir=live_dir),
+                ((source_dir / MQ5_RELATIVE_SOURCES[0], changed),),
+            )
 
     def test_sync_rejects_canonical_files_as_live_targets(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -79,9 +101,7 @@ class EaContentTest(unittest.TestCase):
 
     def test_market_ea_owns_snapshots_only(self):
         ea = (MQ5_SOURCE_DIR / "Webhook1.mq5").read_text(encoding="utf-8")
-        market = (MQ5_SOURCE_DIR / "includes/MarketSnapshot.mqh").read_text(
-            encoding="utf-8"
-        )
+        market = (MQ5_SOURCE_DIR / "includes/MarketSnapshot.mqh").read_text(encoding="utf-8")
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn('#include "includes/MarketSnapshot.mqh"', ea)
@@ -102,9 +122,7 @@ class EaContentTest(unittest.TestCase):
 
     def test_trade_ea_owns_trade_management_only(self):
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn('#include "includes/TradeManager.mqh"', ea)
@@ -132,18 +150,14 @@ class EaContentTest(unittest.TestCase):
         self.assertNotIn("ManageTrading();", on_tick)
 
     def test_trade_config_url_includes_encoded_chart_symbol(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertIn("string UrlEncode(string value)", manager)
         self.assertIn('"/trade-config?symbol="', manager)
         self.assertIn("UrlEncode(_Symbol)", manager)
 
     def test_both_eas_use_the_local_webhook_default(self):
-        expected = (
-            'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
-        )
+        expected = 'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
         for name in ("Webhook1.mq5", "Webhook2.mq5"):
             source = (MQ5_SOURCE_DIR / name).read_text(encoding="utf-8")
             with self.subTest(name=name):
@@ -199,12 +213,10 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("input int TradeConfigMaxStaleSeconds = 30;", ea)
         self.assertIn("lastHeartbeatTime", ea)
         self.assertIn("MaybeSendHeartbeat", ea)
-        self.assertIn('SendEaHeartbeat("webhook2")', ea)
+        self.assertIn('MaybeSendEaHeartbeat("webhook2", HeartbeatSeconds, lastHeartbeatTime);', ea)
         self.assertIn("HeartbeatSeconds < 10", ea)
         self.assertIn("TradeConfigRefreshSeconds < 1", ea)
-        self.assertIn(
-            "TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea
-        )
+        self.assertIn("TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea)
 
     def test_tpsl_is_synced_and_sends_heartbeats(self):
         ea = (MQ5_SOURCE_DIR / "TPSL.mq5").read_text(encoding="utf-8")
@@ -219,7 +231,7 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("EventSetTimer(TimerSeconds);", ea)
         self.assertIn('SendEaHeartbeat("tpsl")', ea)
         self.assertIn("MaybeSendHeartbeat();", ea)
-        self.assertIn("now - lastHeartbeatTime >= HeartbeatSeconds", ea)
+        self.assertIn('MaybeSendEaHeartbeat("tpsl", HeartbeatSeconds, lastHeartbeatTime);', ea)
         self.assertIn("EventKillTimer();", ea)
 
     def test_tpsl_uses_m15_atr_take_profit_and_ema_stop_loss(self):
@@ -256,15 +268,13 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("HeartbeatSeconds < 10", ea)
         self.assertIn('SendEaHeartbeat("overtrade")', ea)
         self.assertIn("MaybeSendHeartbeat();", ea)
-        self.assertIn("now - lastHeartbeatTime >= HeartbeatSeconds", ea)
+        self.assertIn('MaybeSendEaHeartbeat("overtrade", HeartbeatSeconds, lastHeartbeatTime);', ea)
         self.assertIn("/overtrade-config", ea)
         self.assertIn("overtradeSecurityEnabled", ea)
         self.assertIn("activeProfitTargetUSD", ea)
 
     def test_trade_manager_has_config_cache(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertIn("cachedTradeConfig", manager)
         self.assertIn("hasCachedTradeConfig", manager)
@@ -277,16 +287,12 @@ class EaContentTest(unittest.TestCase):
 
     def test_auto_mode_maintains_untouched_key_level_limits(self):
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertIn("input double KeyLevelLotSize = 0.1;", ea)
         self.assertIn('config.mode == "AUTO"', manager)
         self.assertIn("MaintainUntouchedKeyLevelOrders();", manager)
-        self.assertIn(
-            "{PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}", manager
-        )
+        self.assertIn("{PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}", manager)
         self.assertNotIn(
             "{PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1}",
             manager,
@@ -296,41 +302,45 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);", manager)
 
     def test_webhook_common_has_send_ea_heartbeat(self):
-        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
-            encoding="utf-8"
-        )
+        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(encoding="utf-8")
 
         self.assertIn("SendEaHeartbeat", common)
+
+    def test_shared_heartbeat_rate_limiter_is_used_by_matching_eas(self):
+        common = (MQ5_SOURCE_DIR / "includes" / "WebhookCommon.mqh").read_text(encoding="utf-8")
+        self.assertIn("void MaybeSendEaHeartbeat(", common)
+        for filename, source in (
+            ("Webhook2.mq5", "webhook2"),
+            ("TPSL.mq5", "tpsl"),
+            ("Overtrade.mq5", "overtrade"),
+        ):
+            ea = (MQ5_SOURCE_DIR / filename).read_text(encoding="utf-8")
+            self.assertIn(
+                f'MaybeSendEaHeartbeat("{source}", HeartbeatSeconds, lastHeartbeatTime);',
+                ea,
+            )
         self.assertIn("EA_HEARTBEAT", common)
 
     def test_webhook_common_has_send_trade_close(self):
-        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
-            encoding="utf-8"
-        )
+        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(encoding="utf-8")
 
         self.assertIn("SendTradeCloseNotification", common)
         self.assertIn("TRADE_CLOSE", common)
 
     def test_trade_manager_uses_transaction_reconciliation_not_timer_close_detection(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertNotIn("lastHadPosition", manager)
         self.assertIn("MaybeSendAccountReconciliation", manager)
 
     def test_trade_manager_notifies_when_an_ea_order_fills(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertIn("NotifyFilledEaPositions", manager)
         self.assertIn('"webhook2"', manager)
 
     def test_trade_manager_maintains_untouched_m30_to_d1_key_level_limits(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
 
         self.assertIn("MaintainUntouchedKeyLevelOrders", manager)
@@ -341,9 +351,7 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("input double KeyLevelLotSize = 0.1;", ea)
 
     def test_key_level_session_safety_cancels_only_nearby_key_level_orders(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
 
         self.assertIn("CancelNearbyKeyLevelOrdersForSession();", manager)
@@ -353,9 +361,7 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("input double KeyLevelSessionSafetyPips = 200;", ea)
 
     def test_key_level_order_clusters_keep_the_better_price(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
         ea = (MQ5_SOURCE_DIR / "Webhook2.mq5").read_text(encoding="utf-8")
 
         self.assertIn("PruneNearbyKeyLevelOrders();", manager)
@@ -365,17 +371,13 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("input double KeyLevelClusterPips = 30;", ea)
 
     def test_webhook_common_has_send_trade_open(self):
-        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(
-            encoding="utf-8"
-        )
+        common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(encoding="utf-8")
 
         self.assertIn("SendTradeOpenNotification", common)
         self.assertIn("TRADE_OPEN", common)
 
     def test_trade_manager_has_account_reconciliation(self):
-        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
-            encoding="utf-8"
-        )
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 
         self.assertIn("ACCOUNT_RECONCILIATION", manager)
         self.assertIn("position_ticket", manager)

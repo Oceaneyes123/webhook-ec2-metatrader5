@@ -31,10 +31,13 @@ def vwap_report_window(now=None):
 
 
 def vwap_report_text():
-    from .state import MARKET_ANALYZER, MARKET_STATE
-    with MARKET_STATE.lock:
-        symbols = sorted(MARKET_STATE.data["symbols"])
-    return "\n\n".join(MARKET_ANALYZER.vwap(symbol) for symbol in symbols)
+    from .state import market_analyzer, market_state
+
+    state = market_state()
+    with state.lock:
+        symbols = sorted(state.data["symbols"])
+    analyzer = market_analyzer()
+    return "\n\n".join(analyzer.vwap(symbol) for symbol in symbols)
 
 
 class WebhookHandler(BaseHTTPRequestHandler):

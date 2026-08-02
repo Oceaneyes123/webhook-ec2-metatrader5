@@ -1,0 +1,15 @@
+{
+  "event_type": "TIMEFRAME_SNAPSHOT",
+  "source": "webhook1",
+  "symbol": "GOLDmicro",
+  "timeframe": "M5",
+  "candle_time": "2026.06.28 10:01:00",
+  "open": 2300.0,
+  "high": 2310.0,
+  "low": 2290.0,
+  "close": 2305.0,
+  "digits": 2,
+  "ema20": 2306.0,
+  "ema50": 2305.0,
+  "rsi14": 55.0
+}

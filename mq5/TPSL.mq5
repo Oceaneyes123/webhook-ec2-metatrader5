@@ -518,11 +518,6 @@ void OnTimer()
 //+------------------------------------------------------------------+
 void MaybeSendHeartbeat()
 {
-   datetime now = TimeCurrent();
-   if(now - lastHeartbeatTime >= HeartbeatSeconds)
-   {
-      SendEaHeartbeat("tpsl");
-      lastHeartbeatTime = now;
-   }
+   MaybeSendEaHeartbeat("tpsl", HeartbeatSeconds, lastHeartbeatTime);
 }
 //+------------------------------------------------------------------+

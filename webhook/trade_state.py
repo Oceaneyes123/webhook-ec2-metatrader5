@@ -98,6 +98,12 @@ def get_trade_mode(symbol=None):
     return normalize_trade_mode(TRADE_MODE)
 
 
+def symbol_trade_modes():
+    """Return a snapshot of symbol-specific trade-mode overrides."""
+
+    return dict(TRADE_STATE["symbols"])
+
+
 def set_trade_mode(mode, symbol=None):
     global TRADE_MODE
 

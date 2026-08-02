@@ -1,0 +1,9 @@
+{
+  "update_id": 1001,
+  "message": {
+    "message_id": 42,
+    "text": "/status",
+    "chat": {"id": "cmd-chat"},
+    "from": {"id": "cmd-user"}
+  }
+}

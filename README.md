@@ -11,11 +11,15 @@ Telegram polling -> Python -> /status, /summary, /levels, and other commands
 
 ## Requirements
 
-- Python 3
+- Python 3.11 or newer
 - MetaTrader 5 on the same machine
 - A Telegram bot token and chat ID
 
-No Python package installation is required.
+Install the runtime dependency before starting the service:
+
+```powershell
+python -m pip install -r requirements.txt
+```
 
 ## Telegram Credentials
 
@@ -34,13 +38,13 @@ No Python package installation is required.
 Open PowerShell in the repository:
 
 ```powershell
-Set-Location D:\Project\Python\webhook-ec2
+Set-Location C:\Project\Personal\webhook-ec2
 
 $env:TELEGRAM_BOT_TOKEN = "your_bot_token"
 $env:TELEGRAM_CHAT_ID = "your_chat_id"
 $env:TIMEZONE_OFFSET_HOURS = "5"
 
-python webhook.py
+python run.py
 ```
 
 The default configuration is:
@@ -58,10 +62,9 @@ Optional environment overrides:
 $env:HOST = "127.0.0.1"
 $env:PORT = "8000"
 $env:PUBLIC_URL = "http://127.0.0.1:8000/webhook"
-$env:STATE_FILE = "D:\Project\Python\webhook-ec2\market_state.json"
-$env:TRADE_STATE_FILE = "D:\Project\Python\webhook-ec2\trade_state.json"
+$env:TRADE_STATE_FILE = "C:\Project\Personal\webhook-ec2\trade_state.json"
 $env:TELEGRAM_POLL_SECONDS = "10"
-$env:ACCOUNT_DB_FILE = "D:\Project\Python\webhook-ec2\account_state.db"
+$env:ACCOUNT_DB_FILE = "C:\Project\Personal\webhook-ec2\account_state.db"
 $env:ACCOUNT_ACTIONS_ENABLED = "false" # set true only after demo testing
 $env:ACCOUNT_ACTION_SECRET = "long-random-local-secret"
 $env:AUTHORIZED_TELEGRAM_CHAT = "your_chat_id"
@@ -103,7 +106,7 @@ $env:LEVEL_ENABLED_EVENTS = "" # empty enables all supported events
 $env:MARKET_DEBUG_LOGGING = "false"
 ```
 
-PowerShell variables apply only to the current terminal. Start `webhook.py`
+PowerShell variables apply only to the current terminal. Start `run.py`
 from that same terminal.
 
 Verify the server:
@@ -159,18 +162,26 @@ Present levels do not age toward expiry. Objects absent from source snapshots
 are retired after `LEVEL_STALE_UPDATES`, and bounded retention prunes their
 alert state too.
 
-Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
-`Webhook2.mq5` are symlinks to the live MetaTrader Experts files.
+Canonical tracked sources are under `mq5/`; shared code is under
+`mq5/includes/`. Root `Webhook1.mq5` and `Webhook2.mq5` are live MetaTrader
+links or checkout pointer files and must never be edited directly. Live include
+files are synchronized copies and must not be edited directly either.
 
 After every MQ5 edit:
 
 ```powershell
-python -m webhook.sync_mq5
+python sync_mq5.py
 ```
 
 This updates `Webhook1.mq5`, `Webhook2.mq5`, `BigMove.mq5`, `TPSL.mq5`, and
 their shared includes in the live Experts folder. Then compile and reload the
 changed EAs in MetaEditor.
+
+Verify synchronization without copying:
+
+```powershell
+python sync_mq5.py --check
+```
 
 In MetaTrader 5:
 
@@ -563,6 +574,9 @@ Run all tests:
 ```powershell
 python -m unittest
 ```
+
+Formatting and linting commands are documented in
+[`docs/development.md`](docs/development.md).
 
 Follow the local log:
 

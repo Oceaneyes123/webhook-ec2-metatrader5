@@ -272,10 +272,5 @@ void OnTimer()
 
 void MaybeSendHeartbeat()
 {
-   datetime now = TimeCurrent();
-   if(now - lastHeartbeatTime >= HeartbeatSeconds)
-   {
-      SendEaHeartbeat("webhook2");
-      lastHeartbeatTime = now;
-   }
+   MaybeSendEaHeartbeat("webhook2", HeartbeatSeconds, lastHeartbeatTime);
 }

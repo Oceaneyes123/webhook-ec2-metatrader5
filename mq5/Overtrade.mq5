@@ -166,12 +166,7 @@ void RefreshOvertradeConfig()
 //+------------------------------------------------------------------+
 void MaybeSendHeartbeat()
 {
-   datetime now = TimeCurrent();
-   if(now - lastHeartbeatTime >= HeartbeatSeconds)
-   {
-      SendEaHeartbeat("overtrade");
-      lastHeartbeatTime = now;
-   }
+   MaybeSendEaHeartbeat("overtrade", HeartbeatSeconds, lastHeartbeatTime);
 }
 
 //+------------------------------------------------------------------+

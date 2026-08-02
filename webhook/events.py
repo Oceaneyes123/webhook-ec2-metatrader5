@@ -5,7 +5,7 @@ import time
 from .app_logger import get_logger
 from .json_data_parser import candle_alert_message, display_symbol
 from .messages import big_move_message, divergence_message, ea_issue_message, error_message, key_level_message, strong_rsi_message, trade_close_message, trade_open_message
-from . import state as _state
+from .state import add_recent_signal, alerts_paused, market_state
 from . import telegram_sender as _tg
 from .account import STORE, action_buttons, profit_alert, transaction_message
 
@@ -148,7 +148,7 @@ def _handle_action_result(payload, server):
 
 @register_handler("BIG_MOVE")
 def _handle_big_move(payload, server):
-    if not _state.ALERTS_PAUSED:
+    if not alerts_paused():
         _tg.send_telegram_message(big_move_message(payload))
     server.write_text(200, "ok")
 
@@ -156,8 +156,9 @@ def _handle_big_move(payload, server):
 @register_handler("TIMEFRAME_SNAPSHOT")
 def _handle_tf_snapshot(payload, server):
     STORE.event({**payload, "event_id": "snapshot:%s:%s:%s" % (payload.get("symbol"), payload.get("timeframe"), payload.get("candle_time"))})
-    notifications = _state.MARKET_STATE.update(payload)
-    if not _state.ALERTS_PAUSED:
+    state = market_state()
+    notifications = state.update(payload)
+    if not alerts_paused():
         for notification in notifications:
             message = (
                 key_level_message(notification)
@@ -169,15 +170,11 @@ def _handle_tf_snapshot(payload, server):
                 else candle_alert_message(notification)
             )
             _tg.send_telegram_message(message)
-            _state.MARKET_STATE.mark_notified(notification)
-            _state.RECENT_SIGNALS.append({
-                "symbol": display_symbol(notification.get("symbol")).upper(),
-                "message": message,
-            })
-        del _state.RECENT_SIGNALS[:-50]
+            state.mark_notified(notification)
+            add_recent_signal(display_symbol(notification.get("symbol")).upper(), message)
     else:
         for notification in notifications:
-            _state.MARKET_STATE.mark_notified(notification)
+            state.mark_notified(notification)
     server.write_text(200, "ok")
 
 
@@ -189,7 +186,7 @@ def _handle_candle_pattern(payload, server):
         logger.info("Ignored candle pattern outside M15-H4")
         server.write_text(200, "ignored")
         return
-    if _state.ALERTS_PAUSED:
+    if alerts_paused():
         logger.info("Ignored webhook while alerts are paused")
         server.send_response(200)
         server.end_headers()
@@ -212,9 +209,5 @@ def _handle_candle_pattern(payload, server):
     message = candle_alert_message(payload)
     logger.info("Sending Telegram message=%r", message)
     _tg.send_telegram_message(message)
-    _state.RECENT_SIGNALS.append({
-        "symbol": display_symbol(payload.get("symbol")).upper(),
-        "message": message,
-    })
-    del _state.RECENT_SIGNALS[:-50]
+    add_recent_signal(display_symbol(payload.get("symbol")).upper(), message)
     server.write_text(200, "ok")

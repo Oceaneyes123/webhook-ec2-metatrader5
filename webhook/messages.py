@@ -209,13 +209,13 @@ def help_text():
 
 def health_text():
     # Import here to avoid circular dependency at module level
-    from .state import ALERTS_PAUSED
+    from .state import alerts_paused
 
     return "\n".join(
         [
             "✅ Webhook healthy",
             f"Telegram: {'configured' if telegram_configured() else 'missing'}",
-            f"Alerts: {'paused' if ALERTS_PAUSED else 'running'}",
+            f"Alerts: {'paused' if alerts_paused() else 'running'}",
             f"Uptime: {uptime_text()}",
         ]
     )

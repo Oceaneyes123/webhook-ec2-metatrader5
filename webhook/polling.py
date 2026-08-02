@@ -13,7 +13,7 @@ from .account import STORE, confirmation_prompt
 from .config import account_actions_enabled, authorized_chat_id, authorized_user_id
 from .config import polling_interval
 from .json_data_parser import display_symbol
-from .state import MARKET_ANALYZER, MARKET_CHART
+from .state import market_analyzer, market_chart
 from . import telegram_sender as _tg
 
 logger = get_logger()
@@ -65,10 +65,10 @@ def maybe_send_levels_chart(text, chat_id):
     if command != "/levels" or len(parts) < 2:
         return False
     symbol = display_symbol(parts[1]).upper()
-    report = MARKET_ANALYZER.levels(symbol)
+    report = market_analyzer().levels(symbol)
     safe_symbol = "".join(character for character in symbol if character.isalnum()) or "symbol"
     output_path = Path(tempfile.gettempdir()) / f"{safe_symbol.lower()}_key_levels.png"
-    chart_path = MARKET_CHART.levels_chart(symbol, output_path)
+    chart_path = market_chart().levels_chart(symbol, output_path)
     if not chart_path:
         logger.info("No levels chart data for symbol=%s; sending text report only", symbol)
         _tg.send_telegram_message(report, chat_id=chat_id)
