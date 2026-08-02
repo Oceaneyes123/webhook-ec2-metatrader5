@@ -1,10 +1,10 @@
 //+------------------------------------------------------------------+
-//|                                             Set_100_Pip_TP_SL.mq5 |
-//|              Adds pip-based TP/SL and breakeven stop management   |
+//|                                           ATR_EMA_TPSL_Manager.mq5 |
+//|       Adds M15 ATR TP, EMA-based SL, and breakeven management      |
 //+------------------------------------------------------------------+
 #property copyright ""
 #property link      ""
-#property version   "1.02"
+#property version   "1.03"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -15,8 +15,12 @@ input string   WebhookUrl              = "http://127.0.0.1:8000/webhook";
 input int      WebRequestTimeoutMs     = 5000;
 input bool     PrintDebugLogs          = true;
 input int      HeartbeatSeconds        = 30;
-input int      TP_Pips                 = 100;
-input int      SL_Pips                 = 100;
+input int      M15AtrPeriod            = 14;
+input int      M15EmaPeriod            = 200;
+input int      EmaStopBufferPips       = 20;
+input int      MaximumStopLossPips     = 80;
+input int      PendingTakeProfitPips   = 100;
+input int      PendingStopLossPips     = 100;
 input bool     ManageCurrentSymbolOnly = true;
 input bool     OnlySetIfMissing        = true;
 input ulong    MagicNumberFilter       = 0;   // 0 = manage all magic numbers
@@ -59,6 +63,132 @@ double NormalizeSymbolPrice(const string symbol, double price)
 {
    int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
    return NormalizeDouble(price, digits);
+}
+
+//+------------------------------------------------------------------+
+//| Read the current M15 ATR value                                  |
+//+------------------------------------------------------------------+
+bool GetM15Atr(const string symbol, double &atr)
+{
+   atr = 0.0;
+   int handle = iATR(symbol, PERIOD_M15, M15AtrPeriod);
+
+   if(handle == INVALID_HANDLE)
+      return false;
+
+   double values[];
+   int copied = CopyBuffer(handle, 0, 0, 1, values);
+   IndicatorRelease(handle);
+
+   if(copied != 1 || values[0] <= 0.0)
+      return false;
+
+   atr = values[0];
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| Read the current M15 EMA value                                  |
+//+------------------------------------------------------------------+
+bool GetM15Ema(const string symbol, double &ema)
+{
+   ema = 0.0;
+   int handle = iMA(symbol, PERIOD_M15, M15EmaPeriod, 0, MODE_EMA, PRICE_CLOSE);
+
+   if(handle == INVALID_HANDLE)
+      return false;
+
+   double values[];
+   int copied = CopyBuffer(handle, 0, 0, 1, values);
+   IndicatorRelease(handle);
+
+   if(copied != 1 || values[0] <= 0.0)
+      return false;
+
+   ema = values[0];
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| Build TP at 1x M15 ATR and the nearest valid requested SL       |
+//+------------------------------------------------------------------+
+bool GetDefaultProtection(
+   const string symbol,
+   const long type,
+   const double openPrice,
+   const double pip,
+   double &sl,
+   double &tp
+)
+{
+   double atr = 0.0;
+   double ema = 0.0;
+
+   if(!GetM15Atr(symbol, atr) || !GetM15Ema(symbol, ema))
+      return false;
+
+   double maximumStopDistance = MaximumStopLossPips * pip;
+
+   if(type == POSITION_TYPE_BUY)
+   {
+      double emaStop = ema - EmaStopBufferPips * pip;
+      // An SL must remain below a buy entry; otherwise use the 80-pip cap.
+      sl = emaStop < openPrice && openPrice - emaStop < maximumStopDistance
+         ? emaStop
+         : openPrice - maximumStopDistance;
+      tp = openPrice + atr;
+   }
+   else if(type == POSITION_TYPE_SELL)
+   {
+      double emaStop = ema + EmaStopBufferPips * pip;
+      // An SL must remain above a sell entry; otherwise use the 80-pip cap.
+      sl = emaStop > openPrice && emaStop - openPrice < maximumStopDistance
+         ? emaStop
+         : openPrice + maximumStopDistance;
+      tp = openPrice - atr;
+   }
+   else
+   {
+      return false;
+   }
+
+   sl = NormalizeSymbolPrice(symbol, sl);
+   tp = NormalizeSymbolPrice(symbol, tp);
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| Check whether a filled pending order still has its 100-pip exits |
+//+------------------------------------------------------------------+
+bool HasFixedPendingProtection(
+   const string symbol,
+   const long type,
+   const double openPrice,
+   const double currentSL,
+   const double currentTP,
+   const double pip
+)
+{
+   double expectedSL = 0.0;
+   double expectedTP = 0.0;
+
+   if(type == POSITION_TYPE_BUY)
+   {
+      expectedSL = openPrice - PendingStopLossPips * pip;
+      expectedTP = openPrice + PendingTakeProfitPips * pip;
+   }
+   else if(type == POSITION_TYPE_SELL)
+   {
+      expectedSL = openPrice + PendingStopLossPips * pip;
+      expectedTP = openPrice - PendingTakeProfitPips * pip;
+   }
+   else
+   {
+      return false;
+   }
+
+   return NormalizeSymbolPrice(symbol, currentSL) == NormalizeSymbolPrice(symbol, expectedSL)
+      && NormalizeSymbolPrice(symbol, currentTP) == NormalizeSymbolPrice(symbol, expectedTP);
 }
 
 //+------------------------------------------------------------------+
@@ -162,31 +292,30 @@ void ManagePositions()
       double defaultSL = 0.0;
       double defaultTP = 0.0;
 
-      if(type == POSITION_TYPE_BUY)
+      if(!GetDefaultProtection(symbol, type, openPrice, pip, defaultSL, defaultTP))
       {
-         defaultSL = openPrice - SL_Pips * pip;
-         defaultTP = openPrice + TP_Pips * pip;
-      }
-      else if(type == POSITION_TYPE_SELL)
-      {
-         defaultSL = openPrice + SL_Pips * pip;
-         defaultTP = openPrice - TP_Pips * pip;
-      }
-      else
-      {
+         Print("Unable to calculate M15 ATR/EMA protection for position #", ticket,
+               " symbol=", symbol);
          continue;
       }
 
-      defaultSL = NormalizeSymbolPrice(symbol, defaultSL);
-      defaultTP = NormalizeSymbolPrice(symbol, defaultTP);
-
       if(OnlySetIfMissing)
       {
-         if(currentSL <= 0.0)
+         if(HasFixedPendingProtection(symbol, type, openPrice, currentSL, currentTP, pip))
+         {
+            // A filled pending order inherits its 100-pip exits. Replace both
+            // with the current ATR/EMA confluence exactly after it becomes a position.
             sl = defaultSL;
-
-         if(currentTP <= 0.0)
             tp = defaultTP;
+         }
+         else
+         {
+            if(currentSL <= 0.0)
+               sl = defaultSL;
+
+            if(currentTP <= 0.0)
+               tp = defaultTP;
+         }
       }
       else
       {
@@ -268,24 +397,15 @@ void ManageOrders()
          type == ORDER_TYPE_BUY_STOP ||
          type == ORDER_TYPE_BUY_STOP_LIMIT;
 
-      bool isSellOrder =
-         type == ORDER_TYPE_SELL_LIMIT ||
-         type == ORDER_TYPE_SELL_STOP ||
-         type == ORDER_TYPE_SELL_STOP_LIMIT;
-
       if(isBuyOrder)
       {
-         sl = openPrice - SL_Pips * pip;
-         tp = openPrice + TP_Pips * pip;
-      }
-      else if(isSellOrder)
-      {
-         sl = openPrice + SL_Pips * pip;
-         tp = openPrice - TP_Pips * pip;
+         sl = openPrice - PendingStopLossPips * pip;
+         tp = openPrice + PendingTakeProfitPips * pip;
       }
       else
       {
-         continue;
+         sl = openPrice + PendingStopLossPips * pip;
+         tp = openPrice - PendingTakeProfitPips * pip;
       }
 
       sl = NormalizeSymbolPrice(symbol, sl);
@@ -338,9 +458,11 @@ void ManageAll()
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   if(TimerSeconds < 1 || HeartbeatSeconds < 10)
+   if(TimerSeconds < 1 || HeartbeatSeconds < 10 || M15AtrPeriod < 1 ||
+      M15EmaPeriod < 1 || EmaStopBufferPips < 0 || MaximumStopLossPips <= 0 ||
+      PendingTakeProfitPips <= 0 || PendingStopLossPips <= 0)
    {
-      Print("Invalid TPSL EA inputs. TimerSeconds must be at least 1 and HeartbeatSeconds at least 10.");
+      Print("Invalid TPSL EA inputs. Check timer, heartbeat, ATR, EMA, and stop-loss settings.");
       return INIT_PARAMETERS_INCORRECT;
    }
 
@@ -350,8 +472,13 @@ int OnInit()
    SendEaHeartbeat("tpsl");
    lastHeartbeatTime = TimeCurrent();
 
-   Print("Set TP/SL EA started. TP_Pips=", TP_Pips,
-         " SL_Pips=", SL_Pips,
+   Print("TPSL EA started. TP=M15 ATR(", M15AtrPeriod,
+         ") SL=M15 EMA(", M15EmaPeriod,
+         ") +/- ", EmaStopBufferPips,
+         " pips, capped at ", MaximumStopLossPips,
+         " pips",
+         " PendingTP=", PendingTakeProfitPips,
+         " PendingSL=", PendingStopLossPips,
          " Breakeven=", UseBreakeven,
          " BreakevenTriggerPips=", BreakevenTriggerPips,
          " BreakevenOffsetPips=", BreakevenOffsetPips,

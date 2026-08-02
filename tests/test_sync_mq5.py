@@ -222,6 +222,32 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("now - lastHeartbeatTime >= HeartbeatSeconds", ea)
         self.assertIn("EventKillTimer();", ea)
 
+    def test_tpsl_uses_m15_atr_take_profit_and_ema_stop_loss(self):
+        ea = (MQ5_SOURCE_DIR / "TPSL.mq5").read_text(encoding="utf-8")
+
+        self.assertIn("input int      M15AtrPeriod            = 14;", ea)
+        self.assertIn("input int      M15EmaPeriod            = 200;", ea)
+        self.assertIn("input int      EmaStopBufferPips       = 20;", ea)
+        self.assertIn("input int      MaximumStopLossPips     = 80;", ea)
+        self.assertIn("input int      PendingTakeProfitPips   = 100;", ea)
+        self.assertIn("input int      PendingStopLossPips     = 100;", ea)
+        self.assertIn("iATR(symbol, PERIOD_M15, M15AtrPeriod)", ea)
+        self.assertIn(
+            "iMA(symbol, PERIOD_M15, M15EmaPeriod, 0, MODE_EMA, PRICE_CLOSE)",
+            ea,
+        )
+        self.assertIn("tp = openPrice + atr;", ea)
+        self.assertIn("tp = openPrice - atr;", ea)
+        self.assertIn("ema - EmaStopBufferPips * pip", ea)
+        self.assertIn("ema + EmaStopBufferPips * pip", ea)
+        self.assertIn("MaximumStopLossPips * pip", ea)
+        self.assertIn("GetDefaultProtection(symbol, type", ea)
+        self.assertIn("HasFixedPendingProtection(symbol, type", ea)
+        self.assertIn("sl = openPrice - PendingStopLossPips * pip;", ea)
+        self.assertIn("tp = openPrice + PendingTakeProfitPips * pip;", ea)
+        self.assertIn("sl = openPrice + PendingStopLossPips * pip;", ea)
+        self.assertIn("tp = openPrice - PendingTakeProfitPips * pip;", ea)
+
     def test_trade_manager_has_config_cache(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
             encoding="utf-8"
