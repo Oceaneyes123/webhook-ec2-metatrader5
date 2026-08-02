@@ -78,8 +78,13 @@ def start_heartbeat_monitor():
 
 
 def heartbeat_status_lines():
-    known_sources = ["webhook1", "webhook2", "tpsl"]
-    display_names = {"webhook1": "Webhook1", "webhook2": "Webhook2", "tpsl": "TPSL"}
+    known_sources = ["webhook1", "webhook2", "tpsl", "overtrade"]
+    display_names = {
+        "webhook1": "Webhook1",
+        "webhook2": "Webhook2",
+        "tpsl": "TPSL",
+        "overtrade": "Overtrade",
+    }
     stale = heartbeat_stale_seconds()
     lines = []
     for source in known_sources:

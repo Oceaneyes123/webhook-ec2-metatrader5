@@ -261,7 +261,7 @@ Philippine time.
 
 ### EA Heartbeat
 
-All three EAs send periodic heartbeats to the webhook server. The `/status` command
+All four EAs send periodic heartbeats to the webhook server. The `/status` command
 shows whether EAs are running, stale, or missing:
 
 ```text
@@ -275,6 +275,7 @@ EA status:
 Webhook1: running, GOLD, 12s ago
 Webhook2: running, GOLD, 5s ago
 TPSL: missing
+Overtrade: running, GOLD, 8s ago
 ```
 
 EAs report heartbeat by default every 30 seconds. The server considers a
@@ -288,10 +289,14 @@ heartbeat stale after 90 seconds (configurable via
 | Webhook1 | `HeartbeatSeconds` | 30 | Timer interval for sending heartbeats (min 10) |
 | Webhook2 | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (>= TradeManageIntervalSeconds, >= 10) |
 | TPSL | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (min 10) |
+| Overtrade | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (min 10) |
 
 TPSL uses its existing `TimerSeconds` input (default 1 second) for TP/SL and
 breakeven management; heartbeats are rate-limited separately and do not slow
 that timer.
+
+Overtrade uses its existing `CheckIntervalSeconds` input for position monitoring;
+heartbeats are rate-limited separately and do not slow that timer.
 
 ### Webhook2 Trade Config Cache
 
@@ -463,6 +468,9 @@ and is shown as unknown rather than invented.
 /buy - Start trailing buy-limit mode
 /sell - Start trailing sell-limit mode
 /notrade - Stop trading activity
+/overtrade on - Enable overtrade security
+/overtrade off - Disable overtrade security
+/overtrade 5 - Close eligible positions at $5 combined profit
 /status Gold - Check status and trade mode for Gold
 /buy Gold - Start trailing buy-limit mode for Gold
 /sell Gold - Start trailing sell-limit mode for Gold
@@ -482,6 +490,7 @@ rsi - Show RSI(14) status and 75/25 extreme lookback
 buy - Start trailing buy-limit mode
 sell - Start trailing sell-limit mode
 notrade - Stop trading activity
+overtrade - Enable, disable, or set the overtrade profit target
 price - Latest MT5 price
 market - M5 EMA trend and session
 why - Latest entry decision
@@ -498,6 +507,10 @@ The default trade mode and symbol overrides persist in `trade_state.json`.
 Set `TRADE_STATE_FILE` to store that file elsewhere. The commands `/buy`,
 `/sell`, `/notrade`, and `/status` operate on the default mode; their symbol
 forms operate on one normalized symbol.
+
+Overtrade security is enabled by default and closes eligible chart-symbol
+positions at a combined profit target of `$1.00`. Use `/overtrade on`,
+`/overtrade off`, or `/overtrade <amount>` to change its persisted setting.
 
 ## Test the Webhook Manually
 

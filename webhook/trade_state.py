@@ -31,7 +31,13 @@ def normalize_trade_symbol(value):
 
 
 def default_trade_state():
-    return {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""}
+    return {
+        "default_mode": "NOTRADE",
+        "symbols": {},
+        "overtrade_enabled": True,
+        "overtrade_profit_target": 1.0,
+        "updated_at": "",
+    }
 
 
 def load_trade_state():
@@ -49,6 +55,10 @@ def load_trade_state():
                 for symbol, mode in symbols.items()
                 if normalize_trade_symbol(symbol)
             },
+            "overtrade_enabled": _bool(raw_state.get("overtrade_enabled", True)),
+            "overtrade_profit_target": _positive_float(
+                raw_state.get("overtrade_profit_target", 1.0), 1.0
+            ),
             "updated_at": str(raw_state.get("updated_at", "")),
         }
     except FileNotFoundError:
@@ -100,6 +110,44 @@ def set_trade_mode(mode, symbol=None):
         TRADE_STATE["default_mode"] = mode
     save_trade_state(TRADE_STATE)
     return mode
+
+
+def _positive_float(value, default):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _bool(value):
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def overtrade_config():
+    return {
+        "enabled": bool(TRADE_STATE.get("overtrade_enabled", True)),
+        "profit_target": _positive_float(
+            TRADE_STATE.get("overtrade_profit_target", 1.0), 1.0
+        ),
+    }
+
+
+def set_overtrade_enabled(enabled):
+    TRADE_STATE["overtrade_enabled"] = bool(enabled)
+    save_trade_state(TRADE_STATE)
+    return overtrade_config()
+
+
+def set_overtrade_profit_target(profit_target):
+    target = _positive_float(profit_target, 0.0)
+    if target <= 0:
+        raise ValueError("profit target must be greater than zero")
+    TRADE_STATE["overtrade_profit_target"] = target
+    save_trade_state(TRADE_STATE)
+    return overtrade_config()
 
 
 def trade_config(symbol=None):

@@ -33,8 +33,9 @@ RELATIVE_SOURCES = (
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),
     Path("TPSL.mq5"),
+    Path("Overtrade.mq5"),
 )
-"""Files to copy: the two EAs first, then shared includes, then TPSL."""
+"""Files to copy: EAs first, then shared includes."""
 
 
 # ── Live-directory resolution ──────────────────────────────────────────
@@ -251,6 +252,7 @@ def sync_mq5(
         target_dir / "includes/MarketSnapshot.mqh",
         target_dir / "includes/TradeManager.mqh",
         target_dir / "TPSL.mq5",
+        target_dir / "Overtrade.mq5",
     )
     pairs: tuple[tuple[Path, Path], ...] = tuple(
         (source_dir / relative, target)

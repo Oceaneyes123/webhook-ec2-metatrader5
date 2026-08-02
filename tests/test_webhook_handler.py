@@ -428,6 +428,8 @@ class TradeStateTest(unittest.TestCase):
         trade_state.TRADE_STATE.update({
             "default_mode": "NOTRADE",
             "symbols": {},
+            "overtrade_enabled": True,
+            "overtrade_profit_target": 1.0,
             "updated_at": "",
         })
 
@@ -453,6 +455,33 @@ class TradeStateTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(webhook.trade_config()["lot_size"], 0.1)
 
+    def test_overtrade_commands_persist_enablement_and_profit_target(self):
+        self.assertIn("disabled", webhook.command_reply("/overtrade off"))
+        self.assertEqual(
+            webhook.overtrade_config(), {"enabled": False, "profit_target": 1.0}
+        )
+        self.assertIn("enabled", webhook.command_reply("/overtrade on"))
+        self.assertIn("$12.50", webhook.command_reply("/overtrade 12.5"))
+        self.assertEqual(
+            webhook.overtrade_config(), {"enabled": True, "profit_target": 12.5}
+        )
+        self.assertIn(
+            "positive dollar amount", webhook.command_reply("/overtrade 0")
+        )
+
+    def test_overtrade_config_endpoint_returns_json(self):
+        webhook.command_reply("/overtrade off")
+        webhook.command_reply("/overtrade 3.25")
+        handler = make_handler(webhook, "/overtrade-config", method="GET")
+
+        handler.do_GET()
+
+        self.assertIn(("code", 200), handler.responses)
+        self.assertEqual(
+            json.loads(handler.wfile.getvalue()),
+            {"enabled": False, "profit_target": 3.25},
+        )
+
     def test_auto_requires_a_symbol_and_sets_auto_mode(self):
         self.assertEqual(webhook.command_reply("/auto"), "Usage: /auto Gold")
         self.assertIn("AUTO mode enabled for GOLD", webhook.command_reply("/auto Gold"))
@@ -461,14 +490,26 @@ class TradeStateTest(unittest.TestCase):
     def test_missing_trade_state_uses_defaults(self):
         self.assertEqual(
             webhook.load_trade_state(),
-            {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""},
+            {
+                "default_mode": "NOTRADE",
+                "symbols": {},
+                "overtrade_enabled": True,
+                "overtrade_profit_target": 1.0,
+                "updated_at": "",
+            },
         )
 
     def test_corrupt_trade_state_uses_defaults(self):
         webhook.trade_state_path().write_text("{broken", encoding="utf-8")
         self.assertEqual(
             webhook.load_trade_state(),
-            {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""},
+            {
+                "default_mode": "NOTRADE",
+                "symbols": {},
+                "overtrade_enabled": True,
+                "overtrade_profit_target": 1.0,
+                "updated_at": "",
+            },
         )
 
     def test_buy_saves_default_trade_mode(self):

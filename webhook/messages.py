@@ -202,6 +202,7 @@ def help_text():
             "/auto Gold - Automatically trade the fully confirmed direction",
             "/notrade - Stop trading activity",
             "/notrade Gold - Stop trading for one symbol",
+            "/overtrade on|off|<amount> - Control overtrade protection",
         ]
     )
 

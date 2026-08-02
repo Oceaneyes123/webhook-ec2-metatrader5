@@ -1,6 +1,7 @@
 """Telegram command registry — maps /command strings to handler functions."""
 
 import html
+import math
 import tempfile
 from pathlib import Path
 
@@ -15,6 +16,9 @@ from .trade_state import (
     TRADE_STATE,
     TRADE_MODE,
     get_trade_mode,
+    overtrade_config,
+    set_overtrade_enabled,
+    set_overtrade_profit_target,
     set_trade_mode,
     trade_config,
 )
@@ -63,6 +67,12 @@ def _cmd_status(command, symbol):
         lines.append(f"Trade mode for {symbol}: {get_trade_mode(symbol)}")
     else:
         lines.append(f"Default trade mode: {get_trade_mode()}")
+        overtrade = overtrade_config()
+        lines.append(
+            "Overtrade security: "
+            f"{'enabled' if overtrade['enabled'] else 'disabled'} "
+            f"(close at ${overtrade['profit_target']:.2f})"
+        )
         if TRADE_STATE["symbols"]:
             lines.append("Symbol overrides:")
             lines.extend(
@@ -137,6 +147,33 @@ def _cmd_recent(command, symbol):
         return f"No recent {symbol} signals"
     lines = [f"{index}. {message}" for index, message in enumerate(signals, 1)]
     return f"Recent {symbol} signals:\n" + "\n".join(lines)
+
+
+@register_command("/overtrade")
+def _cmd_overtrade(command, argument):
+    argument = argument.strip().lower()
+    if not argument:
+        config = overtrade_config()
+        return (
+            "Overtrade security is "
+            f"{'enabled' if config['enabled'] else 'disabled'}. "
+            f"Profit target: ${config['profit_target']:.2f}\n"
+            "Usage: /overtrade on | off | <profit target>"
+        )
+    if argument == "on":
+        config = set_overtrade_enabled(True)
+        return f"Overtrade security enabled (close at ${config['profit_target']:.2f})."
+    if argument == "off":
+        set_overtrade_enabled(False)
+        return "Overtrade security disabled."
+    try:
+        profit_target = float(argument)
+    except ValueError:
+        return "Usage: /overtrade on | off | <profit target>"
+    if not math.isfinite(profit_target) or profit_target <= 0:
+        return "Profit target must be a positive dollar amount."
+    config = set_overtrade_profit_target(profit_target)
+    return f"Overtrade profit target set to ${config['profit_target']:.2f}."
 
 
 @register_command("/summary", "/levels", "/rsi", "/vwap")

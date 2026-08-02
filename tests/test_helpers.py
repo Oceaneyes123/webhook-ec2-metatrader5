@@ -124,6 +124,7 @@ MQ5_RELATIVE_SOURCES = (
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),
     Path("TPSL.mq5"),
+    Path("Overtrade.mq5"),
 )
 
 

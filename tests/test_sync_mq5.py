@@ -248,6 +248,19 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("sl = openPrice + PendingStopLossPips * pip;", ea)
         self.assertIn("tp = openPrice - PendingTakeProfitPips * pip;", ea)
 
+    def test_overtrade_sends_heartbeats(self):
+        ea = (MQ5_SOURCE_DIR / "Overtrade.mq5").read_text(encoding="utf-8")
+
+        self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
+        self.assertIn("input int      HeartbeatSeconds        = 30;", ea)
+        self.assertIn("HeartbeatSeconds < 10", ea)
+        self.assertIn('SendEaHeartbeat("overtrade")', ea)
+        self.assertIn("MaybeSendHeartbeat();", ea)
+        self.assertIn("now - lastHeartbeatTime >= HeartbeatSeconds", ea)
+        self.assertIn("/overtrade-config", ea)
+        self.assertIn("overtradeSecurityEnabled", ea)
+        self.assertIn("activeProfitTargetUSD", ea)
+
     def test_trade_manager_has_config_cache(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
             encoding="utf-8"

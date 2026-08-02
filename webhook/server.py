@@ -15,7 +15,7 @@ from .events import EVENT_HANDLERS
 from .heartbeat import record_ea_heartbeat, start_heartbeat_monitor
 from .messages import health_text
 from .polling import reply_to_telegram_update, start_telegram_polling
-from .trade_state import trade_config
+from .trade_state import overtrade_config, trade_config
 from .account import STORE, due_reports, report_text
 
 logger = get_logger()
@@ -60,6 +60,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if path == "/trade-config":
             symbol = urllib.parse.parse_qs(parsed_url.query).get("symbol", [None])[0]
             self.write_json(200, trade_config(symbol))
+            return
+        if path == "/overtrade-config":
+            self.write_json(200, overtrade_config())
             return
         if path == "/account-action":
             secret = __import__("os").environ.get("ACCOUNT_ACTION_SECRET", "")
