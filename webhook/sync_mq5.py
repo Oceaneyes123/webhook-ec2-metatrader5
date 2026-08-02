@@ -108,9 +108,34 @@ def _resolve_via_scan() -> Path | None:
     return None
 
 
+def _live_ea_path(link: Path) -> Path | None:
+    """Resolve a live EA symlink or its one-line checkout pointer.
+
+    A Windows checkout can materialize a symlink as a regular text file holding
+    its absolute target.  Do not treat an arbitrary regular file at the repo
+    root as live: that would make a failed auto-detection copy over repository
+    files instead of the MT5 Experts directory.
+    """
+    if link.is_symlink():
+        return link.resolve(strict=False)
+    if not link.is_file():
+        return None
+
+    try:
+        pointer = link.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    target = Path(pointer)
+    if "\n" in pointer or target.name != link.name or not target.is_absolute():
+        return None
+    return target.resolve(strict=False)
+
+
 def _resolve_via_symlinks(live_eas: tuple[Path, ...]) -> Path | None:
-    """Resolve the live Experts directory from repo-root symlinks."""
-    resolved = tuple(p.resolve(strict=False) for p in live_eas)
+    """Resolve the live Experts directory from repo-root EA links."""
+    resolved = tuple(_live_ea_path(p) for p in live_eas)
+    if any(path is None for path in resolved):
+        return None
     live_dir = resolved[0].parent
     if live_dir == resolved[1].parent and live_dir.is_dir():
         return live_dir

@@ -30,7 +30,7 @@ Use a demo account. Start with `NOTRADE`; enable live trading only after the rel
 - [ ] Stop market updates past the configured stale threshold. `/price Gold` flags the quote as stale.
 - [ ] `/market Gold` reports the M5 EMA trend and current configured trading session. Check a session boundary and a daylight-saving change for London or New York.
 - [ ] `/summary Gold` shows the available M1/M5 EMA bias and M15–H4 pattern confluence.
-- [ ] `/rsi Gold` shows current RSI(14) and its 70/30 extreme history for each available timeframe.
+- [ ] `/rsi Gold` shows current RSI(14) and its 75/25 extreme history for each available timeframe.
 - [ ] An M1 or M5 EMA20/EMA50 crossover sends one directional alert. The same bias on later candles does not repeat the crossover alert.
 - [ ] `/recent Gold` returns up to five recent alerts for Gold and does not mix in another symbol's alerts.
 

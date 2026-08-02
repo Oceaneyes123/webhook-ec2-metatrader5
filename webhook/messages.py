@@ -4,6 +4,7 @@ import html
 
 from .config import telegram_configured, uptime_text
 from .json_data_parser import display_symbol, display_time
+from .market_state import RSI_STRONG_HIGH
 
 
 def error_message(error):
@@ -101,7 +102,7 @@ def strong_rsi_message(payload):
     symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
     timeframe = str(payload.get("timeframe", "")).upper() or "?"
     rsi = float(payload.get("rsi14", 0))
-    direction = "🟢 Overbought / BUY" if rsi >= 70 else "🔴 Oversold / SELL"
+    direction = "🟢 Overbought / BUY" if rsi >= RSI_STRONG_HIGH else "🔴 Oversold / SELL"
     return (
         f"⚡ <b>Strong RSI(14)</b>\n"
         f"Symbol: {symbol}\n"
@@ -189,7 +190,7 @@ def help_text():
             "/recent Gold - Last 5 signals on a pair",
             "/summary Gold - Multi-timeframe market summary",
             "/levels Gold - M15-H4 key levels",
-            "/rsi Gold - RSI(14) 70/30 extremes",
+            "/rsi Gold - RSI(14) 75/25 extremes",
             "/vwap Gold - Current price above or below session VWAP",
             "/price Gold - Latest MetaTrader bid, ask, and daily range",
             "/market Gold - M5 EMA trend and trading session",

@@ -11,6 +11,10 @@
 
 CTrade trade;
 
+input string   WebhookUrl              = "http://127.0.0.1:8000/webhook";
+input int      WebRequestTimeoutMs     = 5000;
+input bool     PrintDebugLogs          = true;
+input int      HeartbeatSeconds        = 30;
 input int      TP_Pips                 = 100;
 input int      SL_Pips                 = 100;
 input bool     ManageCurrentSymbolOnly = true;
@@ -22,6 +26,10 @@ input int      TimerSeconds            = 1;
 input bool     UseBreakeven            = true;
 input int      BreakevenTriggerPips    = 50;  // Move SL when price is 50 pips in profit
 input int      BreakevenOffsetPips     = 10;   // Near breakeven, small profit lock
+
+datetime lastHeartbeatTime = 0;
+
+#include "includes/WebhookCommon.mqh"
 
 //+------------------------------------------------------------------+
 //| Convert pips to price distance                                   |
@@ -330,10 +338,17 @@ void ManageAll()
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   if(TimerSeconds < 1 || HeartbeatSeconds < 10)
+   {
+      Print("Invalid TPSL EA inputs. TimerSeconds must be at least 1 and HeartbeatSeconds at least 10.");
+      return INIT_PARAMETERS_INCORRECT;
+   }
+
    trade.SetAsyncMode(false);
 
-   if(TimerSeconds > 0)
-      EventSetTimer(TimerSeconds);
+   EventSetTimer(TimerSeconds);
+   SendEaHeartbeat("tpsl");
+   lastHeartbeatTime = TimeCurrent();
 
    Print("Set TP/SL EA started. TP_Pips=", TP_Pips,
          " SL_Pips=", SL_Pips,
@@ -368,5 +383,19 @@ void OnTick()
 void OnTimer()
 {
    ManageAll();
+   MaybeSendHeartbeat();
+}
+
+//+------------------------------------------------------------------+
+//| Send TPSL health without slowing its management timer            |
+//+------------------------------------------------------------------+
+void MaybeSendHeartbeat()
+{
+   datetime now = TimeCurrent();
+   if(now - lastHeartbeatTime >= HeartbeatSeconds)
+   {
+      SendEaHeartbeat("tpsl");
+      lastHeartbeatTime = now;
+   }
 }
 //+------------------------------------------------------------------+

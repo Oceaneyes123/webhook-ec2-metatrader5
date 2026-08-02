@@ -338,7 +338,7 @@ class EaErrorTest(unittest.TestCase):
             "high": 2310.0,
             "low": 2290.0,
             "close": 2305.0,
-            "rsi14": 71.5,
+            "rsi14": 75.5,
         }
         notification = {
             "event_type": "STRONG_RSI",
@@ -356,13 +356,13 @@ class EaErrorTest(unittest.TestCase):
         self.assertEqual(handler.wfile.getvalue(), b"ok")
         message = send.call_args.args[0]
         self.assertIn("Strong RSI(14)", message)
-        self.assertIn("71.50", message)
+        self.assertIn("75.50", message)
         self.assertIn("🟢 Overbought / BUY", message)
 
     def test_strong_rsi_message_uses_continuation_signals(self):
         self.assertIn(
             "🔴 Oversold / SELL",
-            webhook.strong_rsi_message({"rsi14": 28}),
+            webhook.strong_rsi_message({"rsi14": 24}),
         )
 
     def test_key_level_snapshot_sends_higher_timeframe_notification(self):

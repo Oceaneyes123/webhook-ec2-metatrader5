@@ -138,6 +138,8 @@ webhook and Telegram bot.
 
 All EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
 Telegram chat.
+`TPSL.mq5` is the TP/SL and breakeven manager; attach it to the same chart as
+Webhook2 when its positions need exit protection.
 
 ### Structure and key-level alerts
 
@@ -166,8 +168,9 @@ After every MQ5 edit:
 python -m webhook.sync_mq5
 ```
 
-This updates the live EAs and their shared includes. Then compile and reload
-the changed EAs in MetaEditor.
+This updates `Webhook1.mq5`, `Webhook2.mq5`, `BigMove.mq5`, `TPSL.mq5`, and
+their shared includes in the live Experts folder. Then compile and reload the
+changed EAs in MetaEditor.
 
 In MetaTrader 5:
 
@@ -184,6 +187,8 @@ In MetaTrader 5:
    then enable algorithmic trading.
 6. Attach `BigMove` to each symbol chart that should receive M15–H4 big-move
    alerts.
+7. Attach `TPSL` to the Webhook2 chart when TP/SL and breakeven management is
+   required.
 
 The EA's default URL is:
 
@@ -256,7 +261,7 @@ Philippine time.
 
 ### EA Heartbeat
 
-Both EAs send periodic heartbeats to the webhook server. The `/status` command
+All three EAs send periodic heartbeats to the webhook server. The `/status` command
 shows whether EAs are running, stale, or missing:
 
 ```text
@@ -282,17 +287,11 @@ heartbeat stale after 90 seconds (configurable via
 |---|---|---|---|
 | Webhook1 | `HeartbeatSeconds` | 30 | Timer interval for sending heartbeats (min 10) |
 | Webhook2 | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (>= TradeManageIntervalSeconds, >= 10) |
+| TPSL | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (min 10) |
 
-The TPSL EA is external but can report heartbeats by sending:
-
-```json
-{
-  "event_type": "EA_HEARTBEAT",
-  "source": "tpsl",
-  "symbol": "GOLDmicro",
-  "status": "running"
-}
-```
+TPSL uses its existing `TimerSeconds` input (default 1 second) for TP/SL and
+breakeven management; heartbeats are rate-limited separately and do not slow
+that timer.
 
 ### Webhook2 Trade Config Cache
 
@@ -457,7 +456,7 @@ and is shown as unknown rather than invented.
 /recent Gold - Show the last five alerts for a symbol
 /summary Gold - Show EMA and retained-pattern confluence
 /levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, PDH/PDL, and a key-levels plot image
-/rsi Gold - Show RSI(14) status and 70/30 extreme lookback
+/rsi Gold - Show RSI(14) status and 75/25 extreme lookback
 /price Gold - Latest MetaTrader bid, ask, spread, daily range, and data age
 /market Gold - M5 EMA trend and current Asian/London/New York session
 /why Gold - Latest concise Webhook2 entry decision
@@ -479,7 +478,7 @@ help - Show available commands
 recent - Show the last five alerts for a symbol
 summary - Show EMA and retained-pattern confluence
 levels - Show M15-H4 key levels
-rsi - Show RSI(14) status and 70/30 extreme lookback
+rsi - Show RSI(14) status and 75/25 extreme lookback
 buy - Start trailing buy-limit mode
 sell - Start trailing sell-limit mode
 notrade - Stop trading activity

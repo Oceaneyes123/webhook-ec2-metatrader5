@@ -126,7 +126,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
                         f"2026.06.28 10:{index:02d}:00",
                         ema20=2306.0,
                         ema50=2305.0,
-                        rsi14=71.0 if index == 0 else 55.0,
+                        rsi14=76.0 if index == 0 else 55.0,
                     )
                 )
             state.update(
@@ -134,7 +134,7 @@ class MarketStateSnapshotTest(unittest.TestCase):
                     "M15",
                     "2026.06.28 10:15:00",
                     retained_patterns=[],
-                    rsi14=29.0,
+                    rsi14=24.0,
                 )
             )
             state.update(
@@ -142,25 +142,25 @@ class MarketStateSnapshotTest(unittest.TestCase):
                     "H1",
                     "2026.06.28 23:30:00",
                     retained_patterns=[],
-                    rsi14=72.5,
+                    rsi14=75.5,
                 )
             )
             report = market_analyzer.MarketAnalyzer(state).rsi_summary("Gold")
         self.assertIn("<b>GOLD RSI(14)</b>", report)
         self.assertIn("<b>M5</b>: <code>55.00</code> — Neutral", report)
         self.assertNotIn("10:00:00", report)
-        self.assertIn("<b>M15</b>: <code>29.00</code> — Oversold", report)
-        self.assertIn("Closed below 30", report)
+        self.assertIn("<b>M15</b>: <code>24.00</code> — Oversold", report)
+        self.assertIn("Closed below 25", report)
         self.assertIn("2026.06.28 03:15 PM", report)
-        self.assertIn("<b>H1</b>: <code>72.50</code> — Overbought", report)
-        self.assertIn("Closed above 70", report)
+        self.assertIn("<b>H1</b>: <code>75.50</code> — Overbought", report)
+        self.assertIn("Closed above 75", report)
         self.assertIn("2026.06.29 04:30 AM", report)
         self.assertNotIn("23:30:00", report)
 
     def test_strong_rsi_notification_uses_timeframe_cooldown(self):
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
-            payload = snapshot("M5", "2026.06.28 10:00:00", rsi14=71.0)
+            payload = snapshot("M5", "2026.06.28 10:00:00", rsi14=76.0)
 
             notifications = state.update(payload)
             self.assertEqual(notifications[0]["event_type"], "STRONG_RSI")

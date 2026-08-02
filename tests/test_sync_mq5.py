@@ -51,6 +51,16 @@ class SyncMq5Test(unittest.TestCase):
                     ),
                 )
 
+    def test_link_resolution_rejects_regular_repository_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            webhook1 = temporary / "Webhook1.mq5"
+            webhook2 = temporary / "Webhook2.mq5"
+            webhook1.write_text("not a link", encoding="utf-8")
+            webhook2.write_text("not a link", encoding="utf-8")
+
+            self.assertIsNone(sync_mq5._resolve_via_symlinks((webhook1, webhook2)))
+
 
 class Mq5SourceExistenceTest(unittest.TestCase):
     """All canonical MQL5 source files exist."""
@@ -195,6 +205,22 @@ class EaContentTest(unittest.TestCase):
         self.assertIn(
             "TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea
         )
+
+    def test_tpsl_is_synced_and_sends_heartbeats(self):
+        ea = (MQ5_SOURCE_DIR / "TPSL.mq5").read_text(encoding="utf-8")
+
+        self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
+        self.assertIn(
+            'input string   WebhookUrl              = "http://127.0.0.1:8000/webhook";',
+            ea,
+        )
+        self.assertIn("input int      HeartbeatSeconds        = 30;", ea)
+        self.assertIn("TimerSeconds < 1 || HeartbeatSeconds < 10", ea)
+        self.assertIn("EventSetTimer(TimerSeconds);", ea)
+        self.assertIn('SendEaHeartbeat("tpsl")', ea)
+        self.assertIn("MaybeSendHeartbeat();", ea)
+        self.assertIn("now - lastHeartbeatTime >= HeartbeatSeconds", ea)
+        self.assertIn("EventKillTimer();", ea)
 
     def test_trade_manager_has_config_cache(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(
