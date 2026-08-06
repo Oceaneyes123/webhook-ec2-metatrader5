@@ -11,7 +11,12 @@ from .state import (
     recent_signals_for,
     set_alerts_paused,
 )
-from .trade_state import get_trade_mode, overtrade_config, symbol_trade_modes
+from .trade_state import (
+    get_trade_mode,
+    key_level_orders_enabled,
+    overtrade_config,
+    symbol_trade_modes,
+)
 
 
 def _symbol(argument):
@@ -48,6 +53,10 @@ def status(command, argument):
             "Overtrade security: "
             f"{'enabled' if overtrade['enabled'] else 'disabled'} "
             f"(close at ${overtrade['profit_target']:.2f})"
+        )
+        lines.append(
+            "Key-level limit orders: "
+            f"{'enabled' if key_level_orders_enabled() else 'disabled'}"
         )
         overrides = symbol_trade_modes()
         if overrides:

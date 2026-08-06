@@ -6,6 +6,7 @@ struct TradeConfig
    string mode;
    double lotSize;
    double trailPips;
+   bool keyLevelOrdersEnabled;
 };
 
 TradeConfig cachedTradeConfig;
@@ -198,6 +199,18 @@ double JsonDoubleValue(string json, string key, double fallback)
    return StringToDouble(StringSubstr(json, start, end - start));
 }
 
+bool JsonBoolValue(string json, string key, bool fallback)
+{
+   string marker = "\"" + key + "\":";
+   int start = StringFind(json, marker);
+   if(start < 0)
+      return fallback;
+   start += StringLen(marker);
+   if(StringSubstr(json, start, 4) == "true") return true;
+   if(StringSubstr(json, start, 5) == "false") return false;
+   return fallback;
+}
+
 bool JsonTicketRequested(string json, ulong ticket)
 {
    int start = StringFind(json, "\"tickets\":[");
@@ -233,6 +246,7 @@ bool FetchTradeConfig(TradeConfig &config)
       config.mode = JsonStringValue(body, "mode", "NOTRADE");
       config.lotSize = JsonDoubleValue(body, "lot_size", 0.1);
       config.trailPips = JsonDoubleValue(body, "trail_pips", 20.0);
+      config.keyLevelOrdersEnabled = JsonBoolValue(body, "key_level_orders_enabled", true);
       if(config.lotSize <= 0 || config.trailPips < 0)
       {
          SendEaIssue("Invalid trade config", body);
@@ -632,6 +646,18 @@ bool IsKeyLevelPendingOrder()
       && StringFind(OrderGetString(ORDER_COMMENT), "Hermes key level") == 0;
 }
 
+void DeleteKeyLevelPendingOrders()
+{
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket) || !IsKeyLevelPendingOrder())
+         continue;
+      if(!trade.OrderDelete(ticket))
+         SendEaIssue("Key-level OrderDelete failed", TradeResultText());
+   }
+}
+
 bool HasKeyLevelPendingOrder(ENUM_ORDER_TYPE type, double price)
 {
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
@@ -773,6 +799,14 @@ bool IsNearCurrentPrice(double price)
       && MathAbs(price - (bid + ask) / 2.0) <= KeyLevelSessionSafetyPips * AccountPipSize(_Symbol);
 }
 
+bool IsWithinKeyLevelPlacementDistance(double price)
+{
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   return bid > 0 && ask > 0
+      && MathAbs(price - (bid + ask) / 2.0) <= KeyLevelMaxDistancePips * AccountPipSize(_Symbol);
+}
+
 void CancelNearbyKeyLevelOrdersForSession()
 {
    if(!KeyLevelSessionSafetyActive())
@@ -796,6 +830,8 @@ void MaintainKeyLevelOrder(ENUM_ORDER_TYPE type, double price)
    double minimumDistance = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
    price = NormalizeDouble(price, digits);
    if(HasKeyLevelPendingOrder(type, price))
+      return;
+   if(!IsWithinKeyLevelPlacementDistance(price))
       return;
    if(KeyLevelSessionSafetyActive() && IsNearCurrentPrice(price))
       return;
@@ -952,6 +988,12 @@ void ManageTrading()
 
    if(config.mode == "AUTO")
    {
+      if(!config.keyLevelOrdersEnabled)
+      {
+         DeleteKeyLevelPendingOrders();
+         SendEntryDecision("AUTO", "PASS", "Key-level limit orders disabled");
+         return;
+      }
       CancelNearbyKeyLevelOrdersForSession();
       PruneNearbyKeyLevelOrders();
       SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");

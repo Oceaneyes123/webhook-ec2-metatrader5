@@ -28,6 +28,7 @@ class CommandContractTest(unittest.TestCase):
                 "symbols": {},
                 "overtrade_enabled": True,
                 "overtrade_profit_target": 1.0,
+                "key_level_orders_enabled": True,
                 "updated_at": "",
             }
         )
@@ -58,7 +59,8 @@ class CommandContractTest(unittest.TestCase):
                 "Telegram: missing\n"
                 "Recent signals: 0\n"
                 "Default trade mode: NOTRADE\n"
-                "Overtrade security: enabled (close at $1.00)\n\n"
+                "Overtrade security: enabled (close at $1.00)\n"
+                "Key-level limit orders: enabled\n\n"
                 "EA status:\n"
                 "Webhook1: missing\n"
                 "Webhook2: missing\n"

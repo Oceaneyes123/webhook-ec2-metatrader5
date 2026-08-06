@@ -430,6 +430,7 @@ class TradeStateTest(unittest.TestCase):
             "symbols": {},
             "overtrade_enabled": True,
             "overtrade_profit_target": 1.0,
+            "key_level_orders_enabled": True,
             "updated_at": "",
         })
 
@@ -440,7 +441,12 @@ class TradeStateTest(unittest.TestCase):
             self.assertIn("BUY limit mode", webhook.command_reply("/buy"))
             self.assertEqual(
                 webhook.trade_config(),
-                {"mode": "BUY", "lot_size": 0.30, "trail_pips": 25.0},
+                {
+                    "mode": "BUY",
+                    "lot_size": 0.30,
+                    "trail_pips": 25.0,
+                    "key_level_orders_enabled": True,
+                },
             )
             self.assertIn(
                 "SELL limit mode", webhook.command_reply("/sell")
@@ -482,6 +488,16 @@ class TradeStateTest(unittest.TestCase):
             {"enabled": False, "profit_target": 3.25},
         )
 
+    def test_leveltrade_command_persists_enablement_and_trade_config(self):
+        self.assertIn("disabled", webhook.command_reply("/leveltrade off"))
+        self.assertFalse(webhook.trade_config()["key_level_orders_enabled"])
+        self.assertIn("enabled", webhook.command_reply("/leveltrade on"))
+        self.assertTrue(webhook.trade_config()["key_level_orders_enabled"])
+        self.assertEqual(
+            webhook.command_reply("/leveltrade invalid"),
+            "Key-level limit orders are enabled.\nUsage: /leveltrade on | off",
+        )
+
     def test_auto_requires_a_symbol_and_sets_auto_mode(self):
         self.assertEqual(webhook.command_reply("/auto"), "Usage: /auto Gold")
         self.assertIn("AUTO mode enabled for GOLD", webhook.command_reply("/auto Gold"))
@@ -495,6 +511,7 @@ class TradeStateTest(unittest.TestCase):
                 "symbols": {},
                 "overtrade_enabled": True,
                 "overtrade_profit_target": 1.0,
+                "key_level_orders_enabled": True,
                 "updated_at": "",
             },
         )
@@ -508,6 +525,7 @@ class TradeStateTest(unittest.TestCase):
                 "symbols": {},
                 "overtrade_enabled": True,
                 "overtrade_profit_target": 1.0,
+                "key_level_orders_enabled": True,
                 "updated_at": "",
             },
         )

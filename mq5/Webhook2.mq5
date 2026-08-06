@@ -23,6 +23,7 @@ input double GoldPipSize = 0.1;
 input int KeyLevelLookbackBars = 100;
 input int KeyLevelSwingStrength = 2;
 input double KeyLevelLotSize = 0.1;
+input double KeyLevelMaxDistancePips = 150;
 input int KeyLevelSessionSafetyMinutes = 30;
 input double KeyLevelSessionSafetyPips = 200;
 input double KeyLevelClusterPips = 30;
@@ -58,6 +59,7 @@ int OnInit()
        || KeyLevelLookbackBars < 10
        || KeyLevelSwingStrength < 1
        || KeyLevelLotSize <= 0
+       || KeyLevelMaxDistancePips <= 0
        || KeyLevelSessionSafetyMinutes < 0
        || KeyLevelSessionSafetyPips < 0
        || KeyLevelClusterPips < 0)

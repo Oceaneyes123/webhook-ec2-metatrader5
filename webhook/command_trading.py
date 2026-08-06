@@ -5,7 +5,9 @@ import math
 from .command_registry import register_command
 from .json_data_parser import display_symbol
 from .trade_state import (
+    key_level_orders_enabled,
     overtrade_config,
+    set_key_level_orders_enabled,
     set_overtrade_enabled,
     set_overtrade_profit_target,
     set_trade_mode,
@@ -92,3 +94,19 @@ def overtrade(command, argument):
         return "Profit target must be a positive dollar amount."
     config = set_overtrade_profit_target(profit_target)
     return f"Overtrade profit target set to ${config['profit_target']:.2f}."
+
+
+@register_command("/leveltrade")
+def leveltrade(command, argument):
+    argument = argument.strip().lower()
+    if argument == "on":
+        set_key_level_orders_enabled(True)
+        return "Key-level limit orders enabled."
+    if argument == "off":
+        set_key_level_orders_enabled(False)
+        return "Key-level limit orders disabled and existing key-level limits will be removed."
+    return (
+        "Key-level limit orders are "
+        f"{'enabled' if key_level_orders_enabled() else 'disabled'}.\n"
+        "Usage: /leveltrade on | off"
+    )

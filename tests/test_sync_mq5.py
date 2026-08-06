@@ -211,12 +211,14 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("input int HeartbeatSeconds = 30;", ea)
         self.assertIn("input int TradeConfigRefreshSeconds = 5;", ea)
         self.assertIn("input int TradeConfigMaxStaleSeconds = 30;", ea)
+        self.assertIn("input double KeyLevelMaxDistancePips = 150;", ea)
         self.assertIn("lastHeartbeatTime", ea)
         self.assertIn("MaybeSendHeartbeat", ea)
         self.assertIn('MaybeSendEaHeartbeat("webhook2", HeartbeatSeconds, lastHeartbeatTime);', ea)
         self.assertIn("HeartbeatSeconds < 10", ea)
         self.assertIn("TradeConfigRefreshSeconds < 1", ea)
         self.assertIn("TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds", ea)
+        self.assertIn("KeyLevelMaxDistancePips <= 0", ea)
 
     def test_tpsl_is_synced_and_sends_heartbeats(self):
         ea = (MQ5_SOURCE_DIR / "TPSL.mq5").read_text(encoding="utf-8")

@@ -36,6 +36,7 @@ def default_trade_state():
         "symbols": {},
         "overtrade_enabled": True,
         "overtrade_profit_target": 1.0,
+        "key_level_orders_enabled": True,
         "updated_at": "",
     }
 
@@ -58,6 +59,9 @@ def load_trade_state():
             "overtrade_enabled": _bool(raw_state.get("overtrade_enabled", True)),
             "overtrade_profit_target": _positive_float(
                 raw_state.get("overtrade_profit_target", 1.0), 1.0
+            ),
+            "key_level_orders_enabled": _bool(
+                raw_state.get("key_level_orders_enabled", True)
             ),
             "updated_at": str(raw_state.get("updated_at", "")),
         }
@@ -156,11 +160,22 @@ def set_overtrade_profit_target(profit_target):
     return overtrade_config()
 
 
+def key_level_orders_enabled():
+    return _bool(TRADE_STATE.get("key_level_orders_enabled", True))
+
+
+def set_key_level_orders_enabled(enabled):
+    TRADE_STATE["key_level_orders_enabled"] = bool(enabled)
+    save_trade_state(TRADE_STATE)
+    return key_level_orders_enabled()
+
+
 def trade_config(symbol=None):
     return {
         "mode": get_trade_mode(symbol),
         "lot_size": float(os.environ.get("TRADE_LOT_SIZE", "0.1")),
         "trail_pips": float(os.environ.get("TRAIL_PIPS", "20")),
+        "key_level_orders_enabled": key_level_orders_enabled(),
     }
 
 
