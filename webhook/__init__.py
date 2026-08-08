@@ -16,6 +16,7 @@ _COMPAT_EXPORTS = {
     "check_heartbeat_alerts": ("heartbeat", "check_heartbeat_alerts"),
     "command_reply": ("commands", "command_reply"),
     "ea_issue_message": ("messages", "ea_issue_message"),
+    "ema_enabled": ("trade_state", "ema_enabled"),
     "get_trade_mode": ("trade_state", "get_trade_mode"),
     "health_text": ("messages", "health_text"),
     "heartbeat_stale_seconds": ("config", "heartbeat_stale_seconds"),

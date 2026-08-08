@@ -173,9 +173,9 @@ After every MQ5 edit:
 python sync_mq5.py
 ```
 
-This updates `Webhook1.mq5`, `Webhook2.mq5`, `BigMove.mq5`, `TPSL.mq5`, and
-their shared includes in the live Experts folder. Then compile and reload the
-changed EAs in MetaEditor.
+This updates `Webhook1.mq5`, `Webhook2.mq5`, `BigMove.mq5`, `EMA.mq5`,
+`TPSL.mq5`, `Overtrade.mq5`, and their shared includes in the live Experts
+folder. Then compile and reload the changed EAs in MetaEditor.
 
 Verify synchronization without copying:
 

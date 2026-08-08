@@ -275,6 +275,17 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("overtradeSecurityEnabled", ea)
         self.assertIn("activeProfitTargetUSD", ea)
 
+    def test_ema_sends_heartbeats_and_consumes_remote_enablement(self):
+        ea = (MQ5_SOURCE_DIR / "EMA.mq5").read_text(encoding="utf-8")
+        self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
+        self.assertIn("input int HeartbeatSeconds = 30;", ea)
+        self.assertIn("EmaConfigRefreshSeconds", ea)
+        self.assertIn('SendEaHeartbeat("ema")', ea)
+        self.assertIn('MaybeSendEaHeartbeat("ema", HeartbeatSeconds, lastHeartbeatTime);', ea)
+        self.assertIn("/ema-config", ea)
+        self.assertIn("emaTradingEnabled", ea)
+        self.assertIn("DeleteManagedPendingOrder(\"EMA trading disabled\")", ea)
+
     def test_trade_manager_has_config_cache(self):
         manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
 

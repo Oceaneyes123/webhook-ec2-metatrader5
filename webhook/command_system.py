@@ -14,6 +14,7 @@ from .state import (
 from .trade_state import (
     get_trade_mode,
     key_level_orders_enabled,
+    ema_enabled,
     overtrade_config,
     symbol_trade_modes,
 )
@@ -57,6 +58,10 @@ def status(command, argument):
         lines.append(
             "Key-level limit orders: "
             f"{'enabled' if key_level_orders_enabled() else 'disabled'}"
+        )
+        lines.append(
+            "EMA trading: "
+            f"{'enabled' if ema_enabled() else 'disabled'}"
         )
         overrides = symbol_trade_modes()
         if overrides:

@@ -29,6 +29,7 @@ class CommandContractTest(unittest.TestCase):
                 "overtrade_enabled": True,
                 "overtrade_profit_target": 1.0,
                 "key_level_orders_enabled": True,
+                "ema_enabled": True,
                 "updated_at": "",
             }
         )
@@ -60,12 +61,14 @@ class CommandContractTest(unittest.TestCase):
                 "Recent signals: 0\n"
                 "Default trade mode: NOTRADE\n"
                 "Overtrade security: enabled (close at $1.00)\n"
-                "Key-level limit orders: enabled\n\n"
+                "Key-level limit orders: enabled\n"
+                "EMA trading: enabled\n\n"
                 "EA status:\n"
                 "Webhook1: missing\n"
                 "Webhook2: missing\n"
                 "TPSL: missing\n"
-                "Overtrade: missing",
+                "Overtrade: missing\n"
+                "EMA: missing",
             )
         self.assertEqual(webhook.command_reply("/pause"), "\u23f8\ufe0f MT5 alerts paused")
         self.assertEqual(webhook.command_reply("/resume"), "\u25b6\ufe0f MT5 alerts resumed")

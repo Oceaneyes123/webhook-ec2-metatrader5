@@ -37,6 +37,7 @@ def default_trade_state():
         "overtrade_enabled": True,
         "overtrade_profit_target": 1.0,
         "key_level_orders_enabled": True,
+        "ema_enabled": True,
         "updated_at": "",
     }
 
@@ -63,6 +64,7 @@ def load_trade_state():
             "key_level_orders_enabled": _bool(
                 raw_state.get("key_level_orders_enabled", True)
             ),
+            "ema_enabled": _bool(raw_state.get("ema_enabled", True)),
             "updated_at": str(raw_state.get("updated_at", "")),
         }
     except FileNotFoundError:
@@ -168,6 +170,16 @@ def set_key_level_orders_enabled(enabled):
     TRADE_STATE["key_level_orders_enabled"] = bool(enabled)
     save_trade_state(TRADE_STATE)
     return key_level_orders_enabled()
+
+
+def ema_enabled():
+    return _bool(TRADE_STATE.get("ema_enabled", True))
+
+
+def set_ema_enabled(enabled):
+    TRADE_STATE["ema_enabled"] = bool(enabled)
+    save_trade_state(TRADE_STATE)
+    return ema_enabled()
 
 
 def trade_config(symbol=None):
