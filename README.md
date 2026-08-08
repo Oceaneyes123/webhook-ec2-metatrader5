@@ -479,6 +479,7 @@ and is shown as unknown rather than invented.
 /buy - Start trailing buy-limit mode
 /sell - Start trailing sell-limit mode
 /notrade - Stop trading activity
+/leveltrade on|off - Enable or remove key-level limit orders
 /overtrade on - Enable overtrade security
 /overtrade off - Disable overtrade security
 /overtrade 5 - Close eligible positions at $5 combined profit
@@ -501,6 +502,7 @@ rsi - Show RSI(14) status and 75/25 extreme lookback
 buy - Start trailing buy-limit mode
 sell - Start trailing sell-limit mode
 notrade - Stop trading activity
+leveltrade - Enable or remove key-level limit orders
 overtrade - Enable, disable, or set the overtrade profit target
 price - Latest MT5 price
 market - M5 EMA trend and session

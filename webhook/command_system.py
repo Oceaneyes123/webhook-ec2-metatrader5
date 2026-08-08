@@ -75,6 +75,11 @@ def help_command(command, argument):
     return help_text()
 
 
+@register_command("/start")
+def start(command, argument):
+    return help_text()
+
+
 @register_command("/recent")
 def recent(command, argument):
     symbol = _symbol(argument)

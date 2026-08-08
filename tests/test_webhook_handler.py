@@ -249,6 +249,10 @@ class WebhookHandlerTest(unittest.TestCase):
         self.assertIn("/buy - Start trailing buy-limit mode", message)
         self.assertIn("/sell - Start trailing sell-limit mode", message)
         self.assertIn("/notrade - Stop trading activity", message)
+        self.assertIn("/leveltrade on|off", message)
+
+    def test_start_returns_the_command_list(self):
+        self.assertEqual(webhook.command_reply("/start"), webhook.help_text())
 
 
 # ── EA error handling ──────────────────────────────────────────────────
