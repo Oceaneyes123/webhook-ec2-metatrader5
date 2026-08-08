@@ -41,11 +41,22 @@ def vwap_report_text():
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def write_text(self, code, text, content_type="text/plain; charset=utf-8"):
+        body = text.encode()
         self.send_response(code)
         self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
         self.end_headers()
-        self.wfile.write(text.encode())
+        self.close_connection = True
+        try:
+            self.wfile.write(body)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # Client (MT5 WebRequest) hung up before reading the response. The
+            # event was already processed and stored — nothing to roll back.
+            logger.info("Client disconnected before response was written (event already processed)")
 
     def write_json(self, code, payload):
         self.write_text(
@@ -117,15 +128,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 "Ignored unsupported payload event_type=%s",
                 payload.get("event_type") if isinstance(payload, dict) else None,
             )
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"ignored")
+            self.write_text(200, "ignored")
         except Exception as error:
             logger.exception("Webhook handling failed")
             self.notify_error(error)
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(str(error).encode())
+            try:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(error).encode())
+            except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                logger.info("Client disconnected while reporting error (event already processed)")
 
     def handle_telegram(self):
         length = int(self.headers.get("Content-Length", 0))

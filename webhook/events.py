@@ -188,9 +188,7 @@ def _handle_candle_pattern(payload, server):
         return
     if alerts_paused():
         logger.info("Ignored webhook while alerts are paused")
-        server.send_response(200)
-        server.end_headers()
-        server.wfile.write(b"paused")
+        server.write_text(200, "paused")
         return
     if "qualified" not in payload:
         payload = {

@@ -87,8 +87,11 @@ class AccountStore:
             db.execute("PRAGMA user_version=1")
 
     def _connect(self):
-        db = sqlite3.connect(self.path, factory=_Connection)
+        db = sqlite3.connect(self.path, factory=_Connection, timeout=30)
         db.row_factory = sqlite3.Row
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA synchronous=NORMAL")
+        db.execute("PRAGMA busy_timeout=30000")
         return db
 
     def event(self, payload):
