@@ -6,8 +6,10 @@ from .command_registry import register_command
 from .json_data_parser import display_symbol
 from .trade_state import (
     key_level_orders_enabled,
+    ema_enabled,
     overtrade_config,
     set_key_level_orders_enabled,
+    set_ema_enabled,
     set_overtrade_enabled,
     set_overtrade_profit_target,
     set_trade_mode,
@@ -109,4 +111,20 @@ def leveltrade(command, argument):
         "Key-level limit orders are "
         f"{'enabled' if key_level_orders_enabled() else 'disabled'}.\n"
         "Usage: /leveltrade on | off"
+    )
+
+
+@register_command("/ematrade")
+def ematrade(command, argument):
+    argument = argument.strip().lower()
+    if argument == "on":
+        set_ema_enabled(True)
+        return "EMA trading enabled."
+    if argument == "off":
+        set_ema_enabled(False)
+        return "EMA trading disabled."
+    return (
+        "EMA trading is "
+        f"{'enabled' if ema_enabled() else 'disabled'}.\n"
+        "Usage: /ematrade on | off"
     )

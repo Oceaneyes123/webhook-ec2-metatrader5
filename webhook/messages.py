@@ -204,6 +204,7 @@ def help_text():
             "/notrade Gold - Stop trading for one symbol",
             "/leveltrade on|off - Enable or remove key-level limit orders",
             "/overtrade on|off|<amount> - Control overtrade protection",
+            "/ematrade on|off - Enable or disable EMA trading",
         ]
     )
 

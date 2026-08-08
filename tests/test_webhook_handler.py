@@ -435,6 +435,7 @@ class TradeStateTest(unittest.TestCase):
             "overtrade_enabled": True,
             "overtrade_profit_target": 1.0,
             "key_level_orders_enabled": True,
+            "ema_enabled": True,
             "updated_at": "",
         })
 
@@ -502,6 +503,16 @@ class TradeStateTest(unittest.TestCase):
             "Key-level limit orders are enabled.\nUsage: /leveltrade on | off",
         )
 
+    def test_ematrade_command_persists_enablement_and_endpoint(self):
+        self.assertIn("disabled", webhook.command_reply("/ematrade off"))
+        self.assertFalse(webhook.ema_enabled())
+        handler = make_handler(webhook, "/ema-config", method="GET")
+        handler.do_GET()
+        self.assertEqual(json.loads(handler.wfile.getvalue()), {"enabled": False})
+        self.assertIn("enabled", webhook.command_reply("/ematrade on"))
+        self.assertTrue(webhook.ema_enabled())
+        self.assertIn("Usage: /ematrade on | off", webhook.command_reply("/ematrade"))
+
     def test_auto_requires_a_symbol_and_sets_auto_mode(self):
         self.assertEqual(webhook.command_reply("/auto"), "Usage: /auto Gold")
         self.assertIn("AUTO mode enabled for GOLD", webhook.command_reply("/auto Gold"))
@@ -516,6 +527,7 @@ class TradeStateTest(unittest.TestCase):
                 "overtrade_enabled": True,
                 "overtrade_profit_target": 1.0,
                 "key_level_orders_enabled": True,
+                "ema_enabled": True,
                 "updated_at": "",
             },
         )
@@ -530,6 +542,7 @@ class TradeStateTest(unittest.TestCase):
                 "overtrade_enabled": True,
                 "overtrade_profit_target": 1.0,
                 "key_level_orders_enabled": True,
+                "ema_enabled": True,
                 "updated_at": "",
             },
         )
