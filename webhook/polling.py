@@ -29,7 +29,7 @@ def reply_to_telegram_update(update):
         return
     if maybe_send_levels_chart(text, chat_id):
         return
-    _tg.send_telegram_message(command_reply(text), chat_id=chat_id)
+    _tg.send_telegram_message(command_reply(text), chat_id=chat_id, parse_mode=None)
 
 
 def reply_to_callback(callback):

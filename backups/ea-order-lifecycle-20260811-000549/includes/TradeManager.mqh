@@ -12,7 +12,6 @@ struct TradeConfig
 TradeConfig cachedTradeConfig;
 datetime cachedTradeConfigTime = 0;
 bool hasCachedTradeConfig = false;
-datetime pendingRetryUntil = 0;
 
 bool SendEaIssue(
    string message,
@@ -487,82 +486,6 @@ double PipSize()
    return (digits == 3 || digits == 5) ? point * 10.0 : point;
 }
 
-double NormalizeTradePrice(ENUM_ORDER_TYPE type, double targetPrice)
-{
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-
-   double price = type == ORDER_TYPE_BUY_LIMIT
-                  ? MathFloor(targetPrice / tick) * tick
-                  : MathCeil(targetPrice / tick) * tick;
-   return NormalizeDouble(
-      price,
-      (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)
-   );
-}
-
-double TradeMinimumPendingDistance()
-{
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = point;
-
-   double stopsDistance =
-      (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
-   double freezeDistance =
-      (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL) * point;
-   double brokerDistance = MathMax(stopsDistance, freezeDistance);
-
-   double roundedBrokerDistance =
-      MathCeil(brokerDistance / tick) * tick;
-   return MathMax(tick, roundedBrokerDistance + tick);
-}
-
-bool PreparePendingPrice(
-   ENUM_ORDER_TYPE type,
-   double &targetPrice,
-   string &reason
-)
-{
-   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double minimumDistance = TradeMinimumPendingDistance();
-   if(bid <= 0.0 || ask <= 0.0)
-   {
-      reason = "Bid/ask unavailable";
-      return false;
-   }
-
-   if(type == ORDER_TYPE_BUY_LIMIT)
-      targetPrice = MathMin(targetPrice, bid - minimumDistance);
-   else if(type == ORDER_TYPE_SELL_LIMIT)
-      targetPrice = MathMax(targetPrice, ask + minimumDistance);
-   else
-   {
-      reason = "Unsupported pending order type";
-      return false;
-   }
-
-   targetPrice = NormalizeTradePrice(type, targetPrice);
-   if(type == ORDER_TYPE_BUY_LIMIT &&
-      targetPrice > bid - minimumDistance)
-   {
-      reason = "Buy limit is not below Bid by the broker distance";
-      return false;
-   }
-   if(type == ORDER_TYPE_SELL_LIMIT &&
-      targetPrice < ask + minimumDistance)
-   {
-      reason = "Sell limit is not above Ask by the broker distance";
-      return false;
-   }
-
-   reason = "";
-   return true;
-}
-
 ulong FindPendingOrder(ENUM_ORDER_TYPE type)
 {
    for(int index = OrdersTotal() - 1; index >= 0; index--)
@@ -661,53 +584,21 @@ void DeletePendingOrders(ENUM_ORDER_TYPE type)
 
 void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
 {
-   string priceReason = "";
-   if(!PreparePendingPrice(type, targetPrice, priceReason))
-   {
-      SendEaIssue("Pending price invalid", priceReason, PERIOD_M1);
-      return;
-   }
-
-   if(TimeCurrent() < pendingRetryUntil)
-      return;
-
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   targetPrice = NormalizeDouble(targetPrice, digits);
    ulong ticket = FindPendingOrder(type);
    if(ticket > 0)
    {
       double currentPrice = OrderGetDouble(ORDER_PRICE_OPEN);
-      double currentStopLoss = OrderGetDouble(ORDER_SL);
-      double currentTakeProfit = OrderGetDouble(ORDER_TP);
-      ENUM_ORDER_TYPE_TIME timeType =
-         (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
-      datetime expiration =
-         (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
-
-      if(MathAbs(currentPrice - targetPrice) >= PipSize() * 0.1)
-      {
-         if(!trade.OrderModify(
-               ticket, targetPrice, currentStopLoss, currentTakeProfit,
-               timeType, expiration
-            ))
-         {
-            pendingRetryUntil = TimeCurrent() + PendingRetrySeconds;
-            SendEaIssue(
-               "OrderModify failed; retry delayed",
-               TradeResultText() + "; retry in " +
-               IntegerToString(PendingRetrySeconds) + " seconds"
-            );
-         }
-         else
-         {
-            pendingRetryUntil = 0;
-         }
-      }
+      if(MathAbs(currentPrice - targetPrice) >= PipSize() * 0.1
+         && !trade.OrderModify(ticket, targetPrice, 0, 0, ORDER_TIME_GTC, 0))
+         SendEaIssue("OrderModify failed", TradeResultText());
       return;
    }
 
-   bool placed = false;
    if(type == ORDER_TYPE_BUY_LIMIT)
    {
-      placed = trade.BuyLimit(
+      if(!trade.BuyLimit(
          lotSize,
          targetPrice,
          _Symbol,
@@ -716,11 +607,12 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
          ORDER_TIME_GTC,
          0,
          "Hermes trailing buy limit"
-      );
+      ))
+         SendEaIssue("BuyLimit failed", TradeResultText(), PERIOD_M1);
    }
    else if(type == ORDER_TYPE_SELL_LIMIT)
    {
-      placed = trade.SellLimit(
+      if(!trade.SellLimit(
          lotSize,
          targetPrice,
          _Symbol,
@@ -729,21 +621,8 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
          ORDER_TIME_GTC,
          0,
          "Hermes trailing sell limit"
-      );
-   }
-
-   if(!placed)
-   {
-      pendingRetryUntil = TimeCurrent() + PendingRetrySeconds;
-      SendEaIssue(
-         type == ORDER_TYPE_BUY_LIMIT ? "BuyLimit failed" : "SellLimit failed",
-         TradeResultText() + "; retry in " + IntegerToString(PendingRetrySeconds) + " seconds",
-         PERIOD_M1
-      );
-   }
-   else
-   {
-      pendingRetryUntil = 0;
+      ))
+         SendEaIssue("SellLimit failed", TradeResultText(), PERIOD_M1);
    }
 }
 
@@ -1052,10 +931,12 @@ void ManageTrading()
    if(config.mode == "BUY")
    {
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       string reason = "";
       if(!BuyConfluence(reason))
       {
          SendEntryDecision("BUY", "FAIL", reason);
+         DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
          return;
       }
       double ema20 = 0;
@@ -1066,24 +947,25 @@ void ManageTrading()
          return;
       }
       double price = ema20 - config.trailPips * PipSize();
-      string priceReason = "";
-      if(PreparePendingPrice(ORDER_TYPE_BUY_LIMIT, price, priceReason))
+      if(price < SymbolInfoDouble(_Symbol, SYMBOL_ASK))
       {
          SendEntryDecision("BUY", "PASS", "Confluence passed; maintaining BUY_LIMIT");
          TrailPendingOrder(ORDER_TYPE_BUY_LIMIT, config.lotSize, price);
       }
       else
-         SendEntryDecision("BUY", "FAIL", priceReason);
+         SendEntryDecision("BUY", "FAIL", "Buy limit price is not below ask");
       return;
    }
 
    if(config.mode == "SELL")
    {
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       string reason = "";
       if(!SellConfluence(reason))
       {
          SendEntryDecision("SELL", "FAIL", reason);
+         DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
          return;
       }
       double ema20 = 0;
@@ -1094,14 +976,13 @@ void ManageTrading()
          return;
       }
       double price = ema20 + config.trailPips * PipSize();
-      string priceReason = "";
-      if(PreparePendingPrice(ORDER_TYPE_SELL_LIMIT, price, priceReason))
+      if(price > SymbolInfoDouble(_Symbol, SYMBOL_BID))
       {
          SendEntryDecision("SELL", "PASS", "Confluence passed; maintaining SELL_LIMIT");
          TrailPendingOrder(ORDER_TYPE_SELL_LIMIT, config.lotSize, price);
       }
       else
-         SendEntryDecision("SELL", "FAIL", priceReason);
+         SendEntryDecision("SELL", "FAIL", "Sell limit price is not above bid");
       return;
    }
 
@@ -1109,7 +990,8 @@ void ManageTrading()
    {
       if(!config.keyLevelOrdersEnabled)
       {
-         SendEntryDecision("AUTO", "PASS", "Key-level entries paused; accepted orders retained");
+         DeleteKeyLevelPendingOrders();
+         SendEntryDecision("AUTO", "PASS", "Key-level limit orders disabled");
          return;
       }
       CancelNearbyKeyLevelOrdersForSession();
@@ -1121,11 +1003,15 @@ void ManageTrading()
 
    if(config.mode == "NOTRADE")
    {
-      SendEntryDecision("?", "FAIL", "Trading mode is NOTRADE; accepted orders retained");
+      SendEntryDecision("?", "FAIL", "Trading mode is NOTRADE");
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       return;
    }
 
    SendEaIssue("Unknown trade mode", config.mode);
+   DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+   DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
 }
 
 #endif

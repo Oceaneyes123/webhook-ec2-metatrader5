@@ -3,5 +3,9 @@
   "symbols": {
     "GOLD": "NOTRADE"
   },
-  "updated_at": "2026-07-06T05:23:21Z"
+  "overtrade_enabled": true,
+  "overtrade_profit_target": 3.0,
+  "key_level_orders_enabled": false,
+  "ema_enabled": true,
+  "updated_at": "2026-08-10T15:42:05Z"
 }

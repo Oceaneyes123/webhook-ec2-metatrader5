@@ -18,6 +18,7 @@ input int HeartbeatSeconds = 30;
 input int TradeConfigRefreshSeconds = 5;
 input int TradeConfigMaxStaleSeconds = 30;
 input int AccountReconcileSeconds = 60;
+input int PendingRetrySeconds = 15;
 input string AccountActionSecret = "";
 input double GoldPipSize = 0.1;
 input int KeyLevelLookbackBars = 100;
@@ -56,13 +57,14 @@ int OnInit()
       || HeartbeatSeconds < TradeManageIntervalSeconds
       || TradeConfigRefreshSeconds < 1
       || TradeConfigMaxStaleSeconds < TradeConfigRefreshSeconds
-       || KeyLevelLookbackBars < 10
-       || KeyLevelSwingStrength < 1
-       || KeyLevelLotSize <= 0
-       || KeyLevelMaxDistancePips <= 0
-       || KeyLevelSessionSafetyMinutes < 0
-       || KeyLevelSessionSafetyPips < 0
-       || KeyLevelClusterPips < 0)
+      || PendingRetrySeconds < 1
+      || KeyLevelLookbackBars < 10
+      || KeyLevelSwingStrength < 1
+      || KeyLevelLotSize <= 0
+      || KeyLevelMaxDistancePips <= 0
+      || KeyLevelSessionSafetyMinutes < 0
+      || KeyLevelSessionSafetyPips < 0
+      || KeyLevelClusterPips < 0)
    {
       Print("Invalid Webhook2 inputs.");
       SendEaIssue("Invalid Webhook2 inputs",

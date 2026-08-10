@@ -18,14 +18,14 @@ input int EmaConfigRefreshSeconds = 5;
 
 //--- Primary entry
 input double Lots                         = 0.10;
-input int    MinimumEMAGapPips = 20;
-input int    TP_Pips           = 100;
-input int    SL_Pips           = 100;
+input int    MinimumEMAGapPips            = 20;
+input int    TP_Pips                      = 100;
+input int    SL_Pips                      = 100;
+input bool   CancelPendingIfSignalInvalid = true;
 
 //--- Pending lifecycle
 input int PendingExpiryMinutes   = 15;
 input int PendingReentryWaitMins = 5;
-input int OrderRetrySeconds      = 15;
 
 //--- M1 RSI exit
 input bool   EnableRSIExit             = true;
@@ -85,7 +85,6 @@ datetime lastM1BarTime         = 0;
 datetime lastM5BarTime         = 0;
 datetime recoveryCooldownUntil = 0;
 datetime pendingCooldownUntil  = 0;
-datetime pendingRetryUntil     = 0;
 datetime lastHeartbeatTime     = 0;
 datetime lastEmaConfigTime     = 0;
 bool emaTradingEnabled         = true;
@@ -172,20 +171,8 @@ double NormalizeVolume(double volume)
 
 double MinimumPendingDistance()
 {
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = point;
-
-   double stopsDistance =
-      (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
-   double freezeDistance =
-      (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL) * point;
-   double brokerDistance = MathMax(stopsDistance, freezeDistance);
-
-   double roundedBrokerDistance =
-      MathCeil(brokerDistance / tick) * tick;
-   return MathMax(tick, roundedBrokerDistance + tick);
+   return (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) *
+          SymbolInfoDouble(_Symbol, SYMBOL_POINT);
 }
 
 bool IsManagedOrder()
@@ -552,17 +539,22 @@ void ProcessM5StochRSILocks()
    if(!IsStochRSIAgainstDirection(buy, k, d))
       return;
 
-   if(buy)
-      buyStochLocked = true;
-   else
-      sellStochLocked = true;
+   string reason = buy
+                   ? "M5 Stoch RSI K moved below D"
+                   : "M5 Stoch RSI K moved above D";
 
-   Print("M5 STOCH RSI PENDING RETAINED",
-         " | ticket=", ticket,
-         " | direction=", buy ? "BUY" : "SELL",
-         " | K=", DoubleToString(k, 2),
-         " | D=", DoubleToString(d, 2),
-         " | action=new entries locked; accepted order kept");
+   if(DeleteManagedPendingOrder(reason))
+   {
+      if(buy)
+         buyStochLocked = true;
+      else
+         sellStochLocked = true;
+
+      Print("M5 STOCH RSI PENDING BLOCKED",
+            " | direction=", buy ? "BUY" : "SELL",
+            " | K=", DoubleToString(k, 2),
+            " | D=", DoubleToString(d, 2));
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -575,32 +567,13 @@ double CalculatePendingEntry(bool buy, double ema20, double ema50)
    double bid         = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double minDistance = MinimumPendingDistance();
 
-   if(buy && entry >= bid - minDistance)
-      entry = bid - minDistance;
+   if(buy && entry >= ask - minDistance)
+      entry = ask - minDistance;
 
-   if(!buy && entry <= ask + minDistance)
-      entry = ask + minDistance;
+   if(!buy && entry <= bid + minDistance)
+      entry = bid + minDistance;
 
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-
-   double normalizedEntry = buy
-                            ? MathFloor(entry / tick) * tick
-                            : MathCeil(entry / tick) * tick;
-   normalizedEntry = NormalizePrice(normalizedEntry);
-
-   if(buy && normalizedEntry > bid - minDistance)
-      normalizedEntry = NormalizePrice(
-         MathFloor((bid - minDistance) / tick) * tick
-      );
-
-   if(!buy && normalizedEntry < ask + minDistance)
-      normalizedEntry = NormalizePrice(
-         MathCeil((ask + minDistance) / tick) * tick
-      );
-
-   return normalizedEntry;
+   return NormalizePrice(entry);
 }
 
 bool IsPendingCooldownActive()
@@ -660,9 +633,6 @@ bool CheckPendingExpiry()
 
 bool PlacePendingOrder(bool buy)
 {
-   if(TimeCurrent() < pendingRetryUntil)
-      return false;
-
    if(IsRecoveryCooldownActive() ||
       IsPendingCooldownActive() ||
       !IsM5StochRSIEntryAllowed(buy))
@@ -699,16 +669,10 @@ bool PlacePendingOrder(bool buy)
 
    if(!placed)
    {
-      pendingRetryUntil = TimeCurrent() + OrderRetrySeconds;
       Print("PRIMARY ORDER FAILED",
             " | direction=", buy ? "BUY" : "SELL",
             " | retcode=", trade.ResultRetcode(),
-            " | description=", trade.ResultRetcodeDescription(),
-            " | retry_after_seconds=", OrderRetrySeconds);
-   }
-   else
-   {
-      pendingRetryUntil = 0;
+            " | description=", trade.ResultRetcodeDescription());
    }
 
    return placed;
@@ -1380,11 +1344,9 @@ void ManageRecovery()
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   if(HeartbeatSeconds < 10 ||
-      EmaConfigRefreshSeconds < 1 ||
-      OrderRetrySeconds < 1)
+   if(HeartbeatSeconds < 10 || EmaConfigRefreshSeconds < 1)
    {
-      Print("Initialization failed: invalid heartbeat, EMA config, or retry interval.");
+      Print("Initialization failed: invalid heartbeat or EMA config interval.");
       return INIT_PARAMETERS_INCORRECT;
    }
 
@@ -1545,6 +1507,23 @@ void OnTick()
          pendingPrice,
          pendingSetupTime
       );
+
+   if(hasPending &&
+      CancelPendingIfSignalInvalid)
+   {
+      bool valid =
+         pendingType == ORDER_TYPE_BUY_LIMIT
+         ? buyBaseSignal
+         : sellBaseSignal;
+
+      if(!valid &&
+         DeleteManagedPendingOrder(
+            "Original EMA or M15 Stoch RSI confluence became invalid"
+         ))
+      {
+         hasPending = false;
+      }
+   }
 
    datetime currentM1BarTime =
       iTime(_Symbol, PERIOD_M1, 0);
