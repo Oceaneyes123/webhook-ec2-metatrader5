@@ -314,6 +314,17 @@ class EaContentTest(unittest.TestCase):
         self.assertIn("DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);", manager)
         self.assertIn("DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);", manager)
 
+    def test_trade_manager_maintains_m1_m5_and_m15_ema_trails(self):
+        manager = (MQ5_SOURCE_DIR / "includes/TradeManager.mqh").read_text(encoding="utf-8")
+
+        self.assertIn("bool MaintainEmaTrailOrders(", manager)
+        self.assertIn('"Hermes trailing " + direction + " limit M5"', manager)
+        self.assertIn('"Hermes trailing " + direction + " limit M15"', manager)
+        self.assertIn("isBuy ? 10.0 : -10.0", manager)
+        self.assertIn("isBuy ? 5.0 : -5.0", manager)
+        self.assertIn('config.mode == "AUTO"', manager)
+        self.assertIn("MaintainEmaTrailOrders(", manager)
+
     def test_webhook_common_has_send_ea_heartbeat(self):
         common = (MQ5_SOURCE_DIR / "includes/WebhookCommon.mqh").read_text(encoding="utf-8")
 

@@ -563,7 +563,15 @@ bool PreparePendingPrice(
    return true;
 }
 
-ulong FindPendingOrder(ENUM_ORDER_TYPE type)
+string EmaTrailOrderComment(ENUM_ORDER_TYPE type, int timeframeIndex)
+{
+   string direction = type == ORDER_TYPE_BUY_LIMIT ? "buy" : "sell";
+   if(timeframeIndex == 0) return "Hermes trailing " + direction + " limit";
+   if(timeframeIndex == 1) return "Hermes trailing " + direction + " limit M5";
+   return "Hermes trailing " + direction + " limit M15";
+}
+
+ulong FindPendingOrder(ENUM_ORDER_TYPE type, string comment)
 {
    for(int index = OrdersTotal() - 1; index >= 0; index--)
    {
@@ -572,7 +580,8 @@ ulong FindPendingOrder(ENUM_ORDER_TYPE type)
          continue;
       if(OrderGetString(ORDER_SYMBOL) == _Symbol
          && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
-         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type)
+         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type
+         && OrderGetString(ORDER_COMMENT) == comment)
          return ticket;
    }
    return 0;
@@ -659,19 +668,41 @@ void DeletePendingOrders(ENUM_ORDER_TYPE type)
    }
 }
 
-void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
+void DeleteEmaTrailOrders(ENUM_ORDER_TYPE type)
+{
+   for(int index = OrdersTotal() - 1; index >= 0; index--)
+   {
+      ulong ticket = OrderGetTicket(index);
+      if(ticket == 0 || !OrderSelect(ticket))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) == _Symbol
+         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
+         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type
+         && StringFind(OrderGetString(ORDER_COMMENT), "Hermes trailing ") == 0
+         && !trade.OrderDelete(ticket))
+         SendEaIssue("EMA trail OrderDelete failed", TradeResultText());
+   }
+}
+
+void TrailPendingOrder(
+   ENUM_ORDER_TYPE type,
+   double lotSize,
+   double targetPrice,
+   string comment,
+   ENUM_TIMEFRAMES timeframe
+)
 {
    string priceReason = "";
    if(!PreparePendingPrice(type, targetPrice, priceReason))
    {
-      SendEaIssue("Pending price invalid", priceReason, PERIOD_M1);
+      SendEaIssue("Pending price invalid", priceReason, timeframe);
       return;
    }
 
    if(TimeCurrent() < pendingRetryUntil)
       return;
 
-   ulong ticket = FindPendingOrder(type);
+   ulong ticket = FindPendingOrder(type, comment);
    if(ticket > 0)
    {
       double currentPrice = OrderGetDouble(ORDER_PRICE_OPEN);
@@ -715,7 +746,7 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
          0,
          ORDER_TIME_GTC,
          0,
-         "Hermes trailing buy limit"
+         comment
       );
    }
    else if(type == ORDER_TYPE_SELL_LIMIT)
@@ -728,7 +759,7 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
          0,
          ORDER_TIME_GTC,
          0,
-         "Hermes trailing sell limit"
+         comment
       );
    }
 
@@ -738,13 +769,62 @@ void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
       SendEaIssue(
          type == ORDER_TYPE_BUY_LIMIT ? "BuyLimit failed" : "SellLimit failed",
          TradeResultText() + "; retry in " + IntegerToString(PendingRetrySeconds) + " seconds",
-         PERIOD_M1
+         timeframe
       );
    }
    else
    {
       pendingRetryUntil = 0;
    }
+}
+
+bool IsExactEmaTrailPrice(ENUM_ORDER_TYPE type, double targetPrice)
+{
+   double normalizedTarget = NormalizeTradePrice(type, targetPrice);
+   double preparedTarget = targetPrice;
+   string reason = "";
+   if(!PreparePendingPrice(type, preparedTarget, reason))
+      return false;
+
+   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   if(tick <= 0.0)
+      tick = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   return MathAbs(preparedTarget - normalizedTarget) < tick / 2.0;
+}
+
+bool MaintainEmaTrailOrders(ENUM_ORDER_TYPE type, double lotSize, double m1TrailPips)
+{
+   bool isBuy = type == ORDER_TYPE_BUY_LIMIT;
+   double pip = PipSize();
+   bool allPricesValid = true;
+
+   for(int index = 0; index < TRADE_TF_COUNT; index++)
+   {
+      double ema20 = 0;
+      double ema50 = 0;
+      if(!ReadTradeEmaValues(index, ema20, ema50))
+      {
+         SendEaIssue("EMA data unavailable", "Trailing order", Timeframes[index]);
+         allPricesValid = false;
+         continue;
+      }
+
+      double offsetPips = index == 0
+         ? (isBuy ? -m1TrailPips : m1TrailPips)
+         : (index == 1 ? (isBuy ? 10.0 : -10.0) : (isBuy ? 5.0 : -5.0));
+      double targetPrice = ema20 + offsetPips * pip;
+      string comment = EmaTrailOrderComment(type, index);
+      if(IsExactEmaTrailPrice(type, targetPrice))
+         TrailPendingOrder(type, lotSize, targetPrice, comment, Timeframes[index]);
+      else
+      {
+         allPricesValid = false;
+         ulong ticket = FindPendingOrder(type, comment);
+         if(ticket > 0 && !trade.OrderDelete(ticket))
+            SendEaIssue("EMA trail OrderDelete failed", TradeResultText(), Timeframes[index]);
+      }
+   }
+   return allPricesValid;
 }
 
 bool IsUntouchedKeyLevel(ENUM_TIMEFRAMES timeframe, int shift, double price, bool resistance)
@@ -1058,22 +1138,16 @@ void ManageTrading()
          SendEntryDecision("BUY", "FAIL", reason);
          return;
       }
-      double ema20 = 0;
-      double ema50 = 0;
-      if(!ReadTradeEmaValues(0, ema20, ema50))
-      {
-         SendEntryDecision("BUY", "FAIL", "M1 EMA data unavailable");
-         return;
-      }
-      double price = ema20 - config.trailPips * PipSize();
-      string priceReason = "";
-      if(PreparePendingPrice(ORDER_TYPE_BUY_LIMIT, price, priceReason))
-      {
-         SendEntryDecision("BUY", "PASS", "Confluence passed; maintaining BUY_LIMIT");
-         TrailPendingOrder(ORDER_TYPE_BUY_LIMIT, config.lotSize, price);
-      }
-      else
-         SendEntryDecision("BUY", "FAIL", priceReason);
+      bool allPricesValid = MaintainEmaTrailOrders(
+         ORDER_TYPE_BUY_LIMIT, config.lotSize, config.trailPips
+      );
+      SendEntryDecision(
+         "BUY",
+         allPricesValid ? "PASS" : "FAIL",
+         allPricesValid
+            ? "Confluence passed; maintaining M1, M5, and M15 BUY_LIMITs"
+            : "One or more BUY_LIMIT prices violate the broker distance"
+      );
       return;
    }
 
@@ -1086,22 +1160,16 @@ void ManageTrading()
          SendEntryDecision("SELL", "FAIL", reason);
          return;
       }
-      double ema20 = 0;
-      double ema50 = 0;
-      if(!ReadTradeEmaValues(0, ema20, ema50))
-      {
-         SendEntryDecision("SELL", "FAIL", "M1 EMA data unavailable");
-         return;
-      }
-      double price = ema20 + config.trailPips * PipSize();
-      string priceReason = "";
-      if(PreparePendingPrice(ORDER_TYPE_SELL_LIMIT, price, priceReason))
-      {
-         SendEntryDecision("SELL", "PASS", "Confluence passed; maintaining SELL_LIMIT");
-         TrailPendingOrder(ORDER_TYPE_SELL_LIMIT, config.lotSize, price);
-      }
-      else
-         SendEntryDecision("SELL", "FAIL", priceReason);
+      bool allPricesValid = MaintainEmaTrailOrders(
+         ORDER_TYPE_SELL_LIMIT, config.lotSize, config.trailPips
+      );
+      SendEntryDecision(
+         "SELL",
+         allPricesValid ? "PASS" : "FAIL",
+         allPricesValid
+            ? "Confluence passed; maintaining M1, M5, and M15 SELL_LIMITs"
+            : "One or more SELL_LIMIT prices violate the broker distance"
+      );
       return;
    }
 
@@ -1109,13 +1177,50 @@ void ManageTrading()
    {
       if(!config.keyLevelOrdersEnabled)
       {
-         SendEntryDecision("AUTO", "PASS", "Key-level entries paused; accepted orders retained");
+         DeleteKeyLevelPendingOrders();
+      }
+      else
+      {
+         CancelNearbyKeyLevelOrdersForSession();
+         PruneNearbyKeyLevelOrders();
+         MaintainUntouchedKeyLevelOrders();
+      }
+
+      string reason = "";
+      if(BuyConfluence(reason))
+      {
+         DeleteEmaTrailOrders(ORDER_TYPE_SELL_LIMIT);
+         bool allPricesValid = MaintainEmaTrailOrders(
+            ORDER_TYPE_BUY_LIMIT, config.lotSize, config.trailPips
+         );
+         SendEntryDecision(
+            "AUTO",
+            allPricesValid ? "PASS" : "FAIL",
+            allPricesValid
+               ? "Buy confluence passed; maintaining M1, M5, and M15 BUY_LIMITs"
+               : "One or more BUY_LIMIT prices violate the broker distance"
+         );
          return;
       }
-      CancelNearbyKeyLevelOrdersForSession();
-      PruneNearbyKeyLevelOrders();
-      SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");
-      MaintainUntouchedKeyLevelOrders();
+      if(SellConfluence(reason))
+      {
+         DeleteEmaTrailOrders(ORDER_TYPE_BUY_LIMIT);
+         bool allPricesValid = MaintainEmaTrailOrders(
+            ORDER_TYPE_SELL_LIMIT, config.lotSize, config.trailPips
+         );
+         SendEntryDecision(
+            "AUTO",
+            allPricesValid ? "PASS" : "FAIL",
+            allPricesValid
+               ? "Sell confluence passed; maintaining M1, M5, and M15 SELL_LIMITs"
+               : "One or more SELL_LIMIT prices violate the broker distance"
+         );
+         return;
+      }
+
+      DeleteEmaTrailOrders(ORDER_TYPE_BUY_LIMIT);
+      DeleteEmaTrailOrders(ORDER_TYPE_SELL_LIMIT);
+      SendEntryDecision("AUTO", "FAIL", reason);
       return;
    }
 

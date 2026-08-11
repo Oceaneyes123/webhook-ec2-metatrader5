@@ -30,6 +30,7 @@ def buy(command, argument):
         f"\U0001f7e2 BUY limit mode enabled{' for ' + symbol if symbol else ''}\n"
         f"Lot: {config['lot_size']}\n"
         f"Trail: {config['trail_pips']} pips below EMA20\n"
+        "Additional trails: 10 pips above M5 EMA20; 5 pips above M15 EMA20\n"
         "Confluence: M5/M15 previous candle above EMA20 and M1 EMA20 > EMA50"
     )
 
@@ -43,6 +44,7 @@ def sell(command, argument):
         f"\U0001f534 SELL limit mode enabled{' for ' + symbol if symbol else ''}\n"
         f"Lot: {config['lot_size']}\n"
         f"Trail: {config['trail_pips']} pips above EMA20\n"
+        "Additional trails: 10 pips below M5 EMA20; 5 pips below M15 EMA20\n"
         "Confluence: M5/M15 previous candle below EMA20 and M1 EMA50 > EMA20"
     )
 
@@ -57,8 +59,8 @@ def auto(command, argument):
     return (
         f"\U0001f916 AUTO mode enabled for {symbol}\n"
         f"Lot: {config['lot_size']}\n"
-        "Will place only the BUY or SELL limit with full confluence, and cancels "
-        "that limit within 50 pips of opposing support/resistance."
+        "Will trail the fully confirmed direction at M1 EMA20, M5 EMA20 +/− 10 "
+        "pips, and M15 EMA20 +/− 5 pips."
     )
 
 
