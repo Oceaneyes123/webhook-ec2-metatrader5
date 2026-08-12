@@ -12,7 +12,9 @@ struct TradeConfig
 TradeConfig cachedTradeConfig;
 datetime cachedTradeConfigTime = 0;
 bool hasCachedTradeConfig = false;
-datetime pendingRetryUntil = 0;
+// Per-timeframe retry lock: a failure on one EMA timeframe (M1/M5/M15) must
+// not starve the others, so each index gets its own retry deadline.
+datetime pendingRetryUntil[TRADE_TF_COUNT] = {0, 0, 0};
 
 bool SendEaIssue(
    string message,
@@ -689,6 +691,7 @@ void TrailPendingOrder(
    double lotSize,
    double targetPrice,
    string comment,
+   int timeframeIndex,
    ENUM_TIMEFRAMES timeframe
 )
 {
@@ -699,7 +702,7 @@ void TrailPendingOrder(
       return;
    }
 
-   if(TimeCurrent() < pendingRetryUntil)
+   if(TimeCurrent() < pendingRetryUntil[timeframeIndex])
       return;
 
    ulong ticket = FindPendingOrder(type, comment);
@@ -720,7 +723,7 @@ void TrailPendingOrder(
                timeType, expiration
             ))
          {
-            pendingRetryUntil = TimeCurrent() + PendingRetrySeconds;
+            pendingRetryUntil[timeframeIndex] = TimeCurrent() + PendingRetrySeconds;
             SendEaIssue(
                "OrderModify failed; retry delayed",
                TradeResultText() + "; retry in " +
@@ -729,7 +732,7 @@ void TrailPendingOrder(
          }
          else
          {
-            pendingRetryUntil = 0;
+            pendingRetryUntil[timeframeIndex] = 0;
          }
       }
       return;
@@ -765,7 +768,7 @@ void TrailPendingOrder(
 
    if(!placed)
    {
-      pendingRetryUntil = TimeCurrent() + PendingRetrySeconds;
+      pendingRetryUntil[timeframeIndex] = TimeCurrent() + PendingRetrySeconds;
       SendEaIssue(
          type == ORDER_TYPE_BUY_LIMIT ? "BuyLimit failed" : "SellLimit failed",
          TradeResultText() + "; retry in " + IntegerToString(PendingRetrySeconds) + " seconds",
@@ -774,22 +777,8 @@ void TrailPendingOrder(
    }
    else
    {
-      pendingRetryUntil = 0;
+      pendingRetryUntil[timeframeIndex] = 0;
    }
-}
-
-bool IsExactEmaTrailPrice(ENUM_ORDER_TYPE type, double targetPrice)
-{
-   double normalizedTarget = NormalizeTradePrice(type, targetPrice);
-   double preparedTarget = targetPrice;
-   string reason = "";
-   if(!PreparePendingPrice(type, preparedTarget, reason))
-      return false;
-
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   return MathAbs(preparedTarget - normalizedTarget) < tick / 2.0;
 }
 
 bool MaintainEmaTrailOrders(ENUM_ORDER_TYPE type, double lotSize, double m1TrailPips)
@@ -814,15 +803,19 @@ bool MaintainEmaTrailOrders(ENUM_ORDER_TYPE type, double lotSize, double m1Trail
          : (index == 1 ? (isBuy ? 10.0 : -10.0) : (isBuy ? 5.0 : -5.0));
       double targetPrice = ema20 + offsetPips * pip;
       string comment = EmaTrailOrderComment(type, index);
-      if(IsExactEmaTrailPrice(type, targetPrice))
-         TrailPendingOrder(type, lotSize, targetPrice, comment, Timeframes[index]);
-      else
+      // Clamp-and-place: when the raw EMA-based target sits inside the
+      // broker minimum distance, PreparePendingPrice() adjusts it to the
+      // nearest valid price (ask+minDist for sells, bid-minDist for buys)
+      // instead of rejecting the order. This keeps all TRADE_TF_COUNT
+      // EMA trail orders alive even when price hugs the EMA.
+      string priceReason = "";
+      if(!PreparePendingPrice(type, targetPrice, priceReason))
       {
+         SendEaIssue("Pending price invalid", priceReason, Timeframes[index]);
          allPricesValid = false;
-         ulong ticket = FindPendingOrder(type, comment);
-         if(ticket > 0 && !trade.OrderDelete(ticket))
-            SendEaIssue("EMA trail OrderDelete failed", TradeResultText(), Timeframes[index]);
+         continue;
       }
+      TrailPendingOrder(type, lotSize, targetPrice, comment, index, Timeframes[index]);
    }
    return allPricesValid;
 }
