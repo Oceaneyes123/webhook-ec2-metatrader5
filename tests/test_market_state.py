@@ -157,21 +157,25 @@ class MarketStateSnapshotTest(unittest.TestCase):
         self.assertIn("2026.06.29 04:30 AM", report)
         self.assertNotIn("23:30:00", report)
 
-    def test_strong_rsi_notification_uses_timeframe_cooldown(self):
+    def test_strong_rsi_notification_is_edge_triggered_and_rearms_after_neutral(self):
         with tempfile.TemporaryDirectory() as directory:
             state = market_state.MarketState(Path(directory) / "state.json")
-            payload = snapshot("M5", "2026.06.28 10:00:00", rsi14=76.0)
+            high = snapshot("M5", "2026.06.28 10:00:00", rsi14=76.0)
 
-            notifications = state.update(payload)
+            notifications = state.update(high)
             self.assertEqual(notifications[0]["event_type"], "STRONG_RSI")
             state.mark_notified(notifications[0])
 
-            self.assertEqual(state.update({**payload, "candle_time": "2026.06.28 10:05:00"}), [])
-            state.data["symbols"]["GOLD"]["M5"]["rsi_notified_at"] -= 25 * 60
-            self.assertEqual(
-                state.update({**payload, "candle_time": "2026.06.28 10:10:00"})[0]["event_type"],
-                "STRONG_RSI",
-            )
+            # Continuing high RSI and a direct high-to-low transition do not
+            # re-alert; neutral RSI is required to re-arm the edge.
+            self.assertEqual(state.update({**high, "candle_time": "2026.06.28 10:05:00"}), [])
+            low = {**high, "rsi14": 24.0, "candle_time": "2026.06.28 10:10:00"}
+            self.assertEqual(state.update(low), [])
+            neutral = {**high, "rsi14": 50.0, "candle_time": "2026.06.28 10:15:00"}
+            self.assertEqual(state.update(neutral), [])
+            notification = state.update({**low, "candle_time": "2026.06.28 10:20:00"})
+            self.assertEqual(notification[0]["event_type"], "STRONG_RSI")
+            self.assertEqual(state.update({**low, "candle_time": "2026.06.28 10:25:00"}), [])
 
     def test_key_level_notification_prefers_higher_timeframe_and_rearms_after_exit(self):
         levels = {

@@ -177,6 +177,13 @@ class MarketState:
             snapshot = timeframes.get(timeframe, {})
             prev_ema_bias = snapshot.get("ema_bias")
             prev_rsi_notified_at = snapshot.get("rsi_notified_at", 0)
+            # RSI alerts are edge-triggered: an extreme disarms the alert until
+            # RSI returns to the neutral band. Older state files only have the
+            # cooldown timestamp, so a previously notified extreme remains
+            # disarmed after upgrade.
+            prev_rsi_alert_armed = snapshot.get(
+                "rsi_alert_armed", not bool(prev_rsi_notified_at)
+            )
 
             # Build snapshot from payload
             snapshot = {
@@ -200,6 +207,7 @@ class MarketState:
                 "daily_atr": payload.get("daily_atr"),
                 "vwap": payload.get("vwap"),
                 "rsi_notified_at": prev_rsi_notified_at,
+                "rsi_alert_armed": prev_rsi_alert_armed,
                 "received_at": time.time(),
             }
             # RSI
@@ -209,11 +217,13 @@ class MarketState:
                 snapshot["rsi14"] = rsi
                 try:
                     rsi = float(rsi)
-                    cooldown = self._rsi_cooldown_seconds(timeframe)
-                    if (
-                        (rsi <= RSI_STRONG_LOW or rsi >= RSI_STRONG_HIGH)
-                        and time.time() - float(prev_rsi_notified_at) >= cooldown
-                    ):
+                    neutral = RSI_STRONG_LOW < rsi < RSI_STRONG_HIGH
+                    if neutral:
+                        # Neutral is the only re-arm condition. Crossing
+                        # directly from one extreme to the other does not
+                        # create a second alert.
+                        snapshot["rsi_alert_armed"] = True
+                    elif prev_rsi_alert_armed:
                         rsi_notification = {
                             "event_type": "STRONG_RSI",
                             "symbol": symbol,
@@ -225,6 +235,9 @@ class MarketState:
                             "low": payload.get("low"),
                             "close": payload.get("close"),
                         }
+                        # Disarm immediately, before delivery/mark_notified,
+                        # so duplicate webhook deliveries cannot repeat it.
+                        snapshot["rsi_alert_armed"] = False
                 except (TypeError, ValueError):
                     rsi_notification = None
 
@@ -585,13 +598,6 @@ class MarketState:
                     pattern["lifecycle"] = "alerted"
                     pattern["alerted_at"] = time.time()
             self._save()
-
-    @staticmethod
-    def _rsi_cooldown_seconds(timeframe):
-        timeframe = str(timeframe)
-        value = int(timeframe[1:])
-        minutes = value * {"M": 1, "H": 60, "D": 1440}[timeframe[0]]
-        return minutes * 5 * 60
 
     def _divergence_notifications(self, symbol, timeframe, timeframes, snapshot):
         history = snapshot.get("candle_history", [])

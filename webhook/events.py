@@ -199,9 +199,9 @@ def _handle_candle_pattern(payload, server):
             "confirmation_status": "Awaiting context",
             "reasons_reduced": ["Raw event has no snapshot context; awaiting closed-candle evaluation"],
         }
+    STORE.event(payload)
     if not payload.get("qualified"):
         logger.info("Suppressed candle pattern: %s", payload.get("reasons_reduced", []))
-        _tg.send_telegram_message(candle_alert_message(payload))
         server.write_text(200, "ok")
         return
     message = candle_alert_message(payload)

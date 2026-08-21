@@ -427,7 +427,7 @@ direction, and candle close time, so restart does not duplicate the same candle
 event. Persisted lifecycle states are `raw_detected`, `awaiting_confirmation`,
 `confirmed`, `alerted`, `failed`, `invalidated`, and `expired`.
 
-Defaults can be overridden with `PATTERN_MIN_ALERT_SCORE` (60),
+Defaults can be overridden with `PATTERN_MIN_ALERT_SCORE` (80),
 `PATTERN_MIN_BODY_RATIO` (0.10), `PATTERN_MIN_ATR_RATIO` (0.35),
 `PATTERN_LEVEL_ATR_TOLERANCE` (0.50), `PATTERN_MIN_WICK_BODY_RATIO` (2.0),
 `PATTERN_MIN_WICK_RANGE_RATIO` (0.35), `PATTERN_EXTREME_ATR_RATIO` (2.5),
@@ -438,8 +438,9 @@ per-pattern override, or `PATTERN_CONFIRMATION_MODE` for the fallback;
 engulfing defaults to immediate while rejection/star/inside-bar patterns wait
 for follow-through. Countertrend immediate confirmation is disabled by default
 and can be explicitly enabled with `PATTERN_COUNTERTREND_IMMEDIATE=true`.
-`PATTERN_ENABLED_TYPES` and `PATTERN_ENABLED_TIMEFRAMES` control the active
-pattern set; `PATTERN_ALERT_GROUPING_ENABLED` groups related same-candle alerts.
+`PATTERN_ENABLED_TYPES` and `PATTERN_ENABLED_TIMEFRAMES` (default
+`M30,H1,H4`) control the active pattern set; `PATTERN_ALERT_GROUPING_ENABLED`
+groups related same-candle alerts.
 `PATTERN_VOLUME_EXPANSION_RATIO`, `PATTERN_LOW_VOLUME_RATIO`,
 `PATTERN_SESSION_WINDOWS` (JSON), `PATTERN_SESSION_TIMEZONE`, and
 `PATTERN_SESSION_WEIGHT_TOKYO/LONDON/NEW_YORK` control volume/session weighting.
@@ -452,7 +453,8 @@ assumption for naive MT5 candle timestamps; timestamps are converted to
 `*_SCORE`/tolerance settings control the remaining context factors.
 `PATTERN_DEBUG_LOGGING` enables suppressed-pattern diagnostics and
 `PATTERN_INVALIDATION_ALERTS` defaults to false. `PATTERN_INVALIDATION_ATR_RATIO`
-(default `0.10`) controls the close-through buffer. `PATTERN_REQUIRE_HTF_ALIGNMENT`,
+(default `0.10`) controls the close-through buffer. `PATTERN_REQUIRE_HTF_ALIGNMENT`
+(default `true`),
 `PATTERN_MISSING_HTF_SCORE`, and `PATTERN_COUNTERTREND_STRICTNESS` explicitly
 control higher-timeframe alignment and countertrend scoring. Snapshots with missing history
 are informational-only and cannot alert; missing optional context remains safe

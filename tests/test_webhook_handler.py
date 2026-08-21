@@ -80,18 +80,22 @@ class WebhookHandlerTest(unittest.TestCase):
         handler.do_POST()
         self.assertEqual(handler.wfile.getvalue(), b"ignored")
 
-    def test_webhook_engulfing_candle_sends_telegram_notification(self):
-        with patch("webhook.telegram_sender.send_telegram_message") as send:
+    @patch.dict(os.environ, {"PATTERN_ENABLED_TIMEFRAMES": "M30,H1,H4"}, clear=False)
+    def test_webhook_raw_candle_pattern_is_stored_without_telegram_delivery(self):
+        with patch("webhook.telegram_sender.send_telegram_message") as send, patch("webhook.events.STORE.event", return_value=True) as store_event:
             handler = make_handler(
                 webhook,
                 "/webhook",
-                b'{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro","timeframe":"M15","candle_time":"2026.06.26 11:11:00","open":4029.07,"close":4030.23}',
+                b'{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro","timeframe":"M30","candle_time":"2026.06.26 11:11:00","open":4029.07,"close":4030.23}',
             )
             handler.do_POST()
 
         self.assertEqual(handler.wfile.getvalue(), b"ok")
-        send.assert_called_once()
-        self.assertIn("GOLD", send.call_args.args[0])
+        store_event.assert_called_once()
+        stored = store_event.call_args.args[0]
+        self.assertFalse(stored["qualified"])
+        self.assertEqual(stored["confirmation_status"], "Awaiting context")
+        send.assert_not_called()
 
     def test_webhook_big_move_sends_telegram_notification(self):
         with patch("webhook.telegram_sender.send_telegram_message") as send:
@@ -361,11 +365,11 @@ class EaErrorTest(unittest.TestCase):
         message = send.call_args.args[0]
         self.assertIn("Strong RSI(14)", message)
         self.assertIn("75.50", message)
-        self.assertIn("🟢 Overbought / BUY", message)
+        self.assertIn("🔴 Overbought / SELL", message)
 
-    def test_strong_rsi_message_uses_continuation_signals(self):
+    def test_strong_rsi_message_uses_reversal_signals(self):
         self.assertIn(
-            "🔴 Oversold / SELL",
+            "🟢 Oversold / BUY",
             webhook.strong_rsi_message({"rsi14": 24}),
         )
 
