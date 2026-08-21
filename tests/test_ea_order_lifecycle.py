@@ -44,8 +44,30 @@ def test_webhook2_modification_preserves_existing_sl_and_tp():
 def test_webhook2_backs_off_after_rejected_order():
     assert "PendingRetrySeconds" in MANAGER
     assert "pendingRetryUntil" in MANAGER
-    assert re.search(r"pendingRetryUntil\s*=\s*TimeCurrent\(\)\s*\+\s*PendingRetrySeconds", MANAGER)
+    # Retry lock is per-timeframe: a rejected order on one EMA timeframe
+    # (M1/M5/M15) backs off only that timeframe, not all of them.
+    assert re.search(r"pendingRetryUntil\[timeframeIndex\]\s*=\s*TimeCurrent\(\)\s*\+\s*PendingRetrySeconds", MANAGER)
     assert "OrderModify failed; retry delayed" in MANAGER
+
+
+def test_webhook2_clamps_ema_trail_price_instead_of_rejecting():
+    # Fix 1: when the raw EMA-based target sits inside the broker minimum
+    # distance, the EA must clamp to a valid price and keep the order, not
+    # reject it (the old IsExactEmaTrailPrice gate is gone).
+    trail = block(MANAGER, "bool MaintainEmaTrailOrders", "return allPricesValid;")
+    assert "IsExactEmaTrailPrice" not in MANAGER
+    assert "PreparePendingPrice(type, targetPrice, priceReason)" in trail
+    assert "TrailPendingOrder(type, lotSize, targetPrice, comment, index, Timeframes[index]);" in trail
+    # Every timeframe in the loop must go through the same clamp-and-place path.
+    assert "continue;" in trail
+
+
+def test_webhook2_retry_lock_is_per_timeframe():
+    # Fix 3: the retry deadline is indexed by timeframe, so one timeframe's
+    # failure can't starve the others.
+    assert re.search(r"datetime pendingRetryUntil\[TRADE_TF_COUNT\]\s*=\s*\{0,\s*0,\s*0\};", MANAGER)
+    assert re.search(r"if\(TimeCurrent\(\)\s*<\s*pendingRetryUntil\[timeframeIndex\]\)", MANAGER)
+    assert "pendingRetryUntil[timeframeIndex] = 0;" in MANAGER
 
 
 def test_ema_keeps_pending_order_on_soft_signal_invalidation():

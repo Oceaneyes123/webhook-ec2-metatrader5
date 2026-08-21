@@ -54,9 +54,11 @@ class SyncMq5Test(unittest.TestCase):
 
             changed = live_dir / MQ5_RELATIVE_SOURCES[0]
             changed.write_text("different", encoding="utf-8")
+            # Resolve expected paths so 8.3 short names (ADMINI~1) on Windows
+            # temp dirs compare equal to check_mq5_sync's resolved long forms.
             self.assertEqual(
                 sync_mq5.check_mq5_sync(source_dir=source_dir, live_dir=live_dir),
-                ((source_dir / MQ5_RELATIVE_SOURCES[0], changed),),
+                ((source_dir / MQ5_RELATIVE_SOURCES[0]).resolve(), changed.resolve()),
             )
 
     def test_sync_rejects_canonical_files_as_live_targets(self):
