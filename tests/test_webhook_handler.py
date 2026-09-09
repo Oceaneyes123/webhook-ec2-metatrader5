@@ -80,18 +80,22 @@ class WebhookHandlerTest(unittest.TestCase):
         handler.do_POST()
         self.assertEqual(handler.wfile.getvalue(), b"ignored")
 
-    def test_webhook_engulfing_candle_sends_telegram_notification(self):
-        with patch("webhook.telegram_sender.send_telegram_message") as send:
+    @patch.dict(os.environ, {"PATTERN_ENABLED_TIMEFRAMES": "M30,H1,H4"}, clear=False)
+    def test_webhook_raw_candle_pattern_is_stored_without_telegram_delivery(self):
+        with patch("webhook.telegram_sender.send_telegram_message") as send, patch("webhook.events.STORE.event", return_value=True) as store_event:
             handler = make_handler(
                 webhook,
                 "/webhook",
-                b'{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro","timeframe":"M15","candle_time":"2026.06.26 11:11:00","open":4029.07,"close":4030.23}',
+                b'{"event_type":"ENGULFING_CANDLE","signal":"BUY","symbol":"GOLDmicro","timeframe":"M30","candle_time":"2026.06.26 11:11:00","open":4029.07,"close":4030.23}',
             )
             handler.do_POST()
 
         self.assertEqual(handler.wfile.getvalue(), b"ok")
-        send.assert_called_once()
-        self.assertIn("GOLD", send.call_args.args[0])
+        store_event.assert_called_once()
+        stored = store_event.call_args.args[0]
+        self.assertFalse(stored["qualified"])
+        self.assertEqual(stored["confirmation_status"], "Awaiting context")
+        send.assert_not_called()
 
     def test_webhook_big_move_sends_telegram_notification(self):
         with patch("webhook.telegram_sender.send_telegram_message") as send:
@@ -249,6 +253,10 @@ class WebhookHandlerTest(unittest.TestCase):
         self.assertIn("/buy - Start trailing buy-limit mode", message)
         self.assertIn("/sell - Start trailing sell-limit mode", message)
         self.assertIn("/notrade - Stop trading activity", message)
+        self.assertIn("/leveltrade on|off", message)
+
+    def test_start_returns_the_command_list(self):
+        self.assertEqual(webhook.command_reply("/start"), webhook.help_text())
 
 
 # ── EA error handling ──────────────────────────────────────────────────
@@ -338,7 +346,7 @@ class EaErrorTest(unittest.TestCase):
             "high": 2310.0,
             "low": 2290.0,
             "close": 2305.0,
-            "rsi14": 71.5,
+            "rsi14": 75.5,
         }
         notification = {
             "event_type": "STRONG_RSI",
@@ -356,13 +364,13 @@ class EaErrorTest(unittest.TestCase):
         self.assertEqual(handler.wfile.getvalue(), b"ok")
         message = send.call_args.args[0]
         self.assertIn("Strong RSI(14)", message)
-        self.assertIn("71.50", message)
-        self.assertIn("🟢 Overbought / BUY", message)
+        self.assertIn("75.50", message)
+        self.assertIn("🔴 Overbought / SELL", message)
 
-    def test_strong_rsi_message_uses_continuation_signals(self):
+    def test_strong_rsi_message_uses_reversal_signals(self):
         self.assertIn(
-            "🔴 Oversold / SELL",
-            webhook.strong_rsi_message({"rsi14": 28}),
+            "🟢 Oversold / BUY",
+            webhook.strong_rsi_message({"rsi14": 24}),
         )
 
     def test_key_level_snapshot_sends_higher_timeframe_notification(self):
@@ -428,6 +436,10 @@ class TradeStateTest(unittest.TestCase):
         trade_state.TRADE_STATE.update({
             "default_mode": "NOTRADE",
             "symbols": {},
+            "overtrade_enabled": True,
+            "overtrade_profit_target": 1.0,
+            "key_level_orders_enabled": True,
+            "ema_enabled": True,
             "updated_at": "",
         })
 
@@ -438,7 +450,12 @@ class TradeStateTest(unittest.TestCase):
             self.assertIn("BUY limit mode", webhook.command_reply("/buy"))
             self.assertEqual(
                 webhook.trade_config(),
-                {"mode": "BUY", "lot_size": 0.30, "trail_pips": 25.0},
+                {
+                    "mode": "BUY",
+                    "lot_size": 0.30,
+                    "trail_pips": 25.0,
+                    "key_level_orders_enabled": True,
+                },
             )
             self.assertIn(
                 "SELL limit mode", webhook.command_reply("/sell")
@@ -453,6 +470,53 @@ class TradeStateTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(webhook.trade_config()["lot_size"], 0.1)
 
+    def test_overtrade_commands_persist_enablement_and_profit_target(self):
+        self.assertIn("disabled", webhook.command_reply("/overtrade off"))
+        self.assertEqual(
+            webhook.overtrade_config(), {"enabled": False, "profit_target": 1.0}
+        )
+        self.assertIn("enabled", webhook.command_reply("/overtrade on"))
+        self.assertIn("$12.50", webhook.command_reply("/overtrade 12.5"))
+        self.assertEqual(
+            webhook.overtrade_config(), {"enabled": True, "profit_target": 12.5}
+        )
+        self.assertIn(
+            "positive dollar amount", webhook.command_reply("/overtrade 0")
+        )
+
+    def test_overtrade_config_endpoint_returns_json(self):
+        webhook.command_reply("/overtrade off")
+        webhook.command_reply("/overtrade 3.25")
+        handler = make_handler(webhook, "/overtrade-config", method="GET")
+
+        handler.do_GET()
+
+        self.assertIn(("code", 200), handler.responses)
+        self.assertEqual(
+            json.loads(handler.wfile.getvalue()),
+            {"enabled": False, "profit_target": 3.25},
+        )
+
+    def test_leveltrade_command_persists_enablement_and_trade_config(self):
+        self.assertIn("disabled", webhook.command_reply("/leveltrade off"))
+        self.assertFalse(webhook.trade_config()["key_level_orders_enabled"])
+        self.assertIn("enabled", webhook.command_reply("/leveltrade on"))
+        self.assertTrue(webhook.trade_config()["key_level_orders_enabled"])
+        self.assertEqual(
+            webhook.command_reply("/leveltrade invalid"),
+            "Key-level limit orders are enabled.\nUsage: /leveltrade on | off",
+        )
+
+    def test_ematrade_command_persists_enablement_and_endpoint(self):
+        self.assertIn("disabled", webhook.command_reply("/ematrade off"))
+        self.assertFalse(webhook.ema_enabled())
+        handler = make_handler(webhook, "/ema-config", method="GET")
+        handler.do_GET()
+        self.assertEqual(json.loads(handler.wfile.getvalue()), {"enabled": False})
+        self.assertIn("enabled", webhook.command_reply("/ematrade on"))
+        self.assertTrue(webhook.ema_enabled())
+        self.assertIn("Usage: /ematrade on | off", webhook.command_reply("/ematrade"))
+
     def test_auto_requires_a_symbol_and_sets_auto_mode(self):
         self.assertEqual(webhook.command_reply("/auto"), "Usage: /auto Gold")
         self.assertIn("AUTO mode enabled for GOLD", webhook.command_reply("/auto Gold"))
@@ -461,14 +525,30 @@ class TradeStateTest(unittest.TestCase):
     def test_missing_trade_state_uses_defaults(self):
         self.assertEqual(
             webhook.load_trade_state(),
-            {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""},
+            {
+                "default_mode": "NOTRADE",
+                "symbols": {},
+                "overtrade_enabled": True,
+                "overtrade_profit_target": 1.0,
+                "key_level_orders_enabled": True,
+                "ema_enabled": True,
+                "updated_at": "",
+            },
         )
 
     def test_corrupt_trade_state_uses_defaults(self):
         webhook.trade_state_path().write_text("{broken", encoding="utf-8")
         self.assertEqual(
             webhook.load_trade_state(),
-            {"default_mode": "NOTRADE", "symbols": {}, "updated_at": ""},
+            {
+                "default_mode": "NOTRADE",
+                "symbols": {},
+                "overtrade_enabled": True,
+                "overtrade_profit_target": 1.0,
+                "key_level_orders_enabled": True,
+                "ema_enabled": True,
+                "updated_at": "",
+            },
         )
 
     def test_buy_saves_default_trade_mode(self):

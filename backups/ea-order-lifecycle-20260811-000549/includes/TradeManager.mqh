@@ -6,21 +6,12 @@ struct TradeConfig
    string mode;
    double lotSize;
    double trailPips;
-   string strategyDirection;
-   string strategyReason;
-   string setupId;
-   double entry, sl, tp, expires, minRR, tolerance;
-   double breakevenR, protectR, protectLockR, partialR, partialFraction, trailR;
-   string trailingMethod;
    bool keyLevelOrdersEnabled;
 };
 
 TradeConfig cachedTradeConfig;
 datetime cachedTradeConfigTime = 0;
 bool hasCachedTradeConfig = false;
-// Per-timeframe retry lock: a failure on one EMA timeframe (M1/M5/M15) must
-// not starve the others, so each index gets its own retry deadline.
-datetime pendingRetryUntil[TRADE_TF_COUNT] = {0, 0, 0};
 
 bool SendEaIssue(
    string message,
@@ -101,18 +92,11 @@ string UrlEncode(string value)
 
 string TradeConfigUrl()
 {
-   string quote = "&bid=" + DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_BID), _Digits)
-      + "&ask=" + DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_ASK), _Digits)
-      + "&tick_size=" + DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE), _Digits)
-      + "&stops_distance=" + DoubleToString(SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point, _Digits)
-      + "&quote_time=" + IntegerToString((long)(SymbolInfoInteger(_Symbol, SYMBOL_TIME) - (TimeTradeServer() - TimeGMT())))
-      + "&account=" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN))
-      + "&broker_server=" + UrlEncode(AccountInfoString(ACCOUNT_SERVER));
    int marker = StringFind(WebhookUrl, "/webhook");
    if(marker >= 0)
       return StringSubstr(WebhookUrl, 0, marker)
-         + "/trade-config?symbol=" + UrlEncode(_Symbol) + quote;
-   return WebhookUrl + "/trade-config?symbol=" + UrlEncode(_Symbol) + quote;
+         + "/trade-config?symbol=" + UrlEncode(_Symbol);
+   return WebhookUrl + "/trade-config?symbol=" + UrlEncode(_Symbol);
 }
 
 string AccountActionUrl()
@@ -205,7 +189,7 @@ double JsonDoubleValue(string json, string key, double fallback)
       ushort character = StringGetCharacter(json, end);
       if((character >= 48 && character <= 57)
          || character == 46
-         || character == 45 || character == 43 || character == 101 || character == 69)
+         || character == 45)
          end++;
       else
          break;
@@ -262,28 +246,12 @@ bool FetchTradeConfig(TradeConfig &config)
       config.mode = JsonStringValue(body, "mode", "NOTRADE");
       config.lotSize = JsonDoubleValue(body, "lot_size", 0.1);
       config.trailPips = JsonDoubleValue(body, "trail_pips", 20.0);
-      config.strategyDirection = JsonStringValue(body, "strategy_direction", "WAIT");
-      config.strategyReason = JsonStringValue(body, "strategy_reason", "Python strategy unavailable");
-      config.setupId = JsonStringValue(body, "setup_id", "");
-      config.entry = JsonDoubleValue(body, "entry", 0);
-      config.sl = JsonDoubleValue(body, "sl", 0);
-      config.tp = JsonDoubleValue(body, "tp", 0);
-      config.expires = JsonDoubleValue(body, "expires_at", 0);
-      config.minRR = JsonDoubleValue(body, "min_rr", 0);
-      config.tolerance = JsonDoubleValue(body, "execution_tolerance", 0);
-      config.breakevenR = JsonDoubleValue(body, "breakeven_r", 0);
-      config.protectR = JsonDoubleValue(body, "protect_r", 0);
-      config.protectLockR = JsonDoubleValue(body, "protect_lock_r", 0);
-      config.partialR = JsonDoubleValue(body, "partial_close_r", 0);
-      config.partialFraction = JsonDoubleValue(body, "partial_fraction", 0);
-      config.trailR = JsonDoubleValue(body, "trail_start_r", 0);
-      config.trailingMethod = JsonStringValue(body, "trailing_method", "off");
       config.keyLevelOrdersEnabled = JsonBoolValue(body, "key_level_orders_enabled", true);
       if(config.lotSize <= 0 || config.trailPips < 0)
       {
          SendEaIssue("Invalid trade config", body);
          // Fall back to stale cache if available
-         if(hasCachedTradeConfig && cachedTradeConfig.mode != "AUTO" && now - cachedTradeConfigTime <= TradeConfigMaxStaleSeconds)
+         if(hasCachedTradeConfig && now - cachedTradeConfigTime <= TradeConfigMaxStaleSeconds)
          {
             if(PrintDebugLogs)
                Print("Using stale-but-allowed fallback config, age=", now - cachedTradeConfigTime, "s");
@@ -301,7 +269,7 @@ bool FetchTradeConfig(TradeConfig &config)
 
    // HTTP fetch failed
    SendEaIssue("Trade config fetch failed", TradeConfigUrl());
-   if(hasCachedTradeConfig && cachedTradeConfig.mode != "AUTO" && now - cachedTradeConfigTime <= TradeConfigMaxStaleSeconds)
+   if(hasCachedTradeConfig && now - cachedTradeConfigTime <= TradeConfigMaxStaleSeconds)
    {
       if(PrintDebugLogs)
          Print("Using stale-but-allowed fallback config, age=", now - cachedTradeConfigTime, "s");
@@ -397,15 +365,13 @@ void MaybeSendAccountReconciliation()
       positions += "{\"position_ticket\":\"" + IntegerToString(ticket)
          + "\",\"symbol\":\"" + JsonEscape(symbol) + "\",\"direction\":\"" + (type == POSITION_TYPE_BUY ? "BUY" : "SELL")
          + "\",\"magic_number\":" + IntegerToString(PositionGetInteger(POSITION_MAGIC))
-         + ",\"entry_price\":" + DoubleToString(entry, digits)
+         + "\",\"entry_price\":" + DoubleToString(entry, digits)
          + ",\"current_price\":" + DoubleToString(current, digits)
          + ",\"profit_pips\":" + DoubleToString(pips, 1)
          + ",\"floating_profit\":" + DoubleToString(PositionGetDouble(POSITION_PROFIT), 2)
          + ",\"duration\":\"" + IntegerToString((long)(TimeCurrent() - (datetime)PositionGetInteger(POSITION_TIME))) + "s\""
          + ",\"sl\":" + DoubleToString(PositionGetDouble(POSITION_SL), digits)
-         + ",\"tp\":" + DoubleToString(PositionGetDouble(POSITION_TP), digits)
-         + ",\"position_id\":\"" + IntegerToString(PositionGetInteger(POSITION_IDENTIFIER)) + "\""
-         + StrategyTelemetry(PositionGetString(POSITION_COMMENT)) + "}";
+         + ",\"tp\":" + DoubleToString(PositionGetDouble(POSITION_TP), digits) + "}";
    }
    string orders = "";
    for(int index = OrdersTotal() - 1; index >= 0; index--)
@@ -520,91 +486,7 @@ double PipSize()
    return (digits == 3 || digits == 5) ? point * 10.0 : point;
 }
 
-double NormalizeTradePrice(ENUM_ORDER_TYPE type, double targetPrice)
-{
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-
-   double price = type == ORDER_TYPE_BUY_LIMIT
-                  ? MathFloor(targetPrice / tick) * tick
-                  : MathCeil(targetPrice / tick) * tick;
-   return NormalizeDouble(
-      price,
-      (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS)
-   );
-}
-
-double TradeMinimumPendingDistance()
-{
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   if(tick <= 0.0)
-      tick = point;
-
-   double stopsDistance =
-      (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * point;
-   double freezeDistance =
-      (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL) * point;
-   double brokerDistance = MathMax(stopsDistance, freezeDistance);
-
-   double roundedBrokerDistance =
-      MathCeil(brokerDistance / tick) * tick;
-   return MathMax(tick, roundedBrokerDistance + tick);
-}
-
-bool PreparePendingPrice(
-   ENUM_ORDER_TYPE type,
-   double &targetPrice,
-   string &reason
-)
-{
-   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double minimumDistance = TradeMinimumPendingDistance();
-   if(bid <= 0.0 || ask <= 0.0)
-   {
-      reason = "Bid/ask unavailable";
-      return false;
-   }
-
-   if(type == ORDER_TYPE_BUY_LIMIT)
-      targetPrice = MathMin(targetPrice, bid - minimumDistance);
-   else if(type == ORDER_TYPE_SELL_LIMIT)
-      targetPrice = MathMax(targetPrice, ask + minimumDistance);
-   else
-   {
-      reason = "Unsupported pending order type";
-      return false;
-   }
-
-   targetPrice = NormalizeTradePrice(type, targetPrice);
-   if(type == ORDER_TYPE_BUY_LIMIT &&
-      targetPrice > bid - minimumDistance)
-   {
-      reason = "Buy limit is not below Bid by the broker distance";
-      return false;
-   }
-   if(type == ORDER_TYPE_SELL_LIMIT &&
-      targetPrice < ask + minimumDistance)
-   {
-      reason = "Sell limit is not above Ask by the broker distance";
-      return false;
-   }
-
-   reason = "";
-   return true;
-}
-
-string EmaTrailOrderComment(ENUM_ORDER_TYPE type, int timeframeIndex)
-{
-   string direction = type == ORDER_TYPE_BUY_LIMIT ? "buy" : "sell";
-   if(timeframeIndex == 0) return "Hermes trailing " + direction + " limit";
-   if(timeframeIndex == 1) return "Hermes trailing " + direction + " limit M5";
-   return "Hermes trailing " + direction + " limit M15";
-}
-
-ulong FindPendingOrder(ENUM_ORDER_TYPE type, string comment)
+ulong FindPendingOrder(ENUM_ORDER_TYPE type)
 {
    for(int index = OrdersTotal() - 1; index >= 0; index--)
    {
@@ -613,8 +495,7 @@ ulong FindPendingOrder(ENUM_ORDER_TYPE type, string comment)
          continue;
       if(OrderGetString(ORDER_SYMBOL) == _Symbol
          && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
-         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type
-         && OrderGetString(ORDER_COMMENT) == comment)
+         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type)
          return ticket;
    }
    return 0;
@@ -701,78 +582,23 @@ void DeletePendingOrders(ENUM_ORDER_TYPE type)
    }
 }
 
-void DeleteEmaTrailOrders(ENUM_ORDER_TYPE type)
+void TrailPendingOrder(ENUM_ORDER_TYPE type, double lotSize, double targetPrice)
 {
-   for(int index = OrdersTotal() - 1; index >= 0; index--)
-   {
-      ulong ticket = OrderGetTicket(index);
-      if(ticket == 0 || !OrderSelect(ticket))
-         continue;
-      if(OrderGetString(ORDER_SYMBOL) == _Symbol
-         && (long)OrderGetInteger(ORDER_MAGIC) == TradeMagicNumber
-         && (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE) == type
-         && StringFind(OrderGetString(ORDER_COMMENT), "Hermes trailing ") == 0
-         && !trade.OrderDelete(ticket))
-         SendEaIssue("EMA trail OrderDelete failed", TradeResultText());
-   }
-}
-
-void TrailPendingOrder(
-   ENUM_ORDER_TYPE type,
-   double lotSize,
-   double targetPrice,
-   string comment,
-   int timeframeIndex,
-   ENUM_TIMEFRAMES timeframe
-)
-{
-   string priceReason = "";
-   if(!PreparePendingPrice(type, targetPrice, priceReason))
-   {
-      SendEaIssue("Pending price invalid", priceReason, timeframe);
-      return;
-   }
-
-   if(TimeCurrent() < pendingRetryUntil[timeframeIndex])
-      return;
-
-   ulong ticket = FindPendingOrder(type, comment);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   targetPrice = NormalizeDouble(targetPrice, digits);
+   ulong ticket = FindPendingOrder(type);
    if(ticket > 0)
    {
       double currentPrice = OrderGetDouble(ORDER_PRICE_OPEN);
-      double currentStopLoss = OrderGetDouble(ORDER_SL);
-      double currentTakeProfit = OrderGetDouble(ORDER_TP);
-      ENUM_ORDER_TYPE_TIME timeType =
-         (ENUM_ORDER_TYPE_TIME)OrderGetInteger(ORDER_TYPE_TIME);
-      datetime expiration =
-         (datetime)OrderGetInteger(ORDER_TIME_EXPIRATION);
-
-      if(MathAbs(currentPrice - targetPrice) >= PipSize() * 0.1)
-      {
-         if(!trade.OrderModify(
-               ticket, targetPrice, currentStopLoss, currentTakeProfit,
-               timeType, expiration
-            ))
-         {
-            pendingRetryUntil[timeframeIndex] = TimeCurrent() + PendingRetrySeconds;
-            SendEaIssue(
-               "OrderModify failed; retry delayed",
-               TradeResultText() + "; retry in " +
-               IntegerToString(PendingRetrySeconds) + " seconds"
-            );
-         }
-         else
-         {
-            pendingRetryUntil[timeframeIndex] = 0;
-         }
-      }
+      if(MathAbs(currentPrice - targetPrice) >= PipSize() * 0.1
+         && !trade.OrderModify(ticket, targetPrice, 0, 0, ORDER_TIME_GTC, 0))
+         SendEaIssue("OrderModify failed", TradeResultText());
       return;
    }
 
-   bool placed = false;
    if(type == ORDER_TYPE_BUY_LIMIT)
    {
-      placed = trade.BuyLimit(
+      if(!trade.BuyLimit(
          lotSize,
          targetPrice,
          _Symbol,
@@ -780,12 +606,13 @@ void TrailPendingOrder(
          0,
          ORDER_TIME_GTC,
          0,
-         comment
-      );
+         "Hermes trailing buy limit"
+      ))
+         SendEaIssue("BuyLimit failed", TradeResultText(), PERIOD_M1);
    }
    else if(type == ORDER_TYPE_SELL_LIMIT)
    {
-      placed = trade.SellLimit(
+      if(!trade.SellLimit(
          lotSize,
          targetPrice,
          _Symbol,
@@ -793,62 +620,10 @@ void TrailPendingOrder(
          0,
          ORDER_TIME_GTC,
          0,
-         comment
-      );
+         "Hermes trailing sell limit"
+      ))
+         SendEaIssue("SellLimit failed", TradeResultText(), PERIOD_M1);
    }
-
-   if(!placed)
-   {
-      pendingRetryUntil[timeframeIndex] = TimeCurrent() + PendingRetrySeconds;
-      SendEaIssue(
-         type == ORDER_TYPE_BUY_LIMIT ? "BuyLimit failed" : "SellLimit failed",
-         TradeResultText() + "; retry in " + IntegerToString(PendingRetrySeconds) + " seconds",
-         timeframe
-      );
-   }
-   else
-   {
-      pendingRetryUntil[timeframeIndex] = 0;
-   }
-}
-
-bool MaintainEmaTrailOrders(ENUM_ORDER_TYPE type, double lotSize, double m1TrailPips)
-{
-   bool isBuy = type == ORDER_TYPE_BUY_LIMIT;
-   double pip = PipSize();
-   bool allPricesValid = true;
-
-   for(int index = 0; index < TRADE_TF_COUNT; index++)
-   {
-      double ema20 = 0;
-      double ema50 = 0;
-      if(!ReadTradeEmaValues(index, ema20, ema50))
-      {
-         SendEaIssue("EMA data unavailable", "Trailing order", Timeframes[index]);
-         allPricesValid = false;
-         continue;
-      }
-
-      double offsetPips = index == 0
-         ? (isBuy ? -m1TrailPips : m1TrailPips)
-         : (index == 1 ? (isBuy ? 10.0 : -10.0) : (isBuy ? 5.0 : -5.0));
-      double targetPrice = ema20 + offsetPips * pip;
-      string comment = EmaTrailOrderComment(type, index);
-      // Clamp-and-place: when the raw EMA-based target sits inside the
-      // broker minimum distance, PreparePendingPrice() adjusts it to the
-      // nearest valid price (ask+minDist for sells, bid-minDist for buys)
-      // instead of rejecting the order. This keeps all TRADE_TF_COUNT
-      // EMA trail orders alive even when price hugs the EMA.
-      string priceReason = "";
-      if(!PreparePendingPrice(type, targetPrice, priceReason))
-      {
-         SendEaIssue("Pending price invalid", priceReason, Timeframes[index]);
-         allPricesValid = false;
-         continue;
-      }
-      TrailPendingOrder(type, lotSize, targetPrice, comment, index, Timeframes[index]);
-   }
-   return allPricesValid;
 }
 
 bool IsUntouchedKeyLevel(ENUM_TIMEFRAMES timeframe, int shift, double price, bool resistance)
@@ -1128,321 +903,16 @@ void NotifyFilledEaPositions()
    }
 }
 
-string StrategyKey(string id, string field)
-{
-   return "Strategy:" + id + ":" + field;
-}
-
-double StrategyLockR(double currentR, double beR, double protectR, double lockedR)
-{
-   double result = -1;
-   if(beR > 0 && currentR >= beR) result = 0;
-   if(protectR > 0 && currentR >= protectR) result = MathMax(result, lockedR);
-   return result;
-}
-
-double StrategyPartialVolume(double original, double current, double step, double minimum, double fraction)
-{
-   if(step <= 0 || fraction <= 0 || fraction >= 1 || current < original - step / 2) return 0;
-   double amount = MathFloor(original * fraction / step + 1e-8) * step;
-   return amount >= minimum && current - amount >= minimum ? amount : 0;
-}
-
-bool StrategyManagementChecks()
-{
-   // Runnable on EA initialization; these are the same functions used below.
-   return StrategyLockR(0.99, 1, 1.5, 0.5) == -1
-      && StrategyLockR(1, 1, 1.5, 0.5) == 0
-      && StrategyLockR(1.5, 1, 1.5, 0.5) == 0.5
-      && StrategyLockR(3, 0, 0, 0.5) == -1
-      && MathAbs(StrategyPartialVolume(1, 1, 0.1, 0.1, 0.5) - 0.5) < 1e-8
-      && StrategyPartialVolume(1, 0.5, 0.1, 0.1, 0.5) == 0
-      && StrategyPartialVolume(0.01, 0.01, 0.01, 0.01, 0.5) == 0;
-}
-
-void SendStrategyTransaction(string payload, string id, ulong deal)
-{
-   FolderCreate("strategy_events");
-   string path = "strategy_events\\" + id + "_" + IntegerToString(deal) + ".json";
-   int file = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_UNICODE);
-   if(file == INVALID_HANDLE) { Print("Cannot persist strategy deal ", deal); SendWebhook(payload); return; }
-   FileWriteString(file, payload);
-   FileFlush(file);
-   FileClose(file);
-   if(SendWebhook(payload)) FileDelete(path);
-}
-
-void ReplayStrategyTransactions()
-{
-   static datetime lastReplay = 0;
-   if(TimeGMT() - lastReplay < 10) return;
-   lastReplay = TimeGMT();
-   string name;
-   long search = FileFindFirst("strategy_events\\*.json", name);
-   if(search == INVALID_HANDLE) return;
-   int count = 0;
-   do
-   {
-      string path = "strategy_events\\" + name;
-      int file = FileOpen(path, FILE_READ | FILE_TXT | FILE_UNICODE);
-      if(file == INVALID_HANDLE) continue;
-      string payload = FileReadString(file);
-      FileClose(file);
-      if(!SendWebhook(payload)) break;
-      FileDelete(path);
-      count++;
-   } while(count < 5 && FileFindNext(search, name));
-   FileFindClose(search);
-}
-
-double StrategyValue(string id, string field)
-{
-   double value = 0;
-   GlobalVariableGet(StrategyKey(id, field), value);
-   return value;
-}
-
-void StrategySet(string id, string field, double value)
-{
-   GlobalVariableSet(StrategyKey(id, field), value);
-}
-
-string StrategyId(string comment)
-{
-   return StringFind(comment, "S:") == 0 && StringLen(comment) >= 18 ? StringSubstr(comment, 2, 16) : "";
-}
-
-string StrategyTelemetry(string comment)
-{
-   string id = StrategyId(comment);
-   if(id == "") return "";
-   return ",\"setup_id\":\"" + id + "\""
-      + ",\"initial_risk\":" + DoubleToString(StrategyValue(id, "risk"), 8)
-      + ",\"risk_cash\":" + DoubleToString(StrategyValue(id, "cash"), 8)
-      + ",\"risk_confirmed\":" + (StrategyValue(id, "initialized") > 0 ? "true" : "false")
-      + ",\"initial_volume\":" + DoubleToString(StrategyValue(id, "volume"), 8)
-      + ",\"current_r\":" + DoubleToString(StrategyValue(id, "current"), 6)
-      + ",\"mfe_r\":" + DoubleToString(StrategyValue(id, "mfe"), 6)
-      + ",\"mae_r\":" + DoubleToString(StrategyValue(id, "mae"), 6);
-}
-
-void StrategyExecutionDecision(string id, string result, string reason)
-{
-   SendWebhook("{\"event_type\":\"ENTRY_DECISION\",\"strategy\":true,\"setup_id\":\"" + id
-      + "\",\"symbol\":\"" + JsonEscape(_Symbol) + "\",\"result\":\"" + result
-      + "\",\"reason\":\"" + JsonEscape(reason) + "\"}");
-}
-
-void UpdateStrategyMetrics()
-{
-   for(int index = PositionsTotal() - 1; index >= 0; index--)
-   {
-      ulong ticket = PositionGetTicket(index);
-      if(ticket == 0 || PositionGetString(POSITION_SYMBOL) != _Symbol
-         || PositionGetInteger(POSITION_MAGIC) != TradeMagicNumber) continue;
-      string id = StrategyId(PositionGetString(POSITION_COMMENT));
-      if(id == "" || StrategyValue(id, "sl") <= 0) continue;
-      double sign = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY ? 1 : -1;
-      double entry = PositionGetDouble(POSITION_PRICE_OPEN);
-      double volume = PositionGetDouble(POSITION_VOLUME);
-      if(StrategyValue(id, "initialized") == 0 || volume > StrategyValue(id, "volume") + SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP) / 2)
-      {
-         double risk = sign * (entry - StrategyValue(id, "sl"));
-         double cash = 0;
-         if(risk <= 0 || !OrderCalcProfit(sign > 0 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, _Symbol,
-            volume, entry, StrategyValue(id, "sl"), cash) || cash >= 0) continue;
-         StrategySet(id, "risk", risk);
-         StrategySet(id, "cash", -cash);
-         StrategySet(id, "volume", volume);
-         StrategySet(id, "entry", entry);
-         StrategySet(id, "initialized", 1);
-      }
-      double risk = StrategyValue(id, "risk");
-      if(risk <= 0) continue;
-      double price = SymbolInfoDouble(_Symbol, sign > 0 ? SYMBOL_BID : SYMBOL_ASK);
-      double r = sign * (price - entry) / risk;
-      StrategySet(id, "current", r);
-      StrategySet(id, "mfe", MathMax(StrategyValue(id, "mfe"), r));
-      StrategySet(id, "mae", MathMax(StrategyValue(id, "mae"), -r));
-   }
-}
-
-void ManageStrategyPositions()
-{
-   UpdateStrategyMetrics();
-   for(int index = PositionsTotal() - 1; index >= 0; index--)
-   {
-      ulong ticket = PositionGetTicket(index);
-      if(ticket == 0 || PositionGetString(POSITION_SYMBOL) != _Symbol
-         || PositionGetInteger(POSITION_MAGIC) != TradeMagicNumber) continue;
-      string id = StrategyId(PositionGetString(POSITION_COMMENT));
-      double risk = StrategyValue(id, "risk");
-      if(id == "" || risk <= 0 || StrategyValue(id, "initialized") == 0) continue;
-      double sign = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY ? 1 : -1;
-      double entry = PositionGetDouble(POSITION_PRICE_OPEN);
-      double r = StrategyValue(id, "current");
-      double currentSL = PositionGetDouble(POSITION_SL);
-      double sl = currentSL;
-      double tp = PositionGetDouble(POSITION_TP);
-      double volume = PositionGetDouble(POSITION_VOLUME);
-      double price = SymbolInfoDouble(_Symbol, sign > 0 ? SYMBOL_BID : SYMBOL_ASK);
-      double be = StrategyValue(id, "be");
-      double protect = StrategyValue(id, "protect");
-      double lockR = StrategyLockR(r, be, protect, StrategyValue(id, "lock"));
-      double protectedSL = entry + sign * risk * lockR;
-      if(lockR >= 0 && (sl == 0 || sign * (protectedSL - sl) > 0)) sl = protectedSL;
-      double trail = StrategyValue(id, "trail");
-      if(trail > 0 && r >= trail && StrategyValue(id, "method") > 0)
-      {
-         double candidate = sign > 0 ? iLow(_Symbol, PERIOD_M5, 1) : iHigh(_Symbol, PERIOD_M5, 1);
-         if(StrategyValue(id, "method") == 2)
-         {
-            double ema20, ema50;
-            candidate = ReadTradeEmaValues(1, ema20, ema50) ? ema20 : 0;
-         }
-         if(candidate > 0 && sign * (candidate - entry) > 0 && (sl == 0 || sign * (candidate - sl) > 0)) sl = candidate;
-      }
-      double tick = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-      if(tick <= 0) continue;
-      sl = NormalizeDouble((sign > 0 ? MathFloor(sl / tick) : MathCeil(sl / tick)) * tick, _Digits);
-      double distance = MathMax(SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL),
-                                SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL)) * _Point;
-      if(sl > 0 && sl != currentSL && sign * (price - sl) > distance
-         && (currentSL == 0 || sign * (sl - currentSL) > 0))
-      {
-         if(!trade.PositionModify(ticket, sl, tp) || !TradeResultSucceeded())
-            SendEaIssue("Strategy stop modification failed", TradeResultText());
-      }
-      double partial = StrategyValue(id, "partial");
-      double fraction = StrategyValue(id, "fraction");
-      double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-      if(partial <= 0 || fraction <= 0 || r < partial || step <= 0 || StrategyValue(id, "partial_done") != 0) continue;
-      double original = StrategyValue(id, "volume");
-      // A manual or previously successful partial counts too, including after restart.
-      if(volume < original - step / 2) { StrategySet(id, "partial_done", 1); continue; }
-      double minimum = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-      double amount = StrategyPartialVolume(original, volume, step, minimum, fraction);
-      if(amount <= 0) continue;
-      StrategySet(id, "partial_done", 1); // uncertain broker responses must never double-close
-      GlobalVariablesFlush();
-      bool requested = false;
-      if(AccountInfoInteger(ACCOUNT_MARGIN_MODE) == ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
-         requested = trade.PositionClosePartial(ticket, amount);
-      else
-      {
-         // Netting reduction is explicitly tied to the selected position, not a new thesis.
-         MqlTradeRequest request = {};
-         MqlTradeResult result = {};
-         request.action = TRADE_ACTION_DEAL;
-         request.position = ticket;
-         request.symbol = _Symbol;
-         request.magic = TradeMagicNumber;
-         request.volume = amount;
-         request.type = sign > 0 ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
-         request.price = price;
-         request.comment = "S:" + id;
-         int filling = (int)SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE);
-         request.type_filling = (filling & SYMBOL_FILLING_FOK) != 0 ? ORDER_FILLING_FOK : ORDER_FILLING_IOC;
-         requested = OrderSend(request, result) && (result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_DONE_PARTIAL);
-         if(!requested) SendEaIssue("Strategy partial reduction failed", result.comment);
-         continue;
-      }
-      if(!requested || !TradeResultSucceeded()) SendEaIssue("Strategy partial close failed", TradeResultText());
-   }
-}
-
-void ExecuteStrategy(const TradeConfig &config)
-{
-   if(config.strategyDirection != "BUY" && config.strategyDirection != "SELL") return;
-   string id = config.setupId;
-   if(id == "" || StrategyValue(id, "used") != 0) return;
-   if(ManualCloseCooldownActive() || HasAnyPositionForSymbol()) return;
-   // Pending orders from any EA/manual action can fill into the same thesis.
-   for(int i = OrdersTotal() - 1; i >= 0; i--)
-      if(OrderGetTicket(i) > 0 && OrderGetString(ORDER_SYMBOL) == _Symbol) return;
-   double sign = config.strategyDirection == "BUY" ? 1 : -1;
-   double price = SymbolInfoDouble(_Symbol, sign > 0 ? SYMBOL_ASK : SYMBOL_BID);
-   double risk = sign * (price - config.sl);
-   double reward = sign * (config.tp - price);
-   double minimum = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
-   double spread = SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   if(TimeGMT() >= (datetime)config.expires || risk <= minimum + spread || reward <= minimum + spread
-      || config.sl <= 0 || config.tp <= 0 || config.minRR <= 0 || reward / risk < config.minRR
-      || MathAbs(price - config.entry) > config.tolerance)
-   {
-      StrategySet(id, "used", 1);
-      StrategyExecutionDecision(id, "FAIL", "Expired offer, price drift or insufficient executable R:R");
-      return;
-   }
-   double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-   double volume = step > 0 ? MathFloor(config.lotSize / step + 1e-8) * step : 0;
-   if(volume < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN) || volume > SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX)) return;
-   double cash = 0;
-   if(!OrderCalcProfit(sign > 0 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, _Symbol, volume, price, config.sl, cash) || cash >= 0) return;
-   string lock = "StrategyLock:" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ":" + _Symbol;
-   GlobalVariableTemp(lock);
-   double until = GlobalVariableGet(lock);
-   if(until > TimeGMT() || !GlobalVariableSetOnCondition(lock, (double)(TimeGMT() + 30), until)) return;
-   if(HasAnyPositionForSymbol()) { GlobalVariableSet(lock, 0); return; }
-   StrategySet(id, "used", 1);
-   StrategySet(id, "sl", config.sl);
-   StrategySet(id, "risk", risk);
-   StrategySet(id, "cash", -cash);
-   StrategySet(id, "volume", volume);
-   StrategySet(id, "entry", price);
-   StrategySet(id, "sign", sign);
-   StrategySet(id, "be", config.breakevenR);
-   StrategySet(id, "protect", config.protectR);
-   StrategySet(id, "lock", config.protectLockR);
-   StrategySet(id, "partial", config.partialR);
-   StrategySet(id, "fraction", config.partialFraction);
-   StrategySet(id, "trail", config.trailR);
-   StrategySet(id, "method", config.trailingMethod == "ema" ? 2 : config.trailingMethod == "structure" ? 1 : 0);
-   GlobalVariablesFlush();
-   trade.SetTypeFillingBySymbol(_Symbol);
-   trade.SetDeviationInPoints((ulong)MathFloor(config.tolerance / _Point));
-   bool requested = sign > 0
-      ? trade.Buy(volume, _Symbol, price, config.sl, config.tp, "S:" + id)
-      : trade.Sell(volume, _Symbol, price, config.sl, config.tp, "S:" + id);
-   bool succeeded = requested && TradeResultSucceeded();
-   UpdateStrategyMetrics();
-   GlobalVariablesFlush();
-   StrategyExecutionDecision(id, succeeded ? "PASS" : "FAIL", TradeResultText());
-   GlobalVariableSet(lock, 0);
-}
-
 void ManageTrading()
 {
-   ManageStrategyPositions();
    TradeConfig config;
    if(!FetchTradeConfig(config))
    {
       SendEntryDecision("?", "FAIL", "Trade configuration unavailable");
-      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       return;
    }
 
    trade.SetExpertMagicNumber(TradeMagicNumber);
-   static string previousMode = "";
-   if(config.mode != previousMode)
-   {
-      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
-      previousMode = config.mode;
-   }
-   if(config.mode == "AUTO")
-   {
-      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
-      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
-      ExecuteStrategy(config);
-      return;
-   }
-   if(config.mode == "EMA")
-   {
-      string reason = "";
-      config.mode = BuyConfluence(reason) ? "BUY" : SellConfluence(reason) ? "SELL" : "NOTRADE";
-   }
    if(ManualCloseCooldownActive())
    {
       SendEntryDecision(config.mode, "FAIL", "Manual close cooldown active");
@@ -1461,70 +931,87 @@ void ManageTrading()
    if(config.mode == "BUY")
    {
       DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
       string reason = "";
       if(!BuyConfluence(reason))
       {
          SendEntryDecision("BUY", "FAIL", reason);
+         DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
          return;
       }
-      bool allPricesValid = MaintainEmaTrailOrders(
-         ORDER_TYPE_BUY_LIMIT, config.lotSize, config.trailPips
-      );
-      SendEntryDecision(
-         "BUY",
-         allPricesValid ? "PASS" : "FAIL",
-         allPricesValid
-            ? "Confluence passed; maintaining M1, M5, and M15 BUY_LIMITs"
-            : "One or more BUY_LIMIT prices violate the broker distance"
-      );
+      double ema20 = 0;
+      double ema50 = 0;
+      if(!ReadTradeEmaValues(0, ema20, ema50))
+      {
+         SendEntryDecision("BUY", "FAIL", "M1 EMA data unavailable");
+         return;
+      }
+      double price = ema20 - config.trailPips * PipSize();
+      if(price < SymbolInfoDouble(_Symbol, SYMBOL_ASK))
+      {
+         SendEntryDecision("BUY", "PASS", "Confluence passed; maintaining BUY_LIMIT");
+         TrailPendingOrder(ORDER_TYPE_BUY_LIMIT, config.lotSize, price);
+      }
+      else
+         SendEntryDecision("BUY", "FAIL", "Buy limit price is not below ask");
       return;
    }
 
    if(config.mode == "SELL")
    {
       DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       string reason = "";
       if(!SellConfluence(reason))
       {
          SendEntryDecision("SELL", "FAIL", reason);
+         DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
          return;
       }
-      bool allPricesValid = MaintainEmaTrailOrders(
-         ORDER_TYPE_SELL_LIMIT, config.lotSize, config.trailPips
-      );
-      SendEntryDecision(
-         "SELL",
-         allPricesValid ? "PASS" : "FAIL",
-         allPricesValid
-            ? "Confluence passed; maintaining M1, M5, and M15 SELL_LIMITs"
-            : "One or more SELL_LIMIT prices violate the broker distance"
-      );
+      double ema20 = 0;
+      double ema50 = 0;
+      if(!ReadTradeEmaValues(0, ema20, ema50))
+      {
+         SendEntryDecision("SELL", "FAIL", "M1 EMA data unavailable");
+         return;
+      }
+      double price = ema20 + config.trailPips * PipSize();
+      if(price > SymbolInfoDouble(_Symbol, SYMBOL_BID))
+      {
+         SendEntryDecision("SELL", "PASS", "Confluence passed; maintaining SELL_LIMIT");
+         TrailPendingOrder(ORDER_TYPE_SELL_LIMIT, config.lotSize, price);
+      }
+      else
+         SendEntryDecision("SELL", "FAIL", "Sell limit price is not above bid");
       return;
    }
 
-   if(config.mode == "LEVEL")
+   if(config.mode == "AUTO")
    {
       if(!config.keyLevelOrdersEnabled)
       {
          DeleteKeyLevelPendingOrders();
+         SendEntryDecision("AUTO", "PASS", "Key-level limit orders disabled");
+         return;
       }
-      else
-      {
-         CancelNearbyKeyLevelOrdersForSession();
-         PruneNearbyKeyLevelOrders();
-         SendEntryDecision("LEVEL", "PASS", "Explicit legacy untouched M30-D1 key-level limits");
-         MaintainUntouchedKeyLevelOrders();
-      }
+      CancelNearbyKeyLevelOrdersForSession();
+      PruneNearbyKeyLevelOrders();
+      SendEntryDecision("AUTO", "PASS", "Maintaining untouched M30-D1 key-level limits");
+      MaintainUntouchedKeyLevelOrders();
       return;
    }
 
    if(config.mode == "NOTRADE")
    {
-      SendEntryDecision("?", "FAIL", "Trading mode is NOTRADE; accepted orders retained");
+      SendEntryDecision("?", "FAIL", "Trading mode is NOTRADE");
+      DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+      DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
       return;
    }
 
    SendEaIssue("Unknown trade mode", config.mode);
+   DeletePendingOrders(ORDER_TYPE_BUY_LIMIT);
+   DeletePendingOrders(ORDER_TYPE_SELL_LIMIT);
 }
 
 #endif

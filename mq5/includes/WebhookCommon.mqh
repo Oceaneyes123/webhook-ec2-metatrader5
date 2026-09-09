@@ -172,6 +172,16 @@ bool SendEaHeartbeat(string source)
    return SendWebhook(payload);
 }
 
+void MaybeSendEaHeartbeat(string source, int heartbeatSeconds, datetime &lastHeartbeatTime)
+{
+   datetime now = TimeCurrent();
+   if(now - lastHeartbeatTime >= heartbeatSeconds)
+   {
+      SendEaHeartbeat(source);
+      lastHeartbeatTime = now;
+   }
+}
+
 bool SendTradeCloseNotification(string reason, double profit, double balance)
 {
    string payload = StringFormat(

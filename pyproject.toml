@@ -1,0 +1,23 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["graphify-out"]
+include = [
+  "webhook/__init__.py",
+  "webhook/command_*.py",
+  "webhook/commands.py",
+  "webhook/state.py",
+  "webhook/sync_mq5.py",
+  "tests/test_command_contracts.py",
+  "tests/test_sync_mq5.py",
+  "run.py",
+  "sync_mq5.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

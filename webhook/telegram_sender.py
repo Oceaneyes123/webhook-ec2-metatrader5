@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import re
 import time
 import uuid
 import urllib.error
@@ -11,6 +12,38 @@ from .app_logger import get_logger
 
 
 logger = get_logger()
+
+
+_TELEGRAM_HTML_TAG = re.compile(
+    r"</?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)>"
+)
+_TELEGRAM_HTML_ENTITY = re.compile(r"&(amp|lt|gt|quot|#\d+|#x[0-9a-fA-F]+);")
+
+
+def _telegram_html(text):
+    """Escape unsafe text while retaining the Telegram HTML tags used in reports."""
+    text = str(text)
+    parts = []
+    position = 0
+    for match in _TELEGRAM_HTML_TAG.finditer(str(text)):
+        parts.append(_escape_telegram_html_text(text[position : match.start()]))
+        parts.append(match.group())
+        position = match.end()
+    parts.append(_escape_telegram_html_text(text[position:]))
+    return "".join(parts)
+
+
+def _escape_telegram_html_text(text):
+    """Escape markup characters without double-escaping valid HTML entities."""
+    entities = []
+
+    def save_entity(match):
+        entities.append(match.group())
+        return f"\0{len(entities) - 1}\0"
+
+    text = _TELEGRAM_HTML_ENTITY.sub(save_entity, text)
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return re.sub(r"\0(\d+)\0", lambda match: entities[int(match.group(1))], text)
 
 
 def _post_telegram_request(request, retries, log=True):
@@ -39,7 +72,10 @@ def _post_telegram_request(request, retries, log=True):
 def send_telegram_message(text, retries=3, chat_id=None, parse_mode="HTML", log=True, reply_markup=None):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
-    payload = {"chat_id": chat_id, "text": text}
+    payload = {
+        "chat_id": chat_id,
+        "text": _telegram_html(text) if parse_mode == "HTML" else text,
+    }
     if parse_mode:
         payload["parse_mode"] = parse_mode
     if reply_markup:
@@ -63,7 +99,7 @@ def send_telegram_photo(photo_path, caption=None, retries=3, chat_id=None, parse
 
     fields = {"chat_id": str(chat_id)}
     if caption:
-        fields["caption"] = caption
+        fields["caption"] = _telegram_html(caption) if parse_mode == "HTML" else caption
     if parse_mode:
         fields["parse_mode"] = parse_mode
 

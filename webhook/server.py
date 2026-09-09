@@ -15,7 +15,7 @@ from .events import EVENT_HANDLERS
 from .heartbeat import record_ea_heartbeat, start_heartbeat_monitor
 from .messages import health_text
 from .polling import reply_to_telegram_update, start_telegram_polling
-from .trade_state import trade_config
+from .trade_state import ema_enabled, overtrade_config, trade_config
 from .account import STORE, due_reports, report_text
 
 logger = get_logger()
@@ -31,18 +31,32 @@ def vwap_report_window(now=None):
 
 
 def vwap_report_text():
-    from .state import MARKET_ANALYZER, MARKET_STATE
-    with MARKET_STATE.lock:
-        symbols = sorted(MARKET_STATE.data["symbols"])
-    return "\n\n".join(MARKET_ANALYZER.vwap(symbol) for symbol in symbols)
+    from .state import market_analyzer, market_state
+
+    state = market_state()
+    with state.lock:
+        symbols = sorted(state.data["symbols"])
+    analyzer = market_analyzer()
+    return "\n\n".join(analyzer.vwap(symbol) for symbol in symbols)
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def write_text(self, code, text, content_type="text/plain; charset=utf-8"):
+        body = text.encode()
         self.send_response(code)
         self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
         self.end_headers()
-        self.wfile.write(text.encode())
+        self.close_connection = True
+        try:
+            self.wfile.write(body)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # Client (MT5 WebRequest) hung up before reading the response. The
+            # event was already processed and stored — nothing to roll back.
+            logger.info("Client disconnected before response was written (event already processed)")
 
     def write_json(self, code, payload):
         self.write_text(
@@ -66,6 +80,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 from .state import MARKET_STATE
                 config.update(execution_config(symbol, MARKET_STATE, query))
             self.write_json(200, config)
+            return
+        if path == "/overtrade-config":
+            self.write_json(200, overtrade_config())
+            return
+        if path == "/ema-config":
+            self.write_json(200, {"enabled": ema_enabled()})
             return
         if path == "/account-action":
             secret = __import__("os").environ.get("ACCOUNT_ACTION_SECRET", "")
@@ -117,15 +137,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 "Ignored unsupported payload event_type=%s",
                 payload.get("event_type") if isinstance(payload, dict) else None,
             )
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"ignored")
+            self.write_text(200, "ignored")
         except Exception as error:
             logger.exception("Webhook handling failed")
             self.notify_error(error)
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(str(error).encode())
+            try:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(error).encode())
+            except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                logger.info("Client disconnected while reporting error (event already processed)")
 
     def handle_telegram(self):
         length = int(self.headers.get("Content-Length", 0))

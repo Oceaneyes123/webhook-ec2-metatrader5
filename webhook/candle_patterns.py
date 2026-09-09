@@ -53,7 +53,7 @@ def enabled_pattern_types():
 
 
 def enabled_pattern_timeframes():
-    return _csv_setting("PATTERN_ENABLED_TIMEFRAMES", "M15,M30,H1,H4")
+    return _csv_setting("PATTERN_ENABLED_TIMEFRAMES", "M30,H1,H4")
 
 
 def debug_logging_enabled():
@@ -373,12 +373,12 @@ def evaluate(event_type, signal, payload, history, snapshots):
     if interaction["opposing"]:
         score -= _setting("PATTERN_OPPOSING_LEVEL_SCORE", 12, int); reduced.append("Nearby opposing level")
     confidence = "Fully confirmed" if score >= 85 else "Strong" if score >= 70 else "Moderate" if score >= 55 else "Weak" if score >= 40 else "Informational"
-    minimum = _setting("PATTERN_MIN_ALERT_SCORE", 60, int)
+    minimum = _setting("PATTERN_MIN_ALERT_SCORE", 80, int)
     countertrend = current_bias in {"BULLISH", "BEARISH"} and not aligned
     strictness = _setting("PATTERN_COUNTERTREND_STRICTNESS", 1.0)
     if countertrend:
         score -= max(0.0, strictness - 1.0) * 10
-    alignment_required = os.environ.get("PATTERN_REQUIRE_HTF_ALIGNMENT", "false").lower() in {"1", "true", "yes"}
+    alignment_required = os.environ.get("PATTERN_REQUIRE_HTF_ALIGNMENT", "true").lower() in {"1", "true", "yes"}
     if alignment_required and current_bias == "unknown":
         score -= _setting("PATTERN_MISSING_HTF_SCORE", 15, int)
         reduced.append("Higher-timeframe alignment unavailable")

@@ -74,6 +74,22 @@ class SendTelegramMessageTest(unittest.TestCase):
 
         self.assertNotIn("parse_mode", json.loads(requests[0][0].data))
 
+    def test_send_telegram_message_escapes_unsafe_html_but_keeps_formatting(self):
+        urlopen_fn, requests = collect_requests()
+
+        with patch.dict(
+            os.environ,
+            {"TELEGRAM_BOT_TOKEN": "token", "TELEGRAM_CHAT_ID": "chat"},
+        ), patch("urllib.request.urlopen", urlopen_fn):
+            telegram_sender.send_telegram_message(
+                "<b>Trade</b> Symbol: X<Y & Z; <code>1 &lt; 2</code>"
+            )
+
+        self.assertEqual(
+            json.loads(requests[0][0].data)["text"],
+            "<b>Trade</b> Symbol: X&lt;Y &amp; Z; <code>1 &lt; 2</code>",
+        )
+
     def test_send_telegram_message_includes_telegram_error_body(self):
         def raise_error(_request, _timeout=None, **kwargs):
             raise urllib.error.HTTPError(

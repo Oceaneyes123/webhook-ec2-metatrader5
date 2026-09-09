@@ -24,11 +24,15 @@ Telegram polling -> Python -> /status, /summary, /levels, and other commands
 
 ## Requirements
 
-- Python 3
+- Python 3.11 or newer
 - MetaTrader 5 on the same machine
 - A Telegram bot token and chat ID
 
-No Python package installation is required.
+Install the runtime dependency before starting the service:
+
+```powershell
+python -m pip install -r requirements.txt
+```
 
 ## Telegram Credentials
 
@@ -47,13 +51,13 @@ No Python package installation is required.
 Open PowerShell in the repository:
 
 ```powershell
-Set-Location D:\Project\Python\webhook-ec2
+Set-Location C:\Project\Personal\webhook-ec2
 
 $env:TELEGRAM_BOT_TOKEN = "your_bot_token"
 $env:TELEGRAM_CHAT_ID = "your_chat_id"
 $env:TIMEZONE_OFFSET_HOURS = "5"
 
-python webhook.py
+python run.py
 ```
 
 The default configuration is:
@@ -71,10 +75,9 @@ Optional environment overrides:
 $env:HOST = "127.0.0.1"
 $env:PORT = "8000"
 $env:PUBLIC_URL = "http://127.0.0.1:8000/webhook"
-$env:STATE_FILE = "D:\Project\Python\webhook-ec2\market_state.json"
-$env:TRADE_STATE_FILE = "D:\Project\Python\webhook-ec2\trade_state.json"
+$env:TRADE_STATE_FILE = "C:\Project\Personal\webhook-ec2\trade_state.json"
 $env:TELEGRAM_POLL_SECONDS = "10"
-$env:ACCOUNT_DB_FILE = "D:\Project\Python\webhook-ec2\account_state.db"
+$env:ACCOUNT_DB_FILE = "C:\Project\Personal\webhook-ec2\account_state.db"
 $env:ACCOUNT_ACTIONS_ENABLED = "false" # set true only after demo testing
 $env:ACCOUNT_ACTION_SECRET = "long-random-local-secret"
 $env:AUTHORIZED_TELEGRAM_CHAT = "your_chat_id"
@@ -116,7 +119,7 @@ $env:LEVEL_ENABLED_EVENTS = "" # empty enables all supported events
 $env:MARKET_DEBUG_LOGGING = "false"
 ```
 
-PowerShell variables apply only to the current terminal. Start `webhook.py`
+PowerShell variables apply only to the current terminal. Start `run.py`
 from that same terminal.
 
 Verify the server:
@@ -151,6 +154,8 @@ webhook and Telegram bot.
 
 All EAs use the same `WebhookUrl`, Python webhook server, Telegram bot, and
 Telegram chat.
+`TPSL.mq5` is the TP/SL and breakeven manager; attach it to the same chart as
+Webhook2 when its positions need exit protection.
 
 ### Structure and key-level alerts
 
@@ -170,17 +175,26 @@ Present levels do not age toward expiry. Objects absent from source snapshots
 are retired after `LEVEL_STALE_UPDATES`, and bounded retention prunes their
 alert state too.
 
-Shared tracked code is under `mq5/includes/`. Root `Webhook1.mq5` and
-`Webhook2.mq5` are symlinks to the live MetaTrader Experts files.
+Canonical tracked sources are under `mq5/`; shared code is under
+`mq5/includes/`. Root `Webhook1.mq5` and `Webhook2.mq5` are live MetaTrader
+links or checkout pointer files and must never be edited directly. Live include
+files are synchronized copies and must not be edited directly either.
 
 After every MQ5 edit:
 
 ```powershell
-python -m webhook.sync_mq5
+python sync_mq5.py
 ```
 
-This updates the live EAs and their shared includes. Then compile and reload
-the changed EAs in MetaEditor.
+This updates `Webhook1.mq5`, `Webhook2.mq5`, `BigMove.mq5`, `EMA.mq5`,
+`TPSL.mq5`, `Overtrade.mq5`, and their shared includes in the live Experts
+folder. Then compile and reload the changed EAs in MetaEditor.
+
+Verify synchronization without copying:
+
+```powershell
+python sync_mq5.py --check
+```
 
 In MetaTrader 5:
 
@@ -197,6 +211,8 @@ In MetaTrader 5:
    then enable algorithmic trading.
 6. Attach `BigMove` to each symbol chart that should receive M15–H4 big-move
    alerts.
+7. Attach `TPSL` to the Webhook2 chart when TP/SL and breakeven management is
+   required.
 
 The EA's default URL is:
 
@@ -269,7 +285,7 @@ Philippine time.
 
 ### EA Heartbeat
 
-Both EAs send periodic heartbeats to the webhook server. The `/status` command
+All four EAs send periodic heartbeats to the webhook server. The `/status` command
 shows whether EAs are running, stale, or missing:
 
 ```text
@@ -283,6 +299,7 @@ EA status:
 Webhook1: running, GOLD, 12s ago
 Webhook2: running, GOLD, 5s ago
 TPSL: missing
+Overtrade: running, GOLD, 8s ago
 ```
 
 EAs report heartbeat by default every 30 seconds. The server considers a
@@ -295,17 +312,15 @@ heartbeat stale after 90 seconds (configurable via
 |---|---|---|---|
 | Webhook1 | `HeartbeatSeconds` | 30 | Timer interval for sending heartbeats (min 10) |
 | Webhook2 | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (>= TradeManageIntervalSeconds, >= 10) |
+| TPSL | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (min 10) |
+| Overtrade | `HeartbeatSeconds` | 30 | Minimum seconds between heartbeats (min 10) |
 
-The TPSL EA is external but can report heartbeats by sending:
+TPSL uses its existing `TimerSeconds` input (default 1 second) for TP/SL and
+breakeven management; heartbeats are rate-limited separately and do not slow
+that timer.
 
-```json
-{
-  "event_type": "EA_HEARTBEAT",
-  "source": "tpsl",
-  "symbol": "GOLDmicro",
-  "status": "running"
-}
-```
+Overtrade uses its existing `CheckIntervalSeconds` input for position monitoring;
+heartbeats are rate-limited separately and do not slow that timer.
 
 ### Webhook2 Trade Config Cache
 
@@ -425,7 +440,7 @@ direction, and candle close time, so restart does not duplicate the same candle
 event. Persisted lifecycle states are `raw_detected`, `awaiting_confirmation`,
 `confirmed`, `alerted`, `failed`, `invalidated`, and `expired`.
 
-Defaults can be overridden with `PATTERN_MIN_ALERT_SCORE` (60),
+Defaults can be overridden with `PATTERN_MIN_ALERT_SCORE` (80),
 `PATTERN_MIN_BODY_RATIO` (0.10), `PATTERN_MIN_ATR_RATIO` (0.35),
 `PATTERN_LEVEL_ATR_TOLERANCE` (0.50), `PATTERN_MIN_WICK_BODY_RATIO` (2.0),
 `PATTERN_MIN_WICK_RANGE_RATIO` (0.35), `PATTERN_EXTREME_ATR_RATIO` (2.5),
@@ -436,8 +451,9 @@ per-pattern override, or `PATTERN_CONFIRMATION_MODE` for the fallback;
 engulfing defaults to immediate while rejection/star/inside-bar patterns wait
 for follow-through. Countertrend immediate confirmation is disabled by default
 and can be explicitly enabled with `PATTERN_COUNTERTREND_IMMEDIATE=true`.
-`PATTERN_ENABLED_TYPES` and `PATTERN_ENABLED_TIMEFRAMES` control the active
-pattern set; `PATTERN_ALERT_GROUPING_ENABLED` groups related same-candle alerts.
+`PATTERN_ENABLED_TYPES` and `PATTERN_ENABLED_TIMEFRAMES` (default
+`M30,H1,H4`) control the active pattern set; `PATTERN_ALERT_GROUPING_ENABLED`
+groups related same-candle alerts.
 `PATTERN_VOLUME_EXPANSION_RATIO`, `PATTERN_LOW_VOLUME_RATIO`,
 `PATTERN_SESSION_WINDOWS` (JSON), `PATTERN_SESSION_TIMEZONE`, and
 `PATTERN_SESSION_WEIGHT_TOKYO/LONDON/NEW_YORK` control volume/session weighting.
@@ -450,7 +466,8 @@ assumption for naive MT5 candle timestamps; timestamps are converted to
 `*_SCORE`/tolerance settings control the remaining context factors.
 `PATTERN_DEBUG_LOGGING` enables suppressed-pattern diagnostics and
 `PATTERN_INVALIDATION_ALERTS` defaults to false. `PATTERN_INVALIDATION_ATR_RATIO`
-(default `0.10`) controls the close-through buffer. `PATTERN_REQUIRE_HTF_ALIGNMENT`,
+(default `0.10`) controls the close-through buffer. `PATTERN_REQUIRE_HTF_ALIGNMENT`
+(default `true`),
 `PATTERN_MISSING_HTF_SCORE`, and `PATTERN_COUNTERTREND_STRICTNESS` explicitly
 control higher-timeframe alignment and countertrend scoring. Snapshots with missing history
 are informational-only and cannot alert; missing optional context remains safe
@@ -470,13 +487,17 @@ and is shown as unknown rather than invented.
 /recent Gold - Show the last five alerts for a symbol
 /summary Gold - Show EMA and retained-pattern confluence
 /levels Gold - Show M15-H4 support, resistance, Fibonacci, FVG, PDH/PDL, and a key-levels plot image
-/rsi Gold - Show RSI(14) status and 70/30 extreme lookback
+/rsi Gold - Show RSI(14) status and 75/25 extreme lookback
 /price Gold - Latest MetaTrader bid, ask, spread, daily range, and data age
 /market Gold - M5 EMA trend and current Asian/London/New York session
 /why Gold - Latest concise Webhook2 entry decision
 /buy - Start trailing buy-limit mode
 /sell - Start trailing sell-limit mode
 /notrade - Stop trading activity
+/leveltrade on|off - Enable or remove key-level limit orders
+/overtrade on - Enable overtrade security
+/overtrade off - Disable overtrade security
+/overtrade 5 - Close eligible positions at $5 combined profit
 /status Gold - Check status and trade mode for Gold
 /buy Gold - Start trailing buy-limit mode for Gold
 /sell Gold - Start trailing sell-limit mode for Gold
@@ -492,10 +513,12 @@ help - Show available commands
 recent - Show the last five alerts for a symbol
 summary - Show EMA and retained-pattern confluence
 levels - Show M15-H4 key levels
-rsi - Show RSI(14) status and 70/30 extreme lookback
+rsi - Show RSI(14) status and 75/25 extreme lookback
 buy - Start trailing buy-limit mode
 sell - Start trailing sell-limit mode
 notrade - Stop trading activity
+leveltrade - Enable or remove key-level limit orders
+overtrade - Enable, disable, or set the overtrade profit target
 price - Latest MT5 price
 market - M5 EMA trend and session
 why - Latest entry decision
@@ -512,6 +535,10 @@ The default trade mode and symbol overrides persist in `trade_state.json`.
 Set `TRADE_STATE_FILE` to store that file elsewhere. The commands `/buy`,
 `/sell`, `/notrade`, and `/status` operate on the default mode; their symbol
 forms operate on one normalized symbol.
+
+Overtrade security is enabled by default and closes eligible chart-symbol
+positions at a combined profit target of `$1.00`. Use `/overtrade on`,
+`/overtrade off`, or `/overtrade <amount>` to change its persisted setting.
 
 ## Test the Webhook Manually
 
@@ -564,6 +591,9 @@ Run all tests:
 ```powershell
 python -m unittest
 ```
+
+Formatting and linting commands are documented in
+[`docs/development.md`](docs/development.md).
 
 Follow the local log:
 

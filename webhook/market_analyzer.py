@@ -12,6 +12,8 @@ from .market_state import (
     LEVEL_TIMEFRAMES,
     PATTERN_TIMEFRAMES,
     RSI_LOOKBACKS,
+    RSI_STRONG_HIGH,
+    RSI_STRONG_LOW,
     RSI_TIMEFRAMES,
     _price,
 )
@@ -126,36 +128,43 @@ class MarketAnalyzer:
                 rsi = snapshot["rsi14"]
                 status = (
                     "Overbought"
-                    if rsi >= 70
+                    if rsi >= RSI_STRONG_HIGH
                     else "Oversold"
-                    if rsi <= 30
+                    if rsi <= RSI_STRONG_LOW
                     else "Neutral"
                 )
                 lines[-1] = f"<b>{timeframe}</b>: <code>{rsi:.2f}</code> — {status}"
                 history = snapshot.get("rsi_history", [])[
                     -RSI_LOOKBACKS[timeframe] :
                 ]
-                above = [entry for entry in history if entry.get("rsi14", 0) >= 70]
+                above = [
+                    entry
+                    for entry in history
+                    if entry.get("rsi14", 0) >= RSI_STRONG_HIGH
+                ]
                 below = [
-                    entry for entry in history if entry.get("rsi14", 100) <= 30
+                    entry
+                    for entry in history
+                    if entry.get("rsi14", 100) <= RSI_STRONG_LOW
                 ]
                 if above:
                     latest = above[-1]
                     lines.append(
-                        "Closed above 70: "
+                        f"Closed above {RSI_STRONG_HIGH}: "
                         f"<code>{latest['rsi14']:.2f}</code> at "
                         f"<i>{html.escape(display_time(latest['candle_time']))}</i>"
                     )
                 if below:
                     latest = below[-1]
                     lines.append(
-                        "Closed below 30: "
+                        f"Closed below {RSI_STRONG_LOW}: "
                         f"<code>{latest['rsi14']:.2f}</code> at "
                         f"<i>{html.escape(display_time(latest['candle_time']))}</i>"
                     )
                 if not above and not below:
                     lines.append(
-                        f"No 70/30 extreme in last {RSI_LOOKBACKS[timeframe]} candles"
+                        f"No {RSI_STRONG_HIGH}/{RSI_STRONG_LOW} extreme in last "
+                        f"{RSI_LOOKBACKS[timeframe]} candles"
                     )
             return "\n".join(lines)
 

@@ -6,3 +6,5 @@ market_state.json
 Webhook1.mq5
 Webhook2.mq5
 account_state.db
+account_state.db-shm
+account_state.db-wal

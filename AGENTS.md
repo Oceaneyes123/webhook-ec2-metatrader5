@@ -6,6 +6,7 @@ The canonical, tracked MQL5 sources are:
 
 - `mq5/Webhook1.mq5`
 - `mq5/Webhook2.mq5`
+- `mq5/EMA.mq5`
 - `mq5/includes/WebhookCommon.mqh`
 - `mq5/includes/MarketSnapshot.mqh`
 - `mq5/includes/TradeManager.mqh`
@@ -23,7 +24,7 @@ For every MQ5 change:
 
 Never edit the root EA links or live includes directly. Doing so changes the
 live MetaTrader files before the repository source. `sync_mq5.py` is
-intentionally one-way from the five canonical files to the live files.
+intentionally one-way from the canonical files to the live files.
 
 The script targets the two root live links and copies shared includes into
 their live `includes` directory.

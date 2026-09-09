@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tests.test_helpers import snapshot
-from webhook.candle_patterns import _level_interaction, confirmation_result, evaluate, raw_detection
+from webhook.candle_patterns import _level_interaction, confirmation_result, enabled_pattern_timeframes, evaluate, raw_detection
 from webhook import events
 from webhook import market_state
 from webhook.json_data_parser import candle_alert_message
@@ -18,7 +18,26 @@ def candle(time, open_, high, low, close, **extra):
     return {"candle_time": time, "open": open_, "high": high, "low": low, "close": close, **extra}
 
 
+LEGACY_PATTERN_TEST_OVERRIDES = {
+    "PATTERN_ENABLED_TIMEFRAMES": "M15,M30,H1,H4",
+    "PATTERN_MIN_ALERT_SCORE": "0",
+    "PATTERN_REQUIRE_HTF_ALIGNMENT": "false",
+}
+
+
 class CandlePatternTest(unittest.TestCase):
+    def test_tightened_pattern_defaults(self):
+        with patch.dict(os.environ, {}, clear=False):
+            for name in ("PATTERN_ENABLED_TIMEFRAMES", "PATTERN_MIN_ALERT_SCORE", "PATTERN_REQUIRE_HTF_ALIGNMENT"):
+                os.environ.pop(name, None)
+            self.assertEqual(enabled_pattern_timeframes(), {"M30", "H1", "H4"})
+            history = [candle(str(index), 100, 101, 99, 100.5) for index in range(13)]
+            history.append(candle("14", 100.4, 101, 98, 100.8))
+            result = evaluate("HAMMER_CANDLE", "BUY", {"timeframe": "M15", "candle_time": "14"}, history, {"M15": {"ema_bias": "BULLISH", "levels": {}}})
+            self.assertEqual(result["higher_timeframe_alignment_required"], True)
+            self.assertLess(result["score"], 80)
+            self.assertFalse(result["qualified"])
+
     def test_short_star_history_and_three_candle_inside_breakout_regressions(self):
         short = [candle("1", 100, 101, 98, 99), candle("2", 98, 100, 97, 99)]
         self.assertFalse(raw_detection("MORNING_STAR", "BUY", short)["valid"])
@@ -45,18 +64,23 @@ class CandlePatternTest(unittest.TestCase):
         result = evaluate("ENGULFING_CANDLE", "BUY", {"timeframe": "M15", "candle_time": "13"}, history, {"M15": {"ema_bias": "BULLISH", "levels": {"support": 102.4}}})
         self.assertEqual(result["confirmation_mode"], "immediate")
 
-    def test_direct_raw_event_is_informational_not_normal_alert(self):
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
+    def test_direct_raw_event_is_suppressed_without_telegram_delivery(self):
         class Server:
             def __init__(self):
                 self.body = None
             def write_text(self, code, body):
                 self.body = body
         server = Server()
-        with patch.object(events._tg, "send_telegram_message") as send:
+        with patch.object(events._tg, "send_telegram_message") as send, patch.object(events.STORE, "event", return_value=True) as store_event:
             events._handle_candle_pattern({"event_type": "HAMMER_CANDLE", "signal": "BUY", "symbol": "GOLD", "timeframe": "M15", "candle_time": "1", "open": 100, "close": 101}, server)
         self.assertEqual(server.body, "ok")
-        self.assertIn("Awaiting context", send.call_args.args[0])
+        store_event.assert_called_once()
+        self.assertFalse(store_event.call_args.args[0]["qualified"])
+        self.assertEqual(store_event.call_args.args[0]["confirmation_status"], "Awaiting context")
+        send.assert_not_called()
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_restart_dedup_and_failed_or_expired_lifecycle(self):
         history = [candle(str(index), 100, 101, 99, 100.5) for index in range(13)]
         history += [candle("13", 101, 102, 100, 100), candle("14", 99.5, 103, 99, 102.5)]
@@ -125,6 +149,7 @@ class CandlePatternTest(unittest.TestCase):
         self.assertIsNone(_level_interaction(tiny, previous, "BUY", snapshots, 1.0)["sweep"])
         self.assertIsNotNone(_level_interaction(real, previous, "BUY", snapshots, 1.0)["sweep"])
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_pattern_invalidation_is_persisted_silent_and_restart_deduplicated(self):
         history = [candle(str(index), 100, 101, 99, 100.5) for index in range(13)]
         history += [candle("13", 101, 102, 100, 100), candle("14", 99.5, 103, 99, 102.5)]
@@ -145,6 +170,7 @@ class CandlePatternTest(unittest.TestCase):
             self.assertEqual(state.data["symbols"]["GOLD"]["M15"]["retained_patterns"][0]["lifecycle"], "invalidated")
             self.assertEqual(MarketState(Path(directory) / "state.json").update(later), [])
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_pattern_invalidation_alert_is_opt_in_and_deduplicated(self):
         history = [candle(str(index), 100, 101, 99, 100.5) for index in range(13)]
         history += [candle("13", 101, 102, 100, 100), candle("14", 99.5, 103, 99, 102.5)]
@@ -175,6 +201,7 @@ class CandlePatternTest(unittest.TestCase):
         structure = {**pattern, "confirmation_mode": "structure_confirmed", "structure_confirmed": True}
         self.assertEqual(confirmation_result(structure, history), "confirmed")
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_same_candle_related_patterns_are_grouped(self):
         history = [candle("1", 100, 101, 99, 100.5), candle("2", 99, 102, 98, 101.5)]
         payload = snapshot("M15", "2", candle_history=history, retained_patterns=[{"event_type": "ENGULFING_CANDLE", "signal": "BUY"}, {"event_type": "HAMMER_CANDLE", "signal": "BUY"}])
@@ -184,6 +211,7 @@ class CandlePatternTest(unittest.TestCase):
         self.assertEqual(len(notifications), 1)
         self.assertEqual(notifications[0]["related_patterns"], ["HAMMER_CANDLE"])
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_partial_history_is_suppressed_through_market_state(self):
         with tempfile.TemporaryDirectory() as directory:
             state = MarketState(Path(directory) / "state.json")
@@ -194,6 +222,7 @@ class CandlePatternTest(unittest.TestCase):
         self.assertEqual(retained["lifecycle"], "raw_detected")
         self.assertFalse(retained["confirmed"])
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_m30_update_does_not_invalidate_m15_or_mutate_higher_state(self):
         with tempfile.TemporaryDirectory() as directory:
             state = MarketState(Path(directory) / "state.json")
@@ -223,6 +252,7 @@ class CandlePatternTest(unittest.TestCase):
         history.append(candle("3", 100, 101, 98, 100.05))
         self.assertFalse(raw_detection("HAMMER_CANDLE", "BUY", history)["valid"])
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_level_and_trend_can_qualify_a_pattern(self):
         history = [candle(str(index), 100, 101, 99, 100.5) for index in range(13)]
         history.append(candle("14", 100.4, 101, 98, 100.8))
@@ -231,6 +261,7 @@ class CandlePatternTest(unittest.TestCase):
         self.assertTrue(result["qualified"])
         self.assertEqual(result["nearest_key_level"]["label"], "Support")
 
+    @patch.dict(os.environ, LEGACY_PATTERN_TEST_OVERRIDES, clear=False)
     def test_market_state_persists_pattern_context_and_deduplicates_candle(self):
         with tempfile.TemporaryDirectory() as directory:
             state = MarketState(Path(directory) / "state.json")

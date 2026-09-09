@@ -114,6 +114,8 @@ class HeartbeatTest(unittest.TestCase):
         self.assertIn("Webhook1: missing", status)
         self.assertIn("Webhook2: missing", status)
         self.assertIn("TPSL: missing", status)
+        self.assertIn("Overtrade: missing", status)
+        self.assertIn("EMA: missing", status)
 
     def test_status_shows_running_with_fresh_heartbeat(self):
         webhook.EA_HEARTBEATS.clear()
@@ -154,6 +156,32 @@ class HeartbeatTest(unittest.TestCase):
         lines = webhook.heartbeat_status_lines()
         self.assertEqual(lines[0], "Webhook1: missing")
         self.assertTrue(any("Myea" in line for line in lines))
+
+    def test_status_shows_overtrade_heartbeat(self):
+        webhook.EA_HEARTBEATS.clear()
+        webhook.record_ea_heartbeat(
+            {
+                "event_type": "EA_HEARTBEAT",
+                "source": "overtrade",
+                "symbol": "GOLDmicro",
+                "status": "running",
+            }
+        )
+
+        status = webhook.command_reply("/status")
+
+        self.assertIn("Overtrade: running, GOLD", status)
+
+    def test_status_shows_ema_heartbeat(self):
+        webhook.record_ea_heartbeat(
+            {
+                "event_type": "EA_HEARTBEAT",
+                "source": "ema",
+                "symbol": "GOLDmicro",
+                "status": "running",
+            }
+        )
+        self.assertIn("EMA: running, GOLD", webhook.command_reply("/status"))
 
     def test_stale_alert_is_sent_once_then_recovery_is_sent_once(self):
         now = 1_000

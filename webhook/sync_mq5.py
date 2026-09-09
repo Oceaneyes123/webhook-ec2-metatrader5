@@ -17,6 +17,7 @@ Usage::
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import sys
@@ -29,12 +30,14 @@ RELATIVE_SOURCES = (
     Path("Webhook1.mq5"),
     Path("Webhook2.mq5"),
     Path("BigMove.mq5"),
+    Path("EMA.mq5"),
     Path("includes/WebhookCommon.mqh"),
     Path("includes/MarketSnapshot.mqh"),
     Path("includes/TradeManager.mqh"),
     Path("TPSL.mq5"),
+    Path("Overtrade.mq5"),
 )
-"""Files to copy: the two EAs first, then shared includes, then TPSL."""
+"""Files to copy: EAs first, then shared includes."""
 
 
 # ── Live-directory resolution ──────────────────────────────────────────
@@ -55,8 +58,7 @@ def _resolve_via_env() -> Path | None:
     # Sanity check — it should look like an Experts folder
     if not path.name.casefold() == "experts":
         print(
-            f"⚠ MT5_EXPERTS_DIR points to '{path.name}', not 'Experts' — "
-            "continuing anyway",
+            f"⚠ MT5_EXPERTS_DIR points to '{path.name}', not 'Experts' — continuing anyway",
             file=sys.stderr,
         )
     return path
@@ -100,17 +102,41 @@ def _resolve_via_scan() -> Path | None:
         print(
             "⚠ Multiple MT5 terminals contain Webhook1.mq5 — cannot auto-detect.\n"
             "  Set MT5_EXPERTS_DIR to the correct Experts folder.\n"
-            "  Candidates:\n"
-            + "\n".join(f"    - {p}" for p in matches),
+            "  Candidates:\n" + "\n".join(f"    - {p}" for p in matches),
             file=sys.stderr,
         )
         return None
     return None
 
 
+def _live_ea_path(link: Path) -> Path | None:
+    """Resolve a live EA symlink or its one-line checkout pointer.
+
+    A Windows checkout can materialize a symlink as a regular text file holding
+    its absolute target.  Do not treat an arbitrary regular file at the repo
+    root as live: that would make a failed auto-detection copy over repository
+    files instead of the MT5 Experts directory.
+    """
+    if link.is_symlink():
+        return link.resolve(strict=False)
+    if not link.is_file():
+        return None
+
+    try:
+        pointer = link.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    target = Path(pointer)
+    if "\n" in pointer or target.name != link.name or not target.is_absolute():
+        return None
+    return target.resolve(strict=False)
+
+
 def _resolve_via_symlinks(live_eas: tuple[Path, ...]) -> Path | None:
-    """Resolve the live Experts directory from repo-root symlinks."""
-    resolved = tuple(p.resolve(strict=False) for p in live_eas)
+    """Resolve the live Experts directory from repo-root EA links."""
+    resolved = tuple(_live_ea_path(p) for p in live_eas)
+    if any(path is None for path in resolved):
+        return None
     live_dir = resolved[0].parent
     if live_dir == resolved[1].parent and live_dir.is_dir():
         return live_dir
@@ -146,7 +172,7 @@ def _find_live_dir(
     hints: list[str] = []
     hints.append(
         "  • Set MT5_EXPERTS_DIR (e.g. export MT5_EXPERTS_DIR="
-        "\"C:/Users/.../AppData/Roaming/MetaQuotes/Terminal/<ID>/MQL5/Experts\")"
+        '"C:/Users/.../AppData/Roaming/MetaQuotes/Terminal/<ID>/MQL5/Experts")'
     )
 
     terminals = _scan_terminal_instances()
@@ -167,9 +193,7 @@ def _find_live_dir(
             "    them pointing to the correct MT5 Experts folder on this machine."
         )
 
-    raise FileNotFoundError(
-        "Could not find live MT5 Experts directory.\n" + "\n".join(hints)
-    )
+    raise FileNotFoundError("Could not find live MT5 Experts directory.\n" + "\n".join(hints))
 
 
 # ── Core sync function ────────────────────────────────────────────────
@@ -222,14 +246,15 @@ def sync_mq5(
         target_dir / "Webhook1.mq5",
         target_dir / "Webhook2.mq5",
         target_dir / "BigMove.mq5",
+        target_dir / "EMA.mq5",
         target_dir / "includes/WebhookCommon.mqh",
         target_dir / "includes/MarketSnapshot.mqh",
         target_dir / "includes/TradeManager.mqh",
         target_dir / "TPSL.mq5",
+        target_dir / "Overtrade.mq5",
     )
     pairs: tuple[tuple[Path, Path], ...] = tuple(
-        (source_dir / relative, target)
-        for relative, target in zip(RELATIVE_SOURCES, targets)
+        (source_dir / relative, target) for relative, target in zip(RELATIVE_SOURCES, targets)
     )
 
     # ── Validate ──
@@ -237,9 +262,7 @@ def sync_mq5(
         if not source.is_file():
             raise FileNotFoundError(f"canonical MQ5 source not found: {source}")
         if source.resolve() == target.resolve():
-            raise ValueError(
-                f"canonical source and live target are the same file: {source}"
-            )
+            raise ValueError(f"canonical source and live target are the same file: {source}")
 
     # ── Copy ──
     (target_dir / "includes").mkdir(parents=True, exist_ok=True)
@@ -249,14 +272,67 @@ def sync_mq5(
     return pairs
 
 
+def check_mq5_sync(
+    source_dir: Path | str = CANONICAL_DIR,
+    live_eas: tuple[Path | str, ...] | None = None,
+    live_dir: Path | str | None = None,
+) -> tuple[tuple[Path, Path], ...]:
+    """Return canonical/live pairs whose contents differ, without writing files."""
+
+    source_dir = Path(source_dir).resolve()
+    if live_dir is not None:
+        target_dir = Path(live_dir).resolve()
+    elif live_eas is not None:
+        eas = tuple(Path(path).resolve() for path in live_eas)
+        if len(eas) != 2:
+            raise ValueError("exactly two live EA targets are required")
+        target_dir = eas[0].parent
+        if eas[1].parent != target_dir:
+            raise FileNotFoundError("live EA targets must share one directory")
+    else:
+        target_dir = _find_live_dir(LIVE_EAS)
+    if not target_dir.is_dir():
+        raise FileNotFoundError(f"live MT5 Experts directory not found: {target_dir}")
+
+    mismatches = []
+    for relative in RELATIVE_SOURCES:
+        source = source_dir / relative
+        target = target_dir / relative
+        if not source.is_file():
+            raise FileNotFoundError(f"canonical MQ5 source not found: {source}")
+        if not target.is_file() or source.read_bytes() != target.read_bytes():
+            mismatches.append((source, target))
+    return tuple(mismatches)
+
+
 # ── CLI entry point ───────────────────────────────────────────────────
 
 
-if __name__ == "__main__":
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Synchronize canonical MQL5 sources")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify canonical and live sources match without copying",
+    )
+    arguments = parser.parse_args(argv)
     try:
+        if arguments.check:
+            mismatches = check_mq5_sync()
+            if mismatches:
+                for source, target in mismatches:
+                    print(f"Out of sync: {source} != {target}", file=sys.stderr)
+                return 1
+            print("Canonical and live MQL5 sources are synchronized.")
+            return 0
         copied = sync_mq5()
     except (FileNotFoundError, OSError, ValueError) as error:
         print(f"MQ5 sync failed: {error}", file=sys.stderr)
-        raise SystemExit(1)
+        return 1
     for copied_source, copied_target in copied:
         print(f"Copied {copied_source} -> {copied_target}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
