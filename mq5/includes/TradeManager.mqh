@@ -108,19 +108,13 @@ string TradeConfigUrl()
       + "&quote_time=" + IntegerToString((long)(SymbolInfoInteger(_Symbol, SYMBOL_TIME) - (TimeTradeServer() - TimeGMT())))
       + "&account=" + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN))
       + "&broker_server=" + UrlEncode(AccountInfoString(ACCOUNT_SERVER));
-   int marker = StringFind(WebhookUrl, "/webhook");
-   if(marker >= 0)
-      return StringSubstr(WebhookUrl, 0, marker)
-         + "/trade-config?symbol=" + UrlEncode(_Symbol) + quote;
-   return WebhookUrl + "/trade-config?symbol=" + UrlEncode(_Symbol) + quote;
+   return WebRequestAllowListUrl(WebhookUrl)
+      + "/trade-config?symbol=" + UrlEncode(_Symbol) + quote;
 }
 
 string AccountActionUrl()
 {
-   int marker = StringFind(WebhookUrl, "/webhook");
-   if(marker >= 0)
-      return StringSubstr(WebhookUrl, 0, marker) + "/account-action";
-   return WebhookUrl + "/account-action";
+   return WebRequestAllowListUrl(WebhookUrl) + "/account-action";
 }
 
 bool HttpGet(string url, string &responseBody)

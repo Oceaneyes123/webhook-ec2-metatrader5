@@ -4,7 +4,7 @@
 #property strict
 #property version "1.00"
 
-input string WebhookUrl = "http://127.0.0.1:8000/webhook";
+input string WebhookUrl = "http://webhook.local:8000/webhook";
 input int WebRequestTimeoutMs = 5000;
 input int AtrPeriod = 14;
 

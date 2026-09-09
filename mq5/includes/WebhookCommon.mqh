@@ -44,6 +44,16 @@ string JsonNumberOrNull(bool available, double value, int digits)
    return available ? DoubleToString(value, digits) : "null";
 }
 
+string WebRequestAllowListUrl(string url)
+{
+   int schemeEnd = StringFind(url, "://");
+   if(schemeEnd < 0)
+      return url;
+
+   int pathStart = StringFind(url, "/", schemeEnd + 3);
+   return pathStart < 0 ? url : StringSubstr(url, 0, pathStart);
+}
+
 void PrintWebRequestHelp(string url, int errorCode)
 {
    Print("Webhook failed.");
@@ -57,9 +67,7 @@ void PrintWebRequestHelp(string url, int errorCode)
       Print("1. Go to Tools > Options > Expert Advisors");
       Print("2. Enable 'Allow WebRequest for listed URL'");
       Print("3. Add:");
-      Print("   http://127.0.0.1");
-      Print("   http://127.0.0.1:8000");
-      Print("   http://127.0.0.1:8000/webhook");
+      Print("   ", WebRequestAllowListUrl(url));
    }
    else if(errorCode == 5200)
       Print("Meaning: Invalid URL.");

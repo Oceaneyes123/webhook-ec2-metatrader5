@@ -13,7 +13,7 @@
 CTrade trade;
 
 //--- Settings
-input string   WebhookUrl              = "http://127.0.0.1:8000/webhook";
+input string   WebhookUrl              = "http://webhook.local:8000/webhook";
 input int      WebRequestTimeoutMs     = 5000;
 input bool     PrintDebugLogs          = true;
 input int      HeartbeatSeconds        = 30;
@@ -112,12 +112,7 @@ void RefreshOvertradeConfig()
    }
    lastOvertradeConfigTime = now;
 
-   string configUrl = WebhookUrl;
-   if(StringReplace(configUrl, "/webhook", "/overtrade-config") == 0)
-   {
-      Print("Overtrade config URL could not be derived from WebhookUrl.");
-      return;
-   }
+   string configUrl = WebRequestAllowListUrl(WebhookUrl) + "/overtrade-config";
 
    char request[];
    ArrayResize(request, 0);

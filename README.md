@@ -136,6 +136,47 @@ Telegram: configured
 Alerts: running
 ```
 
+## Run with Docker
+
+Docker runs the Python webhook and Telegram polling service. When MT5 also runs
+in Docker from the sibling `../mt5` project, create the shared network once:
+
+```bash
+docker network create mt5-webhook
+```
+
+Both Compose projects attach to that network. MT5 must use
+`http://webhook.local:8000/webhook` (and whitelist `http://webhook.local:8000` in Expert
+Advisor settings); `http://127.0.0.1:8000` remains the host-local health-check
+endpoint.
+
+Create the local credentials file, edit it with the real Telegram values, then
+start the service:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build
+docker compose ps
+curl.exe http://127.0.0.1:8000/health
+```
+
+Useful operations:
+
+```powershell
+docker compose logs -f webhook
+docker compose restart webhook
+docker compose down
+```
+
+Runtime data (`account_state.db`, `market_state.json`, `trade_state.json`, and
+`webhook.log`) is stored in the `webhook-data` Docker volume and survives
+container recreation. `docker compose down` leaves that volume intact. To
+intentionally remove all persisted Docker data, run `docker compose down -v`.
+
+For a remote server, change the `ports` mapping in `compose.yaml` only after
+placing the service behind suitable network controls; it is loopback-only by
+default.
+
 ## MT5 EA Setup
 
 `mq5/Webhook1.mq5` is the market-data EA. Attach it to the symbol chart to
@@ -203,7 +244,7 @@ In MetaTrader 5:
 3. Add:
 
    ```text
-   http://127.0.0.1:8000
+   http://webhook.local:8000
    ```
 
 4. Attach `Webhook1` to the required symbol chart.
@@ -217,8 +258,11 @@ In MetaTrader 5:
 The EA's default URL is:
 
 ```text
-WebhookUrl = http://127.0.0.1:8000/webhook
+WebhookUrl = http://webhook.local:8000/webhook
 ```
+
+For an EA running outside Docker, override that input with
+`http://127.0.0.1:8000/webhook` and whitelist `http://127.0.0.1:8000` instead.
 
 Other useful EA inputs:
 

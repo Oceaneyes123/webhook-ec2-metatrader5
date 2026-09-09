@@ -11,7 +11,7 @@
 
 CTrade trade;
 
-input string   WebhookUrl              = "http://127.0.0.1:8000/webhook";
+input string   WebhookUrl              = "http://webhook.local:8000/webhook";
 input int      WebRequestTimeoutMs     = 5000;
 input bool     PrintDebugLogs          = true;
 input int      HeartbeatSeconds        = 30;
