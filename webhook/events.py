@@ -72,6 +72,8 @@ def _handle_trade_open(payload, server):
 
 @register_handler("TRADE_TRANSACTION")
 def _handle_trade_transaction(payload, server):
+    from .strategy_runtime import journal_transaction
+    journal_transaction(payload, STORE)
     event_id = str(payload.get("event_id") or payload.get("deal_ticket") or payload.get("order_ticket"))
     STORE.event(payload)
     kind = str(payload.get("transaction_type") or "")
@@ -105,6 +107,8 @@ def _handle_reconciliation(payload, server):
     _state_account = payload.get("positions", [])
     if isinstance(_state_account, list):
         for position in STORE.reconcile(_state_account, payload):
+            from .strategy_journal import StrategyJournal
+            StrategyJournal(STORE).record({**position, "account_login": payload.get("account_login"), "broker_server": payload.get("broker_server")}, 0)
             if position.get("magic_number") in (0, "0", None):
                 continue
             alert = profit_alert(position)
@@ -123,6 +127,11 @@ def _handle_reconciliation(payload, server):
 
 @register_handler("ENTRY_DECISION")
 def _handle_entry_decision(payload, server):
+    # Keep the complete Python setup evidence; terminal execution results are separate events.
+    if payload.get("strategy"):
+        STORE.event(payload)
+        server.write_text(200, "ok")
+        return
     STORE.decision(payload)
     server.write_text(200, "ok")
 

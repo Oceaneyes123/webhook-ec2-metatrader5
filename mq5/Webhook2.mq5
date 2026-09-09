@@ -49,6 +49,11 @@ datetime lastAccountReconcileTime = 0;
 
 int OnInit()
 {
+   if(!StrategyManagementChecks())
+   {
+      Print("Strategy management self-check failed");
+      return INIT_FAILED;
+   }
    if(TradeManageIntervalSeconds < 1
       || ManualCloseCooldownMinutes < 0
       || HeartbeatSeconds < 10
@@ -110,6 +115,7 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {
+   UpdateStrategyMetrics();
 }
 
 // Account-wide transaction feed: it is independent of this chart, symbol,
@@ -172,7 +178,9 @@ void OnTradeTransaction(
    ulong position = transaction.position;
    string symbol = transaction.symbol;
    long magic = 0;
-   double profit = 0, commission = 0, swap = 0, entryPrice = 0, exitPrice = 0;
+   double profit = 0, commission = 0, swap = 0, fee = 0, entryPrice = 0, exitPrice = 0;
+   double dealVolume = transaction.volume;
+   string strategyComment = "";
    string reason = "";
    string direction = "";
    datetime eventTime = TimeCurrent();
@@ -187,6 +195,9 @@ void OnTradeTransaction(
       profit = HistoryDealGetDouble(deal, DEAL_PROFIT);
       commission = HistoryDealGetDouble(deal, DEAL_COMMISSION);
       swap = HistoryDealGetDouble(deal, DEAL_SWAP);
+      fee = HistoryDealGetDouble(deal, DEAL_FEE);
+      dealVolume = HistoryDealGetDouble(deal, DEAL_VOLUME);
+      strategyComment = HistoryDealGetString(deal, DEAL_COMMENT);
       double dealPrice = HistoryDealGetDouble(deal, DEAL_PRICE);
       reason = EnumToString((ENUM_DEAL_REASON)HistoryDealGetInteger(deal, DEAL_REASON));
       direction = EnumToString((ENUM_DEAL_TYPE)HistoryDealGetInteger(deal, DEAL_TYPE));
@@ -227,7 +238,29 @@ void OnTradeTransaction(
    if((eventKind == "POSITION_SL_MODIFIED" || eventKind == "POSITION_SL_TP_MODIFIED") && slChangePips < 50)
       return;
 
+   // Exit deal comments may be broker-generated [sl]/[tp]; recover original strategy identity.
+   if(deal > 0 && StrategyId(strategyComment) == "" && HistorySelectByPosition(position))
+   {
+      for(int i = 0; i < HistoryDealsTotal(); i++)
+      {
+         ulong original = HistoryDealGetTicket(i);
+         if(HistoryDealGetInteger(original, DEAL_ENTRY) == DEAL_ENTRY_IN)
+         {
+            string comment = HistoryDealGetString(original, DEAL_COMMENT);
+            if(StrategyId(comment) != "") { strategyComment = comment; break; }
+         }
+      }
+   }
    int digits = symbol == "" ? _Digits : (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+   string strategyId = StrategyId(strategyComment);
+   double originalRisk = StrategyValue(strategyId, "risk");
+   if(strategyId != "" && exitPrice > 0 && originalRisk > 0)
+   {
+      double exitR = StrategyValue(strategyId, "sign") * (exitPrice - StrategyValue(strategyId, "entry")) / originalRisk;
+      StrategySet(strategyId, "current", exitR);
+      StrategySet(strategyId, "mfe", MathMax(StrategyValue(strategyId, "mfe"), exitR));
+      StrategySet(strategyId, "mae", MathMax(StrategyValue(strategyId, "mae"), -exitR));
+   }
    ulong identity = deal > 0 ? deal : order;
    string eventId = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) + ":"
        + IntegerToString(identity) + ":" + IntegerToString((int)transaction.type);
@@ -245,7 +278,7 @@ void OnTradeTransaction(
       + ",\"deal_ticket\":\"" + IntegerToString(deal) + "\""
       + ",\"magic_number\":" + IntegerToString(magic)
       + ",\"direction\":\"" + JsonEscape(direction) + "\""
-      + ",\"volume\":" + DoubleToString(transaction.volume, 2)
+      + ",\"volume\":" + DoubleToString(dealVolume, 8)
        + ",\"entry_price\":" + DoubleToString(entryPrice, digits)
        + ",\"exit_price\":" + DoubleToString(exitPrice, digits)
       + ",\"sl\":" + DoubleToString(transaction.price_sl, digits)
@@ -254,17 +287,23 @@ void OnTradeTransaction(
       + ",\"profit\":" + DoubleToString(profit, 2)
       + ",\"commission\":" + DoubleToString(commission, 2)
       + ",\"swap\":" + DoubleToString(swap, 2)
+      + ",\"fee\":" + DoubleToString(fee, 2)
+      + StrategyTelemetry(strategyComment)
       + ",\"reason\":\"" + JsonEscape(reason) + "\""
       + ",\"event_time\":\"" + DateTimeToText(eventTime) + "\""
       + ",\"event_time_offset_seconds\":" + IntegerToString((int)(TimeCurrent() - TimeGMT()))
        + ",\"retcode\":" + IntegerToString((int)result.retcode)
        + ",\"retcode_description\":\"" + JsonEscape(result.comment) + "\"}";
-   SendWebhook(payload);
+   if(deal > 0 && StrategyId(strategyComment) != "")
+      SendStrategyTransaction(payload, StrategyId(strategyComment), deal);
+   else
+      SendWebhook(payload);
 }
 
 void OnTimer()
 {
    ManageTrading();
+   ReplayStrategyTransactions();
    ProcessAccountAction();
    MaybeSendAccountReconciliation();
    MaybeSendHeartbeat();

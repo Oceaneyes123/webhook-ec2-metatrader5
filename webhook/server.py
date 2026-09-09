@@ -58,8 +58,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.write_text(200, health_text())
             return
         if path == "/trade-config":
-            symbol = urllib.parse.parse_qs(parsed_url.query).get("symbol", [None])[0]
-            self.write_json(200, trade_config(symbol))
+            query = urllib.parse.parse_qs(parsed_url.query)
+            symbol = query.get("symbol", [None])[0]
+            config = trade_config(symbol)
+            if config["mode"] == "AUTO":
+                from .strategy_runtime import execution_config
+                from .state import MARKET_STATE
+                config.update(execution_config(symbol, MARKET_STATE, query))
+            self.write_json(200, config)
             return
         if path == "/account-action":
             secret = __import__("os").environ.get("ACCOUNT_ACTION_SECRET", "")

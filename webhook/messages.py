@@ -199,6 +199,10 @@ def help_text():
             "/sell - Start trailing sell-limit mode",
             "/sell Gold - Start sell-limit mode for one symbol",
             "/auto Gold - Automatically trade the fully confirmed direction",
+            "/setup Gold - Current scored setup or rejection reason",
+            "/performance Gold - Net R expectancy and setup/session results",
+            "/ematrade Gold - Explicit legacy EMA confluence mode",
+            "/leveltrade Gold - Explicit legacy untouched-level mode",
             "/notrade - Stop trading activity",
             "/notrade Gold - Stop trading for one symbol",
         ]

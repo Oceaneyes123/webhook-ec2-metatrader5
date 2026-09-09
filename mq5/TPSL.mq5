@@ -142,6 +142,10 @@ void ManagePositions()
       if(!ShouldManage(symbol, magic))
          continue;
 
+      // Python strategy brackets and R management belong exclusively to Webhook2.
+      if(StringFind(PositionGetString(POSITION_COMMENT), "S:") == 0)
+         continue;
+
       long type        = PositionGetInteger(POSITION_TYPE);
       double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
       double currentSL = PositionGetDouble(POSITION_SL);
@@ -233,6 +237,9 @@ void ManageOrders()
       ulong magic   = (ulong)OrderGetInteger(ORDER_MAGIC);
 
       if(!ShouldManage(symbol, magic))
+         continue;
+
+      if(StringFind(OrderGetString(ORDER_COMMENT), "S:") == 0)
          continue;
 
       ENUM_ORDER_TYPE type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);

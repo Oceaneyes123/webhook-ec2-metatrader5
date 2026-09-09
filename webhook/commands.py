@@ -23,6 +23,18 @@ from .account import market_report, price_report, why_report
 logger = get_logger()
 
 
+def _manual_warning(symbol):
+    if not symbol:
+        return "Manual mode bypasses AUTO quality filters. Use /setup Gold for warnings."
+    from .strategy_runtime import decision
+    from .strategy import settings
+    try:
+        plan = decision(symbol, _state.MARKET_STATE, settings())
+        return "AUTO assessment: " + html.escape(plan["reason"])
+    except (OSError, ValueError, TypeError):
+        return "AUTO assessment unavailable: check strategy configuration."
+
+
 # === Command Registry ===
 #
 # Each handler receives (command, symbol). Returning None lets the caller fall
@@ -90,7 +102,8 @@ def _cmd_buy(command, symbol):
         f"🟢 BUY limit mode enabled{' for ' + symbol if symbol else ''}\n"
         f"Lot: {config['lot_size']}\n"
         f"Trail: {config['trail_pips']} pips below EMA20\n"
-        "Confluence: M5/M15 previous candle above EMA20 and M1 EMA20 > EMA50"
+        "Confluence: M5/M15 previous candle above EMA20 and M1 EMA20 > EMA50\n"
+        "Manual EMA mode bypasses AUTO score, HTF and R:R gates.\n" + _manual_warning(symbol)
     )
 
 
@@ -102,7 +115,8 @@ def _cmd_sell(command, symbol):
         f"🔴 SELL limit mode enabled{' for ' + symbol if symbol else ''}\n"
         f"Lot: {config['lot_size']}\n"
         f"Trail: {config['trail_pips']} pips above EMA20\n"
-        "Confluence: M5/M15 previous candle below EMA20 and M1 EMA50 > EMA20"
+        "Confluence: M5/M15 previous candle below EMA20 and M1 EMA50 > EMA20\n"
+        "Manual EMA mode bypasses AUTO score, HTF and R:R gates.\n" + _manual_warning(symbol)
     )
 
 
@@ -115,8 +129,8 @@ def _cmd_auto(command, symbol):
     return (
         f"🤖 AUTO mode enabled for {symbol}\n"
         f"Lot: {config['lot_size']}\n"
-        f"Will place only the BUY or SELL limit with full confluence, and cancels "
-        "that limit within 50 pips of opposing support/resistance."
+        "Selective HTF → location → closed confirmation → score → R:R.\n"
+        "Structure SL/TP attached at entry. /why shows rejected setups."
     )
 
 
@@ -126,6 +140,27 @@ def _cmd_notrade(command, symbol):
     if symbol:
         return f"⏹️ Trading paused for {symbol}"
     return "⏹️ Trading paused. No buy or sell limit orders will be trailed."
+
+
+@register_command("/leveltrade", "/ematrade")
+def _cmd_legacy_strategy(command, symbol):
+    if not symbol:
+        return f"Usage: {command} Gold"
+    set_trade_mode("LEVEL" if command == "/leveltrade" else "EMA", symbol)
+    return f"{command[1:]} enabled for {symbol}. Explicit legacy mode: bypasses AUTO quality filters; pip-based TPSL management."
+
+
+@register_command("/setup", "/performance")
+def _cmd_strategy_report(command, symbol):
+    if not symbol:
+        return f"Usage: {command} Gold"
+    from .strategy_runtime import decision, setup_message
+    from .strategy import settings
+    from .strategy_journal import StrategyJournal, performance_report
+    from .account import STORE
+    if command == "/performance":
+        return performance_report(StrategyJournal(STORE).trades(symbol), symbol)
+    return setup_message(decision(symbol, _state.MARKET_STATE, settings()))
 
 
 @register_command("/recent")

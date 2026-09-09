@@ -525,7 +525,8 @@ string BuildSnapshotPayload(
       ",\"symbol\":\"" + JsonEscape(_Symbol) + "\""
       ",\"timeframe\":\"" + TimeframeToText(timeframe) + "\""
       ",\"candle_time\":\"" + JsonEscape(DateTimeToText(candleTime)) + "\""
-      ",\"open\":" + DoubleToString(candle.open, digits)
+      + ",\"closed_at\":" + IntegerToString((long)(candleTime + PeriodSeconds(timeframe) - (TimeCurrent() - TimeGMT())))
+      + ",\"open\":" + DoubleToString(candle.open, digits)
       + ",\"high\":" + DoubleToString(candle.high, digits)
       + ",\"low\":" + DoubleToString(candle.low, digits)
       + ",\"close\":" + DoubleToString(candle.close, digits)

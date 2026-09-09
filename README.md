@@ -1,5 +1,18 @@
 # Local MT5 Webhook to Telegram
 
+## Selective AUTO strategy
+
+AUTO now uses Python HTF structure, location, closed-candle confirmation,
+configurable scoring and structural R:R before MT5 executes with attached SL/TP.
+See [strategy rules, all settings and validation](docs/strategy.md) and the
+[original strategy audit](docs/strategy-audit.md). `/setup Gold`, `/why Gold`
+and `/performance Gold` expose decisions and outcomes. Explicit `/ematrade Gold`
+and `/leveltrade Gold` retain the legacy strategies. Settings live in
+`strategy_config.json`; optional overrides use `STRATEGY_CONFIG_FILE`.
+
+Start the server with `python run.py`; synchronize EAs with
+`python -m webhook.sync_mq5`. The older commands below describe historical setup.
+
 This project runs a Python webhook on the same Windows machine as MetaTrader 5.
 The EA posts market snapshots to `127.0.0.1:8000`, and Python sends alerts and
 command reports through Telegram.
