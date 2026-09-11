@@ -1,6 +1,7 @@
 .env
 __pycache__/
 *.log
+config/*.backup.*.yml
 .codegraph
 market_state.json
 Webhook1.mq5

@@ -54,3 +54,7 @@ Trust CodeGraph structural results instead of rechecking them with grep. If
 
 - Never commit unless explicitly requested.
 - Never push commits.
+
+## Worktree
+
+- Do not create a worktree if the updates can be done on current branch

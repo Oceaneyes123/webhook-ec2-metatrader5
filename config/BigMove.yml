@@ -1,0 +1,4 @@
+values:
+  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebRequestTimeoutMs: 5000
+  AtrPeriod: 14

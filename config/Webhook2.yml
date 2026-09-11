@@ -1,0 +1,22 @@
+# AccountActionSecret intentionally stays in the local MT5 chart input.
+values:
+  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebRequestTimeoutMs: 5000
+  PrintDebugLogs: true
+  TradeMagicNumber: 260628
+  ManualCloseCooldownMinutes: 15
+  EaIssueRepeatSeconds: 60
+  TradeManageIntervalSeconds: 1
+  HeartbeatSeconds: 30
+  TradeConfigRefreshSeconds: 5
+  TradeConfigMaxStaleSeconds: 30
+  AccountReconcileSeconds: 60
+  PendingRetrySeconds: 15
+  GoldPipSize: 0.1
+  KeyLevelLookbackBars: 100
+  KeyLevelSwingStrength: 2
+  KeyLevelLotSize: 0.1
+  KeyLevelMaxDistancePips: 150
+  KeyLevelSessionSafetyMinutes: 30
+  KeyLevelSessionSafetyPips: 200
+  KeyLevelClusterPips: 30

@@ -13,6 +13,12 @@ and `/leveltrade Gold` retain the legacy strategies. Settings live in
 Start the server with `python run.py`; synchronize EAs with
 `python -m webhook.sync_mq5`. The older commands below describe historical setup.
 
+## MT5 YAML configuration
+
+Each canonical EA has a matching file in `config/` (`Webhook1.yml`, `Webhook2.yml`, `BigMove.yml`, `EMA.yml`, `TPSL.yml`, and `Overtrade.yml`). The EAs poll `GET /ea-config?ea=<name>` every five seconds, use their last valid response briefly during an outage, then fall back to the chart input defaults. `AccountActionSecret` remains local to the MT5 chart and is never returned by the endpoint.
+
+Set `DASHBOARD_PASSWORD` in `.env`, start the server, then open `/dashboard` to edit the selected EA YAML file. Saving creates a timestamped YAML backup. Reload an EA after changing indicator periods, timer intervals, magic numbers, or other initialization settings; values used during normal processing refresh automatically.
+
 This project runs a Python webhook on the same Windows machine as MetaTrader 5.
 The EA posts market snapshots to `127.0.0.1:8000`, and Python sends alerts and
 command reports through Telegram.

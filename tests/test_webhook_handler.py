@@ -51,6 +51,14 @@ class WebhookHandlerTest(unittest.TestCase):
         handler.do_POST()
         self.assertEqual(handler.wfile.getvalue(), b"404 Not Found")
 
+    def test_ea_config_returns_only_registered_yaml_values(self):
+        handler = make_handler(webhook, "/ea-config?ea=Webhook1", b"")
+        handler.do_GET()
+        payload = json.loads(handler.wfile.getvalue())
+        self.assertEqual(payload["ea"], "Webhook1")
+        self.assertIn("ChartHistoryBars", payload["values"])
+        self.assertNotIn("AccountActionSecret", payload["values"])
+
     def test_webhook_accepts_valid_payload(self):
         with patch.object(
             webhook.MARKET_STATE, "update", return_value=[]

@@ -8,7 +8,12 @@ input string WebhookUrl = "http://127.0.0.1:8000/webhook";
 input int WebRequestTimeoutMs = 5000;
 input int AtrPeriod = 14;
 
+#include "includes/ExternalConfig.mqh"
 #include "includes/WebhookCommon.mqh"
+
+#define WebhookUrl ExternalConfigString("WebhookUrl", WebhookUrl)
+#define WebRequestTimeoutMs ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs)
+#define AtrPeriod ExternalConfigInt("AtrPeriod", AtrPeriod)
 
 #define TIMEFRAME_COUNT 5
 
@@ -55,6 +60,7 @@ void SendBigMove(const ENUM_TIMEFRAMES timeframe, const datetime candleTime,
 
 int OnInit()
 {
+   ExternalConfigRefresh("BigMove", WebhookUrl, WebRequestTimeoutMs);
    if(AtrPeriod < 1)
       return INIT_PARAMETERS_INCORRECT;
 
@@ -75,6 +81,7 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {
+   ExternalConfigRefresh("BigMove", WebhookUrl, WebRequestTimeoutMs);
    double atr[];
    if(CopyBuffer(dailyAtrHandle, 0, 0, 1, atr) != 1 || atr[0] <= 0)
       return;

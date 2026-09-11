@@ -46,11 +46,34 @@ datetime lastEaIssueTime = 0;
 datetime lastHeartbeatTime = 0;
 datetime lastAccountReconcileTime = 0;
 
+#include "includes/ExternalConfig.mqh"
 #include "includes/WebhookCommon.mqh"
 #include "includes/TradeManager.mqh"
 
+#define WebhookUrl ExternalConfigString("WebhookUrl", WebhookUrl)
+#define WebRequestTimeoutMs ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs)
+#define PrintDebugLogs ExternalConfigBool("PrintDebugLogs", PrintDebugLogs)
+#define TradeMagicNumber ExternalConfigLong("TradeMagicNumber", TradeMagicNumber)
+#define ManualCloseCooldownMinutes ExternalConfigInt("ManualCloseCooldownMinutes", ManualCloseCooldownMinutes)
+#define EaIssueRepeatSeconds ExternalConfigInt("EaIssueRepeatSeconds", EaIssueRepeatSeconds)
+#define TradeManageIntervalSeconds ExternalConfigInt("TradeManageIntervalSeconds", TradeManageIntervalSeconds)
+#define HeartbeatSeconds ExternalConfigInt("HeartbeatSeconds", HeartbeatSeconds)
+#define TradeConfigRefreshSeconds ExternalConfigInt("TradeConfigRefreshSeconds", TradeConfigRefreshSeconds)
+#define TradeConfigMaxStaleSeconds ExternalConfigInt("TradeConfigMaxStaleSeconds", TradeConfigMaxStaleSeconds)
+#define AccountReconcileSeconds ExternalConfigInt("AccountReconcileSeconds", AccountReconcileSeconds)
+#define PendingRetrySeconds ExternalConfigInt("PendingRetrySeconds", PendingRetrySeconds)
+#define GoldPipSize ExternalConfigDouble("GoldPipSize", GoldPipSize)
+#define KeyLevelLookbackBars ExternalConfigInt("KeyLevelLookbackBars", KeyLevelLookbackBars)
+#define KeyLevelSwingStrength ExternalConfigInt("KeyLevelSwingStrength", KeyLevelSwingStrength)
+#define KeyLevelLotSize ExternalConfigDouble("KeyLevelLotSize", KeyLevelLotSize)
+#define KeyLevelMaxDistancePips ExternalConfigDouble("KeyLevelMaxDistancePips", KeyLevelMaxDistancePips)
+#define KeyLevelSessionSafetyMinutes ExternalConfigInt("KeyLevelSessionSafetyMinutes", KeyLevelSessionSafetyMinutes)
+#define KeyLevelSessionSafetyPips ExternalConfigDouble("KeyLevelSessionSafetyPips", KeyLevelSessionSafetyPips)
+#define KeyLevelClusterPips ExternalConfigDouble("KeyLevelClusterPips", KeyLevelClusterPips)
+
 int OnInit()
 {
+   ExternalConfigRefresh("Webhook2", WebhookUrl, WebRequestTimeoutMs);
    if(!StrategyManagementChecks())
    {
       Print("Strategy management self-check failed");
@@ -306,6 +329,7 @@ void OnTradeTransaction(
 
 void OnTimer()
 {
+   ExternalConfigRefresh("Webhook2", WebhookUrl, WebRequestTimeoutMs);
    ManageTrading();
    ReplayStrategyTransactions();
    ProcessAccountAction();

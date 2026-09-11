@@ -33,7 +33,26 @@ input int      BreakevenOffsetPips     = 10;   // Near breakeven, small profit l
 
 datetime lastHeartbeatTime = 0;
 
+#include "includes/ExternalConfig.mqh"
 #include "includes/WebhookCommon.mqh"
+
+#define WebhookUrl ExternalConfigString("WebhookUrl", WebhookUrl)
+#define WebRequestTimeoutMs ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs)
+#define PrintDebugLogs ExternalConfigBool("PrintDebugLogs", PrintDebugLogs)
+#define HeartbeatSeconds ExternalConfigInt("HeartbeatSeconds", HeartbeatSeconds)
+#define M15AtrPeriod ExternalConfigInt("M15AtrPeriod", M15AtrPeriod)
+#define M15EmaPeriod ExternalConfigInt("M15EmaPeriod", M15EmaPeriod)
+#define EmaStopBufferPips ExternalConfigInt("EmaStopBufferPips", EmaStopBufferPips)
+#define MaximumStopLossPips ExternalConfigInt("MaximumStopLossPips", MaximumStopLossPips)
+#define PendingTakeProfitPips ExternalConfigInt("PendingTakeProfitPips", PendingTakeProfitPips)
+#define PendingStopLossPips ExternalConfigInt("PendingStopLossPips", PendingStopLossPips)
+#define ManageCurrentSymbolOnly ExternalConfigBool("ManageCurrentSymbolOnly", ManageCurrentSymbolOnly)
+#define OnlySetIfMissing ExternalConfigBool("OnlySetIfMissing", OnlySetIfMissing)
+#define MagicNumberFilter ((ulong)ExternalConfigLong("MagicNumberFilter", MagicNumberFilter))
+#define TimerSeconds ExternalConfigInt("TimerSeconds", TimerSeconds)
+#define UseBreakeven ExternalConfigBool("UseBreakeven", UseBreakeven)
+#define BreakevenTriggerPips ExternalConfigInt("BreakevenTriggerPips", BreakevenTriggerPips)
+#define BreakevenOffsetPips ExternalConfigInt("BreakevenOffsetPips", BreakevenOffsetPips)
 
 //+------------------------------------------------------------------+
 //| Convert pips to price distance                                   |
@@ -465,6 +484,7 @@ void ManageAll()
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   ExternalConfigRefresh("TPSL", WebhookUrl, WebRequestTimeoutMs);
    if(TimerSeconds < 1 || HeartbeatSeconds < 10 || M15AtrPeriod < 1 ||
       M15EmaPeriod < 1 || EmaStopBufferPips < 0 || MaximumStopLossPips <= 0 ||
       PendingTakeProfitPips <= 0 || PendingStopLossPips <= 0)
@@ -516,6 +536,7 @@ void OnTick()
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   ExternalConfigRefresh("TPSL", WebhookUrl, WebRequestTimeoutMs);
    ManageAll();
    MaybeSendHeartbeat();
 }
