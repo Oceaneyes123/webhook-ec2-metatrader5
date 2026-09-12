@@ -1,6 +1,6 @@
 # AccountActionSecret intentionally stays in the local MT5 chart input.
 values:
-  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebhookUrl: http://webhook.local:8000/webhook
   WebRequestTimeoutMs: 5000
   PrintDebugLogs: true
   TradeMagicNumber: 260628

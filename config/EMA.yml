@@ -1,5 +1,5 @@
 values:
-  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebhookUrl: http://webhook.local:8000/webhook
   WebRequestTimeoutMs: 5000
   HeartbeatSeconds: 30
   EmaConfigRefreshSeconds: 5

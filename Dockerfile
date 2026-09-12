@@ -14,6 +14,8 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY run.py strategy_config.json ./
+COPY config ./config
+COPY frontend ./frontend
 COPY webhook ./webhook
 
 RUN useradd --create-home --uid 10001 webhook \
