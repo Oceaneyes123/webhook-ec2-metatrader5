@@ -68,8 +68,23 @@ class WebhookHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
+        if path == "/dashboard":
+            from frontend.routes import dashboard
+            dashboard(self)
+            return
+        if path == "/api/ea-config":
+            from frontend.routes import api
+            api(self)
+            return
         if path == "/health":
             self.write_text(200, health_text())
+            return
+        if path == "/ea-config":
+            from .ea_config import payload
+            try:
+                self.write_json(200, payload(urllib.parse.parse_qs(parsed_url.query).get("ea", [""])[0]))
+            except (OSError, ValueError) as error:
+                self.write_json(404, {"error": str(error)})
             return
         if path == "/trade-config":
             query = urllib.parse.parse_qs(parsed_url.query)
@@ -95,6 +110,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.write_json(200, STORE.claim_action() or {})
             return
         self.send_error(404)
+
+    def do_PATCH(self):
+        if urllib.parse.urlparse(self.path).path != "/api/ea-config":
+            self.write_text(404, "404 Not Found")
+            return
+        from frontend.routes import api
+        api(self)
 
     def do_POST(self):
         if self.path == "/telegram":

@@ -38,11 +38,27 @@ int ema20Handles[TF_COUNT];
 int ema50Handles[TF_COUNT];
 int rsiHandles[TF_COUNT];
 
+#include "includes/ExternalConfig.mqh"
 #include "includes/WebhookCommon.mqh"
 #include "includes/MarketSnapshot.mqh"
 
+#define WebhookUrl ExternalConfigString("WebhookUrl", WebhookUrl)
+#define WebRequestTimeoutMs ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs)
+#define PrintDebugLogs ExternalConfigBool("PrintDebugLogs", PrintDebugLogs)
+#define ChartHistoryBars ExternalConfigInt("ChartHistoryBars", ChartHistoryBars)
+#define MaxBodyPercent ExternalConfigDouble("MaxBodyPercent", MaxBodyPercent)
+#define MinLongWickBodyRatio ExternalConfigDouble("MinLongWickBodyRatio", MinLongWickBodyRatio)
+#define MaxSmallWickBodyRatio ExternalConfigDouble("MaxSmallWickBodyRatio", MaxSmallWickBodyRatio)
+#define StrongCandleBodyPercent ExternalConfigDouble("StrongCandleBodyPercent", StrongCandleBodyPercent)
+#define LevelLookbackBars ExternalConfigInt("LevelLookbackBars", LevelLookbackBars)
+#define SwingStrength ExternalConfigInt("SwingStrength", SwingStrength)
+#define AtrPeriod ExternalConfigInt("AtrPeriod", AtrPeriod)
+#define MinFvgAtrRatio ExternalConfigDouble("MinFvgAtrRatio", MinFvgAtrRatio)
+#define HeartbeatSeconds ExternalConfigInt("HeartbeatSeconds", HeartbeatSeconds)
+
 int OnInit()
 {
+   ExternalConfigRefresh("Webhook1", WebhookUrl, WebRequestTimeoutMs);
    if(ChartHistoryBars < 1
       || LevelLookbackBars < 10
       || SwingStrength < 1
@@ -112,5 +128,6 @@ void OnTick()
 
 void OnTimer()
 {
+   ExternalConfigRefresh("Webhook1", WebhookUrl, WebRequestTimeoutMs);
    SendEaHeartbeat("webhook1");
 }

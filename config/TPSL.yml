@@ -1,0 +1,18 @@
+values:
+  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebRequestTimeoutMs: 5000
+  PrintDebugLogs: true
+  HeartbeatSeconds: 30
+  M15AtrPeriod: 14
+  M15EmaPeriod: 200
+  EmaStopBufferPips: 20
+  MaximumStopLossPips: 80
+  PendingTakeProfitPips: 100
+  PendingStopLossPips: 100
+  ManageCurrentSymbolOnly: true
+  OnlySetIfMissing: true
+  MagicNumberFilter: 0
+  TimerSeconds: 1
+  UseBreakeven: true
+  BreakevenTriggerPips: 50
+  BreakevenOffsetPips: 10

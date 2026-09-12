@@ -28,13 +28,25 @@ datetime lastOvertradeConfigTime = 0;
 bool overtradeSecurityEnabled = true;
 double activeProfitTargetUSD = 0.0;
 
+#include "includes/ExternalConfig.mqh"
 #include "includes/WebhookCommon.mqh"
+
+#define WebhookUrl ExternalConfigString("WebhookUrl", WebhookUrl)
+#define WebRequestTimeoutMs ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs)
+#define PrintDebugLogs ExternalConfigBool("PrintDebugLogs", PrintDebugLogs)
+#define HeartbeatSeconds ExternalConfigInt("HeartbeatSeconds", HeartbeatSeconds)
+#define OvertradeConfigRefreshSeconds ExternalConfigInt("OvertradeConfigRefreshSeconds", OvertradeConfigRefreshSeconds)
+#define MinimumOpenPositions ExternalConfigInt("MinimumOpenPositions", MinimumOpenPositions)
+#define ProfitTargetUSD ExternalConfigDouble("ProfitTargetUSD", ProfitTargetUSD)
+#define CheckIntervalSeconds ExternalConfigInt("CheckIntervalSeconds", CheckIntervalSeconds)
+#define CloseDeviationPoints ((ulong)ExternalConfigLong("CloseDeviationPoints", CloseDeviationPoints))
 
 //+------------------------------------------------------------------+
 //| Expert initialization                                            |
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   ExternalConfigRefresh("Overtrade", WebhookUrl, WebRequestTimeoutMs);
    if(MinimumOpenPositions < 1 || HeartbeatSeconds < 10 ||
       OvertradeConfigRefreshSeconds < 1)
    {
@@ -94,6 +106,7 @@ void OnTick()
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   ExternalConfigRefresh("Overtrade", WebhookUrl, WebRequestTimeoutMs);
    RefreshOvertradeConfig();
    CheckOvertradingLimit();
    MaybeSendHeartbeat();

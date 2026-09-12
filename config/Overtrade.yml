@@ -1,0 +1,10 @@
+values:
+  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebRequestTimeoutMs: 5000
+  PrintDebugLogs: true
+  HeartbeatSeconds: 30
+  OvertradeConfigRefreshSeconds: 5
+  MinimumOpenPositions: 3
+  ProfitTargetUSD: 1.0
+  CheckIntervalSeconds: 1
+  CloseDeviationPoints: 20

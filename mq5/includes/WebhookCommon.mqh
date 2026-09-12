@@ -81,7 +81,8 @@ void PrintWebRequestHelp(string url, int errorCode)
 
 bool SendWebhook(string payload)
 {
-   if(WebhookUrl == "")
+   string activeUrl = ExternalConfigString("WebhookUrl", WebhookUrl);
+   if(activeUrl == "")
    {
       Print("Webhook URL is empty.");
       return false;
@@ -102,9 +103,9 @@ bool SendWebhook(string payload)
    ResetLastError();
    int responseCode = WebRequest(
       "POST",
-      WebhookUrl,
+      activeUrl,
       headers,
-      WebRequestTimeoutMs,
+      ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs),
       data,
       result,
       resultHeaders
@@ -114,7 +115,7 @@ bool SendWebhook(string payload)
 
    if(responseCode == -1)
    {
-      PrintWebRequestHelp(WebhookUrl, mt5Error);
+      PrintWebRequestHelp(activeUrl, mt5Error);
       return false;
    }
    if(responseCode < 200 || responseCode >= 300)

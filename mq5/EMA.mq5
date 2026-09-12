@@ -7,7 +7,47 @@
 #property strict
 
 #include <Trade/Trade.mqh>
+#include "includes/ExternalConfig.mqh"
 #include "includes/WebhookCommon.mqh"
+
+#define WebhookUrl ExternalConfigString("WebhookUrl", WebhookUrl)
+#define WebRequestTimeoutMs ExternalConfigInt("WebRequestTimeoutMs", WebRequestTimeoutMs)
+#define HeartbeatSeconds ExternalConfigInt("HeartbeatSeconds", HeartbeatSeconds)
+#define EmaConfigRefreshSeconds ExternalConfigInt("EmaConfigRefreshSeconds", EmaConfigRefreshSeconds)
+#define Lots ExternalConfigDouble("Lots", Lots)
+#define MinimumEMAGapPips ExternalConfigInt("MinimumEMAGapPips", MinimumEMAGapPips)
+#define TP_Pips ExternalConfigInt("TP_Pips", TP_Pips)
+#define SL_Pips ExternalConfigInt("SL_Pips", SL_Pips)
+#define PendingExpiryMinutes ExternalConfigInt("PendingExpiryMinutes", PendingExpiryMinutes)
+#define PendingReentryWaitMins ExternalConfigInt("PendingReentryWaitMins", PendingReentryWaitMins)
+#define OrderRetrySeconds ExternalConfigInt("OrderRetrySeconds", OrderRetrySeconds)
+#define EnableRSIExit ExternalConfigBool("EnableRSIExit", EnableRSIExit)
+#define RSIPeriod ExternalConfigInt("RSIPeriod", RSIPeriod)
+#define BuyRSIExitLevel ExternalConfigDouble("BuyRSIExitLevel", BuyRSIExitLevel)
+#define SellRSIExitLevel ExternalConfigDouble("SellRSIExitLevel", SellRSIExitLevel)
+#define RSIExitMinimumProfitMoney ExternalConfigDouble("RSIExitMinimumProfitMoney", RSIExitMinimumProfitMoney)
+#define EnableM15StochRSIFilter ExternalConfigBool("EnableM15StochRSIFilter", EnableM15StochRSIFilter)
+#define EnableM5StochRSIFilter ExternalConfigBool("EnableM5StochRSIFilter", EnableM5StochRSIFilter)
+#define EnableM5StochRSIExit ExternalConfigBool("EnableM5StochRSIExit", EnableM5StochRSIExit)
+#define StochRSIRSILength ExternalConfigInt("StochRSIRSILength", StochRSIRSILength)
+#define StochRSILength ExternalConfigInt("StochRSILength", StochRSILength)
+#define StochRSIKSmoothing ExternalConfigInt("StochRSIKSmoothing", StochRSIKSmoothing)
+#define StochRSIDSmoothing ExternalConfigInt("StochRSIDSmoothing", StochRSIDSmoothing)
+#define StochRSIMiddleLevel ExternalConfigDouble("StochRSIMiddleLevel", StochRSIMiddleLevel)
+#define StochRSIBuyExitLevel ExternalConfigDouble("StochRSIBuyExitLevel", StochRSIBuyExitLevel)
+#define StochRSISellExitLevel ExternalConfigDouble("StochRSISellExitLevel", StochRSISellExitLevel)
+#define StochRSIExitMinProfitMoney ExternalConfigDouble("StochRSIExitMinProfitMoney", StochRSIExitMinProfitMoney)
+#define EnableRecoveryManagement ExternalConfigBool("EnableRecoveryManagement", EnableRecoveryManagement)
+#define BreakevenDrawdownPips ExternalConfigInt("BreakevenDrawdownPips", BreakevenDrawdownPips)
+#define BreakevenTriggerPips ExternalConfigInt("BreakevenTriggerPips", BreakevenTriggerPips)
+#define BreakevenProfitPips ExternalConfigInt("BreakevenProfitPips", BreakevenProfitPips)
+#define RecoveryCloseDrawdownPips ExternalConfigInt("RecoveryCloseDrawdownPips", RecoveryCloseDrawdownPips)
+#define RecoveryMinimumProfitMoney ExternalConfigDouble("RecoveryMinimumProfitMoney", RecoveryMinimumProfitMoney)
+#define SecondEntryDrawdownPips ExternalConfigInt("SecondEntryDrawdownPips", SecondEntryDrawdownPips)
+#define BasketTargetPips ExternalConfigInt("BasketTargetPips", BasketTargetPips)
+#define RecoveryCooldownMinutes ExternalConfigInt("RecoveryCooldownMinutes", RecoveryCooldownMinutes)
+#define MagicNumber ((ulong)ExternalConfigLong("MagicNumber", MagicNumber))
+#define DeviationPoints ExternalConfigInt("DeviationPoints", DeviationPoints)
 
 CTrade trade;
 
@@ -1378,6 +1418,7 @@ void ManageRecovery()
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   ExternalConfigRefresh("EMA", WebhookUrl, WebRequestTimeoutMs);
    if(HeartbeatSeconds < 10 ||
       EmaConfigRefreshSeconds < 1 ||
       OrderRetrySeconds < 1)
@@ -1477,6 +1518,7 @@ void OnDeinit(const int reason)
 
 void OnTimer()
 {
+   ExternalConfigRefresh("EMA", WebhookUrl, WebRequestTimeoutMs);
    RefreshEmaConfig();
    MaybeSendEaHeartbeat("ema", HeartbeatSeconds, lastHeartbeatTime);
 }
