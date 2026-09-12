@@ -689,7 +689,7 @@ class MarketStatePatternsTest(unittest.TestCase):
             state = market_state.MarketState(Path(directory) / "state.json")
             state.update(
                 snapshot(
-                    "M15",
+                    "M30",
                     "2026.06.28 10:00:00",
                     retained_patterns=[{"event_type": "ENGULFING_CANDLE", "signal": "BUY"}],
                 )
@@ -707,7 +707,7 @@ class MarketStatePatternsTest(unittest.TestCase):
 
             state.update(
                 snapshot(
-                    "M15",
+                    "M30",
                     "2026.06.28 12:00:00",
                     retained_patterns=[{"event_type": "HAMMER_CANDLE", "signal": "BUY"}],
                 )

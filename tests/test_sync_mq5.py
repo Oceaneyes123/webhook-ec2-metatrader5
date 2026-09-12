@@ -158,8 +158,8 @@ class EaContentTest(unittest.TestCase):
         self.assertIn('"/trade-config?symbol="', manager)
         self.assertIn("UrlEncode(_Symbol)", manager)
 
-    def test_both_eas_use_the_local_webhook_default(self):
-        expected = 'input string WebhookUrl = "http://127.0.0.1:8000/webhook";'
+    def test_both_eas_use_the_docker_webhook_default(self):
+        expected = 'input string WebhookUrl = "http://webhook.local:8000/webhook";'
         for name in ("Webhook1.mq5", "Webhook2.mq5"):
             source = (MQ5_SOURCE_DIR / name).read_text(encoding="utf-8")
             with self.subTest(name=name):
@@ -227,7 +227,7 @@ class EaContentTest(unittest.TestCase):
 
         self.assertIn('#include "includes/WebhookCommon.mqh"', ea)
         self.assertIn(
-            'input string   WebhookUrl              = "http://127.0.0.1:8000/webhook";',
+            'input string   WebhookUrl              = "http://webhook.local:8000/webhook";',
             ea,
         )
         self.assertIn("input int      HeartbeatSeconds        = 30;", ea)
