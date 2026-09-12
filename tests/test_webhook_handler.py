@@ -59,6 +59,13 @@ class WebhookHandlerTest(unittest.TestCase):
         self.assertIn("ChartHistoryBars", payload["values"])
         self.assertNotIn("AccountActionSecret", payload["values"])
 
+    @patch("frontend.routes.grouped", return_value={})
+    @patch.dict(os.environ, {"DASHBOARD_PASSWORD": "configured"}, clear=False)
+    def test_dashboard_is_directly_accessible(self, _grouped):
+        handler = make_handler(webhook, "/dashboard", b"", method="GET")
+        handler.do_GET()
+        self.assertIn(("code", 200), handler.responses)
+
     def test_webhook_accepts_valid_payload(self):
         with patch.object(
             webhook.MARKET_STATE, "update", return_value=[]
