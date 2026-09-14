@@ -1,6 +1,6 @@
 # Runtime overrides for mq5/Webhook1.mq5. Delete a key to use that chart input.
 values:
-  WebhookUrl: http://127.0.0.1:8000/webhook
+  WebhookUrl: http://webhook.local:8000/webhook
   WebRequestTimeoutMs: 5000
   PrintDebugLogs: true
   ChartHistoryBars: 200

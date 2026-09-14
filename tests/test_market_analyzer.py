@@ -26,7 +26,7 @@ class MarketAnalyzerSummaryTest(unittest.TestCase):
             )
             state.update(
                 snapshot(
-                    "M15",
+                    "M30",
                     "2026.06.28 23:15:00",
                     retained_patterns=[{"event_type": "HAMMER_CANDLE", "signal": "BUY"}],
                 )

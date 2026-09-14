@@ -10,7 +10,7 @@ services:
       # Listen in the container; the port binding below keeps the host endpoint local.
       HOST: 0.0.0.0
       PORT: 8000
-      PUBLIC_URL: http://127.0.0.1:8000/webhook
+      PUBLIC_URL: http://trade-config.home.arpa/webhook
       ACCOUNT_DB_FILE: /data/account_state.db
       TRADE_STATE_FILE: /data/trade_state.json
       WEBHOOK_LOG_FILE: /data/webhook.log
@@ -23,6 +23,19 @@ services:
         # MT5 accepts this fully-qualified hostname in its WebRequest whitelist.
         aliases:
           - webhook.local
+      proxy:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.trade-config.rule=Host(`trade-config.home.arpa`)"
+      - "traefik.http.routers.trade-config.entrypoints=web"
+      - "traefik.http.services.trade-config.loadbalancer.server.port=8000"
+      - "traefik.http.routers.trade-config-home.rule=Host(`trade-config.home.arpa`) && Path(`/`)"
+      - "traefik.http.routers.trade-config-home.entrypoints=web"
+      - "traefik.http.routers.trade-config-home.middlewares=trade-config-dashboard"
+      - "traefik.http.routers.trade-config-home.service=trade-config"
+      - "traefik.http.middlewares.trade-config-dashboard.redirectregex.regex=^https?://[^/]+/?$"
+      - "traefik.http.middlewares.trade-config-dashboard.redirectregex.replacement=/dashboard"
     healthcheck:
       test:
         - CMD
@@ -41,4 +54,6 @@ volumes:
 networks:
   mt5-webhook:
     name: mt5-webhook
+    external: true
+  proxy:
     external: true
