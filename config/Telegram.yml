@@ -1,0 +1,4 @@
+values:
+  overtrade_enabled: true
+  key_level_orders_enabled: true
+  ema_enabled: true

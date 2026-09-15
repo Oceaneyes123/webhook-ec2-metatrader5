@@ -4,15 +4,15 @@ from urllib.parse import parse_qs, urlparse
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from .ea_dashboard import EAS, grouped, update
+from .ea_dashboard import DASHBOARD_CONFIGS, grouped, update
 
 TEMPLATES = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"), autoescape=select_autoescape())
 
 
 def dashboard(handler):
-    selected = parse_qs(urlparse(handler.path).query).get("ea", [EAS[0]])[0]
-    if selected not in EAS: selected = EAS[0]
-    handler.write_text(200, TEMPLATES.get_template("ea_dashboard.html").render(eas=EAS, selected=selected, groups=grouped(selected)), "text/html; charset=utf-8")
+    selected = parse_qs(urlparse(handler.path).query).get("ea", [DASHBOARD_CONFIGS[0]])[0]
+    if selected not in DASHBOARD_CONFIGS: selected = DASHBOARD_CONFIGS[0]
+    handler.write_text(200, TEMPLATES.get_template("ea_dashboard.html").render(eas=DASHBOARD_CONFIGS, selected=selected, groups=grouped(selected)), "text/html; charset=utf-8")
 
 
 def api(handler):

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .app_logger import get_logger
+from .ea_config import TELEGRAM_CONFIG, load as load_ea_config, update as update_ea_config
 from .json_data_parser import display_symbol
 
 logger = get_logger()
@@ -140,7 +141,7 @@ def _bool(value):
 
 def overtrade_config():
     return {
-        "enabled": bool(TRADE_STATE.get("overtrade_enabled", True)),
+        "enabled": _telegram_setting("overtrade_enabled"),
         "profit_target": _positive_float(
             TRADE_STATE.get("overtrade_profit_target", 1.0), 1.0
         ),
@@ -148,8 +149,7 @@ def overtrade_config():
 
 
 def set_overtrade_enabled(enabled):
-    TRADE_STATE["overtrade_enabled"] = bool(enabled)
-    save_trade_state(TRADE_STATE)
+    update_ea_config(TELEGRAM_CONFIG, {"overtrade_enabled": bool(enabled)})
     return overtrade_config()
 
 
@@ -163,23 +163,29 @@ def set_overtrade_profit_target(profit_target):
 
 
 def key_level_orders_enabled():
-    return _bool(TRADE_STATE.get("key_level_orders_enabled", True))
+    return _telegram_setting("key_level_orders_enabled")
 
 
 def set_key_level_orders_enabled(enabled):
-    TRADE_STATE["key_level_orders_enabled"] = bool(enabled)
-    save_trade_state(TRADE_STATE)
+    update_ea_config(TELEGRAM_CONFIG, {"key_level_orders_enabled": bool(enabled)})
     return key_level_orders_enabled()
 
 
 def ema_enabled():
-    return _bool(TRADE_STATE.get("ema_enabled", True))
+    return _telegram_setting("ema_enabled")
 
 
 def set_ema_enabled(enabled):
-    TRADE_STATE["ema_enabled"] = bool(enabled)
-    save_trade_state(TRADE_STATE)
+    update_ea_config(TELEGRAM_CONFIG, {"ema_enabled": bool(enabled)})
     return ema_enabled()
+
+
+def _telegram_setting(key):
+    """Read controls from the shared dashboard YAML, falling back to legacy state."""
+    try:
+        return _bool(load_ea_config(TELEGRAM_CONFIG)[key])
+    except (KeyError, OSError, ValueError):
+        return _bool(TRADE_STATE.get(key, True))
 
 
 def trade_config(symbol=None):

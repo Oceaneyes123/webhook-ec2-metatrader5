@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from uuid import uuid4
@@ -432,6 +433,13 @@ class TradeStateTest(unittest.TestCase):
     def setUp(self):
         self.trade_state_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.trade_state_directory.cleanup)
+        self.config_directory = Path(self.trade_state_directory.name) / "config"
+        self.config_directory.mkdir()
+        shutil.copy2(Path("config/Telegram.yml"), self.config_directory / "Telegram.yml")
+        from webhook import ea_config
+        self.config_patch = patch.object(ea_config, "CONFIG_DIR", self.config_directory)
+        self.config_patch.start()
+        self.addCleanup(self.config_patch.stop)
         self.trade_state_env = patch.dict(
             os.environ,
             {
@@ -531,6 +539,23 @@ class TradeStateTest(unittest.TestCase):
         self.assertIn("enabled", webhook.command_reply("/ematrade on"))
         self.assertTrue(webhook.ema_enabled())
         self.assertIn("Usage: /ematrade on | off", webhook.command_reply("/ematrade"))
+
+    def test_dashboard_telegram_update_is_used_by_telegram_and_ea_endpoints(self):
+        handler = make_handler(
+            webhook,
+            "/api/ea-config?ea=Telegram",
+            b"values.overtrade_enabled=false&values.key_level_orders_enabled=false&values.ema_enabled=false",
+            method="PATCH",
+        )
+        handler.command = "PATCH"
+
+        handler.do_PATCH()
+
+        self.assertEqual(json.loads(handler.wfile.getvalue()), {"updated": ["overtrade_enabled", "key_level_orders_enabled", "ema_enabled"]})
+        self.assertFalse(webhook.overtrade_config()["enabled"])
+        self.assertFalse(webhook.trade_config()["key_level_orders_enabled"])
+        self.assertFalse(webhook.ema_enabled())
+        self.assertIn("overtrade_enabled: false", (self.config_directory / "Telegram.yml").read_text(encoding="utf-8"))
 
     def test_auto_requires_a_symbol_and_sets_auto_mode(self):
         self.assertEqual(webhook.command_reply("/auto"), "Usage: /auto Gold")
