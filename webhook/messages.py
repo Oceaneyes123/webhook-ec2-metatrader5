@@ -102,13 +102,14 @@ def strong_rsi_message(payload):
     symbol = display_symbol(payload.get("symbol", "")).upper() or "?"
     timeframe = str(payload.get("timeframe", "")).upper() or "?"
     rsi = float(payload.get("rsi14", 0))
-    direction = "🔴 Overbought / SELL" if rsi >= RSI_STRONG_HIGH else "🟢 Oversold / BUY"
+    direction = "🟢 Overbought / BUY" if rsi >= RSI_STRONG_HIGH else "🔴 Oversold / SELL"
     return (
         f"⚡ <b>Strong RSI(14)</b>\n"
         f"Symbol: {symbol}\n"
         f"Timeframe: <b>{timeframe}</b>\n"
         f"RSI(14): <code>{rsi:.2f}</code>\n"
         f"Signal: <b>{direction}</b>\n"
+        "<i>Wait for divergence before a reversal.</i>\n"
         f"🕒 {html.escape(str(payload.get('candle_time', '?')))}"
     )
 
