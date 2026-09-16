@@ -112,7 +112,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_PATCH(self):
-        if urllib.parse.urlparse(self.path).path != "/api/ea-config":
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/api/trade-mode":
+            from frontend.routes import trade_mode_api
+            trade_mode_api(self)
+            return
+        if path != "/api/ea-config":
             self.write_text(404, "404 Not Found")
             return
         from frontend.routes import api

@@ -27,6 +27,9 @@ def settings():
     for key in ("atr_period", "retest_lookback", "htf_min_aligned", "max_trades_session", "max_consecutive_losses", "max_level_attempts_day"):
         if not isinstance(config[key], int) or config[key] < 1:
             raise ValueError(f"{key} must be a positive integer")
+    for key in ("account_max_age_seconds", "execution_ack_timeout_seconds"):
+        if not isinstance(config[key], (int, float)) or isinstance(config[key], bool) or config[key] <= 0:
+            raise ValueError(f"{key} must be positive")
     if not 60 <= config["min_score"] <= 100 or config["min_rr"] <= 0 or config["htf_min_aligned"] > 3:
         raise ValueError("Invalid score, R:R or HTF requirement")
     for key in ("confirmation_body_ratio", "confirmation_close_location", "partial_fraction"):

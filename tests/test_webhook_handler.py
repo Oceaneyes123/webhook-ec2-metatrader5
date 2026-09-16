@@ -66,6 +66,7 @@ class WebhookHandlerTest(unittest.TestCase):
         handler = make_handler(webhook, "/dashboard", b"", method="GET")
         handler.do_GET()
         self.assertIn(("code", 200), handler.responses)
+        self.assertIn(b"Recent execution lifecycle", handler.wfile.getvalue())
 
     def test_webhook_accepts_valid_payload(self):
         with patch.object(

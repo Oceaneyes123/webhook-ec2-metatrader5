@@ -8,6 +8,8 @@
   "entry_timeframes": ["M5", "M15"],
   "freshness_grace_seconds": 120,
   "quote_max_age_seconds": 10,
+  "account_max_age_seconds": 180,
+  "execution_ack_timeout_seconds": 120,
   "atr_period": 14,
   "atr_min_ratio": 0.5,
   "atr_max_ratio": 2.5,

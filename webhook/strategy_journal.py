@@ -2,10 +2,21 @@
 
 import html
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 
 from .strategy import number
+from .json_data_parser import display_symbol
+
+
+def account_key(payload):
+    return f"{payload.get('broker_server', '')}:{payload.get('account_login', '')}"
+
+
+def setup_id(payload):
+    comment = str(payload.get("comment", ""))
+    return payload.get("setup_id") or (comment[2:] if comment.startswith("S:") else "")
 
 
 class StrategyJournal:
@@ -27,6 +38,107 @@ class StrategyJournal:
             return [json.loads(r[0]) for r in db.execute(
                 "SELECT payload FROM strategy_plans WHERE account=? AND symbol=? AND created>=? ORDER BY created",
                 (account, symbol, since))]
+
+    def accounts(self):
+        """Latest reconciliation per broker/account, with server receipt time."""
+        with self.store.lock, self.store._connect() as db:
+            rows = db.execute("SELECT ts,payload FROM account_snapshots ORDER BY ts DESC")
+            result = {}
+            for row in rows:
+                payload = json.loads(row["payload"])
+                key = account_key(payload)
+                if key != ":" and key not in result:
+                    result[key] = {**payload, "received_at": row["ts"]}
+        return result
+
+    def lifecycle(self, limit=12, now=None, account=None, symbol=None, snapshots=None,
+                  trades=None, ack_timeout=120, account_max_age=180):
+        """Reconcile evidence without treating a missing position as proof of no fill."""
+        now = datetime.now(timezone.utc).timestamp() if now is None else now
+        clauses, args = ["1=1"], []
+        for column, value in (("account", account), ("symbol", symbol)):
+            if value:
+                clauses.append(f"{column}=?")
+                args.append(value)
+        with self.store.lock, self.store._connect() as db:
+            plans = [json.loads(row[0]) for row in db.execute(
+                "SELECT payload FROM strategy_plans WHERE " + " AND ".join(clauses) + " ORDER BY created DESC", args)]
+            events = {}
+            for row in db.execute("SELECT payload FROM events WHERE kind='ENTRY_DECISION' ORDER BY ts DESC,rowid DESC"):
+                event = json.loads(row[0])
+                events.setdefault(event.get("setup_id"), event)
+        snapshots = self.accounts() if snapshots is None else snapshots
+        grouped = defaultdict(list)
+        for trade in self.trades(symbol, account) if trades is None else trades:
+            grouped[trade.get("setup_id")].append(trade)
+        rows = []
+        for plan in plans:
+            if not plan.get("execution_offer", True):
+                continue
+            decision = events.get(plan.get("setup_id"), {})
+            deals = grouped[plan["setup_id"]]
+            snapshot = snapshots.get(plan.get("account"), {})
+            fresh = 0 <= now - number(snapshot.get("received_at")) <= account_max_age
+            positions = snapshot.get("positions", []) if fresh else []
+            live = any(setup_id(p) == plan["setup_id"] for p in positions if isinstance(p, dict))
+            reason = str(decision.get("reason", ""))
+            code = re.match(r"retcode=(\d+)\b", reason)
+            # Only definite non-execution outcomes release the entry hold. Timeouts
+            # and transport failures require broker evidence; never blind-retry.
+            rejected = reason.startswith("Expired offer, price drift") or (code and int(code[1]) in {
+                10004, 10006, 10013, 10014, 10015, 10016, 10017, 10018, 10019, 10020, 10021,
+                10022, 10024, 10026, 10027, 10030, 10032, 10033, 10034, 10035, 10042, 10043, 10044, 10046})
+            if live:
+                status, detail = "Filled", "Open position confirmed by MT5 reconciliation"
+            elif deals and all(t.get("closed") for t in deals):
+                status, detail = "Closed", "All journaled fills and closes matched"
+            elif deals:
+                status = "Uncertain" if fresh and number(snapshot.get("received_at")) > max(number(t.get("opened_at")) for t in deals) else "Filled"
+                detail = "Position absent; awaiting missing closing deals" if status == "Uncertain" else "Fill recorded; awaiting fresh account reconciliation"
+            elif decision.get("result") == "FAIL" and rejected:
+                status, detail = "Rejected", reason
+            elif decision.get("result") == "FAIL":
+                status, detail = "Uncertain", reason or "Execution failed without a definite broker rejection"
+            elif now >= number(plan.get("expires_at")) + ack_timeout:
+                status, detail = "Uncertain", "Awaiting broker fill/history evidence; automatic retries held"
+            elif decision.get("result") == "PASS":
+                status, detail = "Submitted", reason or "Awaiting broker fill"
+            elif now >= number(plan.get("expires_at")):
+                status, detail = "Awaiting confirmation", "Offer expired; waiting for terminal evidence"
+            else:
+                status, detail = "Proposed", "Awaiting MT5 execution"
+            rows.append({"status": status, "detail": detail, "plan": plan, "updated_at": decision.get("event_time", plan.get("evaluated_at"))})
+        return rows if limit is None else rows[:limit]
+
+    def entry_hold(self, account, symbol, now, cfg, snapshots=None):
+        snapshots = self.accounts() if snapshots is None else snapshots
+        snapshot = snapshots.get(account, {})
+        if not 0 <= now - number(snapshot.get("received_at")) <= cfg["account_max_age_seconds"]:
+            return "Account reconciliation missing or stale; waiting for MT5"
+        for key, label in (("positions", "Open position"), ("pending_orders", "Pending order")):
+            if any(display_symbol(p.get("symbol")).upper() == symbol for p in snapshot.get(key, []) if isinstance(p, dict)):
+                return f"{label} already exists for {symbol}"
+        for row in self.lifecycle(None, now, account, symbol, snapshots,
+                                  ack_timeout=cfg["execution_ack_timeout_seconds"], account_max_age=cfg["account_max_age_seconds"]):
+            if row["status"] not in {"Closed", "Rejected"}:
+                return f"Execution {row['status'].lower()} ({row['plan']['setup_id']}): {row['detail']}"
+        return ""
+
+    def realized(self, start, end, account, symbol=None):
+        """Deal-time cash flow, including opening costs and partial closes exactly once."""
+        with self.store.lock, self.store._connect() as db:
+            rows = db.execute("SELECT d.payload,p.symbol FROM strategy_deals d JOIN strategy_plans p ON p.id=d.setup_id WHERE d.ts>=? AND d.ts<? AND p.account=?",
+                              (start, end, account)).fetchall()
+        totals = dict.fromkeys(("profit", "commission", "swap", "fee"), 0.0)
+        count = 0
+        for row in rows:
+            if symbol and row["symbol"] != symbol:
+                continue
+            event = json.loads(row["payload"])
+            count += 1
+            for key in totals:
+                totals[key] += number(event.get(key))
+        return {**totals, "net": sum(totals.values()), "deals": count}
 
     def reserve(self, plan, account):
         """One durable offer per signal; uncertain delivery must not cause blind retries."""
@@ -82,8 +194,11 @@ class StrategyJournal:
                 continue
             trade = grouped.setdefault(row["position"], {**plan, "position": row["position"], "net_pnl": 0.0,
                 "volume_in": 0.0, "volume_out": 0.0, "opened_at": None, "closed_at": None,
-                "actual_r": None, "exit_reason": "", "journal_complete": bool(plan), "risk_cash": 0.0})
+                "actual_r": None, "exit_reason": "", "journal_complete": bool(plan), "risk_cash": 0.0,
+                "commission": 0.0, "swap": 0.0, "fee": 0.0})
             trade["net_pnl"] += sum(number(event.get(k)) for k in ("profit", "commission", "swap", "fee"))
+            for cost in ("commission", "swap", "fee"):
+                trade[cost] += number(event.get(cost))
             kind = event.get("transaction_type")
             if kind in {"POSITION_OPENED", "PENDING_ORDER_FILLED"}:
                 trade["volume_in"] += number(event.get("volume"))
@@ -157,6 +272,17 @@ def metrics(trades):
             "expectancy": mean_value(rs), "total_r": sum(rs), "average_r": mean_value(rs),
             "profit_factor": sum(wins) / -sum(losses) if losses else None,
             "max_drawdown_r": drawdown, "losing_streak": streak}
+
+
+def performance_segments(trades):
+    rows = []
+    for label, field in (("Setup", "setup_type"), ("Session", "session")):
+        grouped = defaultdict(list)
+        for trade in trades:
+            if trade.get("actual_r") is not None:
+                grouped[trade.get(field, "unknown")].append(trade)
+        rows.extend({"group": label, "name": name, **metrics(items)} for name, items in sorted(grouped.items()))
+    return rows
 
 
 def mean_value(values):

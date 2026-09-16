@@ -54,6 +54,7 @@ def execution_config(symbol, market, query, store=STORE):
     quote["received_at"] = number(query.get("quote_time", [None])[0])
     with store.lock:
         plan = decision(symbol, market, cfg, quote, now)
+        plan["account"] = account
         journal = StrategyJournal(store)
         if plan["result"] == "PASS":
             plan["setup_id"] = hashlib.sha256((account + ":" + plan["setup_id"]).encode()).hexdigest()[:16]
@@ -61,7 +62,8 @@ def execution_config(symbol, market, query, store=STORE):
             if account == ":":
                 reason = "Execution account identity missing"
             else:
-                reason = overtrade_reason(plan, journal.trades(plan["symbol"], account), journal.plans(account, plan["symbol"]), now, cfg)
+                reason = journal.entry_hold(account, plan["symbol"], now, cfg) or overtrade_reason(
+                    plan, journal.trades(plan["symbol"], account), journal.plans(account, plan["symbol"]), now, cfg)
             if reason or not journal.reserve(plan, account):
                 plan.update(result="FAIL", reason="NO TRADE: " + (reason or "Duplicate setup"))
         plan["time"] = datetime.fromtimestamp(now, timezone.utc).isoformat()

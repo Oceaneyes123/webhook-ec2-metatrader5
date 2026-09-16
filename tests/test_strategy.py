@@ -182,6 +182,19 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual(result["losing_streak"], 2)
         self.assertEqual(result["wins"], 1)
 
+    def test_lifecycle_uses_terminal_evidence_before_expiry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = AccountStore(Path(directory) / "test.db")
+            journal = StrategyJournal(store)
+            plan = {**self.run_plan(), "setup_id": "proposed", "account": "demo:1", "expires_at": NOW + 30}
+            self.assertTrue(journal.reserve(plan, "demo:1"))
+            self.assertEqual(journal.lifecycle(now=NOW)[0]["status"], "Proposed")
+            store.event({"event_id": "decision", "event_type": "ENTRY_DECISION", "setup_id": "proposed", "result": "PASS"})
+            self.assertEqual(journal.lifecycle(now=NOW)[0]["status"], "Submitted")
+            journal.record({"setup_id": "proposed", "broker_server": "demo", "account_login": 1,
+                            "position_ticket": "1", "deal_ticket": "1", "transaction_type": "POSITION_OPENED", "volume": 1}, NOW)
+            self.assertEqual(journal.lifecycle(now=NOW)[0]["status"], "Filled")
+
     def test_execution_endpoint_offer_is_durable_without_placing_trades(self):
         market_state = SimpleNamespace(lock=threading.RLock(), data={"symbols": {"GOLD": self.frames}, "market_structure": {"GOLD": self.structure}})
         query = {k: [str(v)] for k, v in dict(self.quote, account="1", broker_server="demo", quote_time=NOW).items()}
