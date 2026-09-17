@@ -124,11 +124,11 @@ class StrategyJournal:
                 return f"Execution {row['status'].lower()} ({row['plan']['setup_id']}): {row['detail']}"
         return ""
 
-    def realized(self, start, end, account, symbol=None):
+    def realized(self, start, end, account=None, symbol=None):
         """Deal-time cash flow, including opening costs and partial closes exactly once."""
         with self.store.lock, self.store._connect() as db:
-            rows = db.execute("SELECT d.payload,p.symbol FROM strategy_deals d JOIN strategy_plans p ON p.id=d.setup_id WHERE d.ts>=? AND d.ts<? AND p.account=?",
-                              (start, end, account)).fetchall()
+            rows = db.execute("SELECT d.payload,p.symbol FROM strategy_deals d LEFT JOIN strategy_plans p ON p.id=d.setup_id WHERE d.ts>=? AND d.ts<? AND (? IS NULL OR p.account=?)",
+                              (start, end, account, account)).fetchall()
         totals = dict.fromkeys(("profit", "commission", "swap", "fee"), 0.0)
         count = 0
         for row in rows:

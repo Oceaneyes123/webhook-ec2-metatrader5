@@ -9,7 +9,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from .ea_dashboard import DASHBOARD_CONFIGS, grouped, update
 from webhook.account import STORE
 from webhook.strategy_journal import StrategyJournal, metrics, performance_segments
-from webhook.trade_state import TRADE_MODE, symbol_trade_modes, set_trade_mode
+from webhook.trade_state import get_trade_mode, normalize_trade_mode, symbol_trade_modes, set_trade_mode
 from webhook import state
 
 TEMPLATES = Environment(loader=FileSystemLoader(Path(__file__).parent / "templates"), autoescape=select_autoescape())
@@ -21,15 +21,14 @@ def dashboard(handler):
     journal = StrategyJournal(STORE)
     trades = journal.trades()
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-    closed_today = [trade for trade in trades if trade.get("closed_at", 0) >= today]
     with state.MARKET_STATE.lock:
         received = [frame.get("received_at", 0) for frames in state.MARKET_STATE.data["symbols"].values() for frame in frames.values()]
     snapshot = STORE.account_snapshot()
     overview = {
-        "modes": symbol_trade_modes(), "default_mode": TRADE_MODE,
+        "modes": symbol_trade_modes(), "default_mode": get_trade_mode(),
         "alerts_paused": state.alerts_paused(), "positions": STORE.positions(),
         "equity": snapshot.get("equity"), "balance": snapshot.get("balance"),
-        "closed_pnl": sum(trade["net_pnl"] for trade in closed_today),
+        "closed_pnl": journal.realized(today, today + 86400)["net"],
         "performance": metrics(trades), "segments": performance_segments(trades),
         "market_age": int(time.time() - max(received)) if received else None,
         "lifecycle": journal.lifecycle(),
@@ -52,7 +51,7 @@ def trade_mode_api(handler):
         raw = handler.rfile.read(int(handler.headers.get("Content-Length", 0)) or 0)
         values = parse_qs(raw.decode())
         symbol, mode = values.get("symbol", [""])[-1], values.get("mode", [""])[-1]
-        if not symbol or mode not in {"AUTO", "NOTRADE"}:
-            raise ValueError("symbol and AUTO or NOTRADE mode required")
+        if not symbol.strip() or not mode or normalize_trade_mode(mode) != mode:
+            raise ValueError("symbol and a valid trade mode required")
         handler.write_json(200, {"symbol": symbol, "mode": set_trade_mode(mode, symbol)})
     except (OSError, ValueError) as error: handler.write_json(400, {"error": str(error)})

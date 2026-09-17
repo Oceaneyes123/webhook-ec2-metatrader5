@@ -200,6 +200,10 @@ class StrategyTests(unittest.TestCase):
         query = {k: [str(v)] for k, v in dict(self.quote, account="1", broker_server="demo", quote_time=NOW).items()}
         with tempfile.TemporaryDirectory() as directory, patch("webhook.strategy_runtime.time.time", return_value=NOW), patch("webhook.config.telegram_configured", return_value=False):
             store = AccountStore(Path(directory) / "test.db")
+            missing = execution_config("Gold", market_state, query, store)
+            self.assertEqual(missing["strategy_direction"], "WAIT")
+            self.assertIn("Account reconciliation missing or stale", missing["strategy_reason"])
+            store.reconcile([], {"broker_server": "demo", "account_login": 1, "positions": []})
             first = execution_config("Gold", market_state, query, store)
             self.assertEqual(first["strategy_direction"], "BUY", first)
             second = execution_config("Gold", market_state, query, store)
@@ -262,7 +266,9 @@ class StrategyTests(unittest.TestCase):
         market_state = SimpleNamespace(lock=threading.RLock(), data={"symbols": {"GOLD": self.frames}, "market_structure": {"GOLD": self.structure}})
         query = {k: [str(v)] for k, v in dict(self.quote, account="1", broker_server="demo", quote_time=NOW).items()}
         with tempfile.TemporaryDirectory() as directory, patch("webhook.strategy_runtime.time.time", return_value=NOW), patch("webhook.config.telegram_configured", return_value=True), patch("webhook.state.ALERTS_PAUSED", False), patch("webhook.strategy_runtime.threading.Thread") as thread:
-            result = execution_config("Gold", market_state, query, AccountStore(Path(directory) / "test.db"))
+            store = AccountStore(Path(directory) / "test.db")
+            store.reconcile([], {"broker_server": "demo", "account_login": 1, "positions": []})
+            result = execution_config("Gold", market_state, query, store)
             self.assertEqual(result["strategy_direction"], "BUY")
             thread.return_value.start.assert_called_once()
 
