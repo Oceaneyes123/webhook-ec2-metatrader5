@@ -18,6 +18,8 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - webhook-data:/data
+      # Dashboard and Telegram updates must survive a container rebuild.
+      - webhook-config:/app/config
     networks:
       mt5-webhook:
         # MT5 accepts this fully-qualified hostname in its WebRequest whitelist.
@@ -49,6 +51,7 @@ services:
 
 volumes:
   webhook-data:
+  webhook-config:
 
 # This network is created once and shared with ../mt5.
 networks:

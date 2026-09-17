@@ -7,7 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .app_logger import get_logger
-from .ea_config import TELEGRAM_CONFIG, load as load_ea_config, update as update_ea_config
+from .ea_config import (
+    TELEGRAM_CONFIG,
+    load as load_ea_config,
+    update as update_ea_config,
+)
+
+OVERTRADE_CONFIG = "Overtrade"
 from .json_data_parser import display_symbol
 
 logger = get_logger()
@@ -156,6 +162,10 @@ def set_overtrade_profit_target(profit_target):
     if target <= 0:
         raise ValueError("profit target must be greater than zero")
     update_ea_config(TELEGRAM_CONFIG, {"overtrade_profit_target": target})
+    # Keep the canonical EA setting in step with the Telegram control.  This
+    # also makes the dashboard's ProfitTargetUSD value accurately represent
+    # the effective target returned to Overtrade by /ea-config.
+    update_ea_config(OVERTRADE_CONFIG, {"ProfitTargetUSD": target})
     return overtrade_config()
 
 

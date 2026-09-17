@@ -437,6 +437,7 @@ class TradeStateTest(unittest.TestCase):
         self.config_directory = Path(self.trade_state_directory.name) / "config"
         self.config_directory.mkdir()
         shutil.copy2(Path("config/Telegram.yml"), self.config_directory / "Telegram.yml")
+        shutil.copy2(Path("config/Overtrade.yml"), self.config_directory / "Overtrade.yml")
         from webhook import ea_config
         self.config_patch = patch.object(ea_config, "CONFIG_DIR", self.config_directory)
         self.config_patch.start()
@@ -507,6 +508,10 @@ class TradeStateTest(unittest.TestCase):
         self.assertIn(
             "overtrade_profit_target: 12.5",
             (self.config_directory / "Telegram.yml").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "ProfitTargetUSD: 12.5",
+            (self.config_directory / "Overtrade.yml").read_text(encoding="utf-8"),
         )
         self.assertIn(
             "positive dollar amount", webhook.command_reply("/overtrade 0")
