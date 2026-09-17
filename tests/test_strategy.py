@@ -182,11 +182,28 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual(result["losing_streak"], 2)
         self.assertEqual(result["wins"], 1)
 
+    def test_lifecycle_uses_terminal_evidence_before_expiry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = AccountStore(Path(directory) / "test.db")
+            journal = StrategyJournal(store)
+            plan = {**self.run_plan(), "setup_id": "proposed", "account": "demo:1", "expires_at": NOW + 30}
+            self.assertTrue(journal.reserve(plan, "demo:1"))
+            self.assertEqual(journal.lifecycle(now=NOW)[0]["status"], "Proposed")
+            store.event({"event_id": "decision", "event_type": "ENTRY_DECISION", "setup_id": "proposed", "result": "PASS"})
+            self.assertEqual(journal.lifecycle(now=NOW)[0]["status"], "Submitted")
+            journal.record({"setup_id": "proposed", "broker_server": "demo", "account_login": 1,
+                            "position_ticket": "1", "deal_ticket": "1", "transaction_type": "POSITION_OPENED", "volume": 1}, NOW)
+            self.assertEqual(journal.lifecycle(now=NOW)[0]["status"], "Filled")
+
     def test_execution_endpoint_offer_is_durable_without_placing_trades(self):
         market_state = SimpleNamespace(lock=threading.RLock(), data={"symbols": {"GOLD": self.frames}, "market_structure": {"GOLD": self.structure}})
         query = {k: [str(v)] for k, v in dict(self.quote, account="1", broker_server="demo", quote_time=NOW).items()}
         with tempfile.TemporaryDirectory() as directory, patch("webhook.strategy_runtime.time.time", return_value=NOW), patch("webhook.config.telegram_configured", return_value=False):
             store = AccountStore(Path(directory) / "test.db")
+            missing = execution_config("Gold", market_state, query, store)
+            self.assertEqual(missing["strategy_direction"], "WAIT")
+            self.assertIn("Account reconciliation missing or stale", missing["strategy_reason"])
+            store.reconcile([], {"broker_server": "demo", "account_login": 1, "positions": []})
             first = execution_config("Gold", market_state, query, store)
             self.assertEqual(first["strategy_direction"], "BUY", first)
             second = execution_config("Gold", market_state, query, store)
@@ -249,7 +266,9 @@ class StrategyTests(unittest.TestCase):
         market_state = SimpleNamespace(lock=threading.RLock(), data={"symbols": {"GOLD": self.frames}, "market_structure": {"GOLD": self.structure}})
         query = {k: [str(v)] for k, v in dict(self.quote, account="1", broker_server="demo", quote_time=NOW).items()}
         with tempfile.TemporaryDirectory() as directory, patch("webhook.strategy_runtime.time.time", return_value=NOW), patch("webhook.config.telegram_configured", return_value=True), patch("webhook.state.ALERTS_PAUSED", False), patch("webhook.strategy_runtime.threading.Thread") as thread:
-            result = execution_config("Gold", market_state, query, AccountStore(Path(directory) / "test.db"))
+            store = AccountStore(Path(directory) / "test.db")
+            store.reconcile([], {"broker_server": "demo", "account_login": 1, "positions": []})
+            result = execution_config("Gold", market_state, query, store)
             self.assertEqual(result["strategy_direction"], "BUY")
             thread.return_value.start.assert_called_once()
 
