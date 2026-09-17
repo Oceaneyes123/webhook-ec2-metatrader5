@@ -117,6 +117,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
             from frontend.routes import trade_mode_api
             trade_mode_api(self)
             return
+        if path == "/api/alerts":
+            from frontend.routes import alerts_api
+            alerts_api(self)
+            return
         if path != "/api/ea-config":
             self.write_text(404, "404 Not Found")
             return

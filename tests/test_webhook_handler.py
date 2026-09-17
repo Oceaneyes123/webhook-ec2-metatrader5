@@ -505,6 +505,10 @@ class TradeStateTest(unittest.TestCase):
             webhook.overtrade_config(), {"enabled": True, "profit_target": 12.5}
         )
         self.assertIn(
+            "overtrade_profit_target: 12.5",
+            (self.config_directory / "Telegram.yml").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
             "positive dollar amount", webhook.command_reply("/overtrade 0")
         )
 
@@ -545,15 +549,16 @@ class TradeStateTest(unittest.TestCase):
         handler = make_handler(
             webhook,
             "/api/ea-config?ea=Telegram",
-            b"values.overtrade_enabled=false&values.key_level_orders_enabled=false&values.ema_enabled=false",
+            b"values.overtrade_enabled=false&values.overtrade_profit_target=12.5&values.key_level_orders_enabled=false&values.ema_enabled=false",
             method="PATCH",
         )
         handler.command = "PATCH"
 
         handler.do_PATCH()
 
-        self.assertEqual(json.loads(handler.wfile.getvalue()), {"updated": ["overtrade_enabled", "key_level_orders_enabled", "ema_enabled"]})
+        self.assertEqual(json.loads(handler.wfile.getvalue()), {"updated": ["overtrade_enabled", "overtrade_profit_target", "key_level_orders_enabled", "ema_enabled"]})
         self.assertFalse(webhook.overtrade_config()["enabled"])
+        self.assertEqual(webhook.overtrade_config()["profit_target"], 12.5)
         self.assertFalse(webhook.trade_config()["key_level_orders_enabled"])
         self.assertFalse(webhook.ema_enabled())
         self.assertIn("overtrade_enabled: false", (self.config_directory / "Telegram.yml").read_text(encoding="utf-8"))

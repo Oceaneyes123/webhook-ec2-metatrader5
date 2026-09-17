@@ -142,9 +142,7 @@ def _bool(value):
 def overtrade_config():
     return {
         "enabled": _telegram_setting("overtrade_enabled"),
-        "profit_target": _positive_float(
-            TRADE_STATE.get("overtrade_profit_target", 1.0), 1.0
-        ),
+        "profit_target": _telegram_profit_target(),
     }
 
 
@@ -157,8 +155,7 @@ def set_overtrade_profit_target(profit_target):
     target = _positive_float(profit_target, 0.0)
     if target <= 0:
         raise ValueError("profit target must be greater than zero")
-    TRADE_STATE["overtrade_profit_target"] = target
-    save_trade_state(TRADE_STATE)
+    update_ea_config(TELEGRAM_CONFIG, {"overtrade_profit_target": target})
     return overtrade_config()
 
 
@@ -186,6 +183,16 @@ def _telegram_setting(key):
         return _bool(load_ea_config(TELEGRAM_CONFIG)[key])
     except (KeyError, OSError, ValueError):
         return _bool(TRADE_STATE.get(key, True))
+
+
+def _telegram_profit_target():
+    try:
+        return _positive_float(
+            load_ea_config(TELEGRAM_CONFIG)["overtrade_profit_target"],
+            TRADE_STATE.get("overtrade_profit_target", 1.0),
+        )
+    except (KeyError, OSError, ValueError):
+        return _positive_float(TRADE_STATE.get("overtrade_profit_target", 1.0), 1.0)
 
 
 def trade_config(symbol=None):

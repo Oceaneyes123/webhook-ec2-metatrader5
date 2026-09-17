@@ -1,4 +1,5 @@
 values:
   overtrade_enabled: true
+  overtrade_profit_target: 1.0
   key_level_orders_enabled: true
   ema_enabled: true
