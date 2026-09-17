@@ -51,7 +51,18 @@ def trade_mode_api(handler):
         raw = handler.rfile.read(int(handler.headers.get("Content-Length", 0)) or 0)
         values = parse_qs(raw.decode())
         symbol, mode = values.get("symbol", [""])[-1], values.get("mode", [""])[-1]
-        if not symbol.strip() or not mode or normalize_trade_mode(mode) != mode:
-            raise ValueError("symbol and a valid trade mode required")
+        if not mode or normalize_trade_mode(mode) != mode:
+            raise ValueError("a valid trade mode required")
         handler.write_json(200, {"symbol": symbol, "mode": set_trade_mode(mode, symbol)})
+    except (OSError, ValueError) as error: handler.write_json(400, {"error": str(error)})
+
+
+def alerts_api(handler):
+    try:
+        raw = handler.rfile.read(int(handler.headers.get("Content-Length", 0)) or 0)
+        paused = parse_qs(raw.decode()).get("paused", [""])[-1].lower()
+        if paused not in {"true", "false"}:
+            raise ValueError("paused must be true or false")
+        state.set_alerts_paused(paused == "true")
+        handler.write_json(200, {"paused": state.alerts_paused()})
     except (OSError, ValueError) as error: handler.write_json(400, {"error": str(error)})

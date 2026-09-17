@@ -62,8 +62,29 @@ class DashboardTests(unittest.TestCase):
                 self.assertEqual(handler.write_json.call_args.args[0], 200)
                 self.assertEqual(trade_state.get_trade_mode("GOLD"), mode)
 
+    def test_default_symbol_modes_and_alerts_use_the_same_runtime_state(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(routes, "STORE", AccountStore(Path(directory) / "test.db")), \
+                patch.object(trade_state, "TRADE_MODE", "NOTRADE"), \
+                patch.object(trade_state, "TRADE_STATE", {"default_mode": "NOTRADE", "symbols": {}}), \
+                patch.object(trade_state, "save_trade_state"), \
+                patch.object(routes.state, "ALERTS_PAUSED", False):
+            body = b"mode=BUY"
+            handler = SimpleNamespace(rfile=io.BytesIO(body), headers={"Content-Length": str(len(body))}, write_json=Mock())
+            routes.trade_mode_api(handler)
+            self.assertEqual(trade_state.get_trade_mode(), "BUY")
+            handler = SimpleNamespace(path="/dashboard", write_text=Mock())
+            routes.dashboard(handler)
+            html = handler.write_text.call_args.args[1]
+            self.assertIn('option value="BUY" selected', html)
+            self.assertIn("Set symbol", html)
+            self.assertIn("Pause alerts", html)
+            body = b"paused=true"
+            handler = SimpleNamespace(rfile=io.BytesIO(body), headers={"Content-Length": str(len(body))}, write_json=Mock())
+            routes.alerts_api(handler)
+            self.assertTrue(routes.state.alerts_paused())
+
     def test_invalid_mode_does_not_mutate_runtime(self):
-        for body in (b"symbol=GOLD&mode=UNKNOWN", b"symbol=GOLD", b"symbol=+++&mode=AUTO"):
+        for body in (b"symbol=GOLD&mode=UNKNOWN", b"symbol=GOLD"):
             handler = SimpleNamespace(rfile=io.BytesIO(body), headers={"Content-Length": str(len(body))}, write_json=Mock())
             with patch.object(routes, "set_trade_mode") as setter:
                 routes.trade_mode_api(handler)
